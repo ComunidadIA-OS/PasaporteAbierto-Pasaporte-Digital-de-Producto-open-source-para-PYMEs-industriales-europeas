@@ -87,7 +87,7 @@ La tabla `published_dpps` guarda los DPPs ya emitidos: GS1 URI canónico, blob J
 
 Backend: FastAPI 0.115 sobre Python 3.11. Validación con Pydantic v2. Persistencia con SQLite vía SQLModel. Vector store con ChromaDB embebido. Embeddings con bge-m3 vía sentence-transformers. Router de modelos con LiteLLM. Modelo local con Ollama (Qwen 2.5 14B como referencia primaria, Llama 3.1 8B como alternativa más ligera). PDF parsing con pdfplumber complementado con LLM. Generación de QR con segno. Firmado Ed25519 con PyNaCl. Observabilidad con Langfuse self-hosted.
 
-Frontend: Next.js 15 con App Router, TypeScript estricto, Tailwind CSS, componentes de shadcn/ui. React Hook Form para los formularios dinámicos generados desde los plugins.
+Frontend: Next.js 16 con App Router, TypeScript estricto, Tailwind CSS, componentes de shadcn/ui. React Hook Form para los formularios dinámicos generados desde los plugins.
 
 Despliegue: Docker Compose con cuatro servicios (backend, frontend, Langfuse, Ollama opcional si se quiere modelo local en el contenedor). Un solo `docker compose up` arranca el sistema completo en menos de cinco minutos.
 
