@@ -15,12 +15,11 @@ def test_health_returns_version_model_and_backend():
 
 
 def test_health_reflects_env_backend(monkeypatch):
-    monkeypatch.setenv("MODEL_BACKEND", "ollama:qwen2.5:14b")
-    # Reimport settings to pick env up
-    from importlib import reload
+    """Cambiar settings.model_backend en runtime debe propagarse al endpoint."""
+    from app.config import settings
 
-    from app import config
-
-    reload(config)
+    monkeypatch.setattr(settings, "model_backend", "anthropic:claude-opus-4")
     response = client.get("/api/v1/health")
-    assert response.json()["backend"] == "ollama:qwen2.5:14b"
+    payload = response.json()
+    assert payload["backend"] == "anthropic:claude-opus-4"
+    assert payload["model"] == "claude-opus-4"
