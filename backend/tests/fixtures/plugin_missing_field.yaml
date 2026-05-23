@@ -1,0 +1,5 @@
+name: "broken-sector"
+regulation: "EU 2024/1781"
+version: "0.1.0"
+
+# OJO: faltan los apartados "fields" y "required_documents" obligatorios.

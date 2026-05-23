@@ -1,0 +1,13 @@
+name: "no-cite-sector"
+regulation: "EU 2024/1781"
+version: "0.1.0"
+
+fields:
+  - id: model_name
+    type: string
+    required: true
+    # OJO: falta "citation" — cada campo debe declarar reglamento + artículo.
+
+required_documents:
+  - type: datasheet
+    mandatory: true

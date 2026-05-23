@@ -1,0 +1,43 @@
+# Schema canónico de plugins de sector ESPR.
+# Cada plugin YAML en plugins/ debe cumplir esta estructura.
+# Documentación canónica. La validación real vive en backend/src/app/plugins/loader.py.
+
+plugin:
+  required: [name, regulation, version, fields, required_documents]
+  properties:
+    name: { type: string }
+    regulation: { type: string }   # e.g. "EU 2023/1542"
+    version: { type: string }      # semver
+    description: { type: string }
+
+fields:
+  description: "Lista de campos del DPP exigidos por el sector"
+  item_required: [id, type, required, citation]
+  item_properties:
+    id: { type: string }
+    type: { type: string, enum: [string, number, integer, boolean, enum, repeater] }
+    required: { type: boolean }
+    citation:
+      required: [regulation, article]
+      properties:
+        regulation: { type: string }
+        article: { type: string }
+    enum_values: { type: list, optional: true }
+    validation: { type: string, optional: true }  # expresión opcional
+
+required_documents:
+  description: "Documentos que el Recolector necesita"
+  item_required: [type, mandatory]
+  item_properties:
+    type: { type: string, enum: [datasheet, certificate, lca, sds, ce_declaration] }
+    mandatory: { type: boolean }
+    when: { type: string, optional: true }  # condición sobre campos del BOM
+
+cross_validations:
+  description: "Reglas adicionales que cruzan campos"
+  optional: true
+  item_required: [id, rule]
+  item_properties:
+    id: { type: string }
+    rule: { type: string }
+    message: { type: string, optional: true }

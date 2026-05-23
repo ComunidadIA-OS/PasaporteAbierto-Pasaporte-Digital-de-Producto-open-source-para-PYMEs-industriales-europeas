@@ -1,0 +1,10 @@
+name: "broken-yaml"
+regulation: "EU 2024/1781"
+version: "0.1.0"
+fields:
+  - id: model_name
+    type: string
+    required: true
+    citation:
+      regulation: "EU 2024/1781"
+      article: [unclosed
