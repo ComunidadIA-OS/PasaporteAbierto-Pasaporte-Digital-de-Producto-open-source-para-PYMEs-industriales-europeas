@@ -15,7 +15,7 @@ El alcance del hackathon (1 semana, 6 fases) cubre:
 - Wizard guiado de 7 pasos para registrar un producto y generar su DPP.
 - Pipeline IA con dos componentes acotados (Clasificador y Recolector) y todo lo demás determinista.
 - Chat lateral normativo con cita obligatoria.
-- Generación del DPP en JSON-LD CIRPASS-2 Core, QR resoluble vía GS1 Digital Link, endpoint público con content negotiation.
+- Generación del DPP en JSON-LD CIRPASS-2 Core, QR resoluble vía identificador único declarado por el plugin sectorial (ISO/IEC 15459-1/2/3/4/5/6 para baterías por Art. 77.3 del Reglamento UE 2023/1542; GS1 Digital Link como esquema por defecto), endpoint público con content negotiation.
 - Plugins YAML para cubrir actos delegados sectoriales por configuración (no por código).
 - Observabilidad (Langfuse) y trazabilidad inmutable (audit log con hash chain).
 
@@ -142,15 +142,15 @@ Si hay campos críticos vacíos, el botón "Generar DPP" del paso 7 **está desh
 
 **Lo que ve el fabricante:** tras confirmar, el sistema muestra:
 - **Código QR** descargable (PNG y SVG).
-- **URL pública** del DPP (basada en GS1 Digital Link).
+- **URL pública** del DPP, cuya forma sigue el esquema declarado por el plugin del sector (ISO/IEC 15459 para baterías, GS1 Digital Link como fallback genérico).
 - Confirmación de **firma Ed25519** (si se activó).
 
 **Qué hace el sistema:**
-1. Ensambla el DPP en **JSON-LD CIRPASS-2 Core** (marzo 2025).
-2. Genera el identificador **GS1 Digital Link** canónico.
+1. Ensambla el DPP en **JSON-LD CIRPASS-2 Core** (marzo 2025) filtrando los campos por su `access_level` (ver §9.2).
+2. Genera el identificador único canónico delegando en la fábrica del esquema declarado por el plugin (`identifier_scheme`).
 3. Genera el QR con `segno`.
 4. Opcionalmente firma con Ed25519 (PyNaCl), persistiendo la clave pública.
-5. Persiste en `published_dpps`.
+5. Persiste en `published_dpps` (columna `gs1_uri`, nombre histórico que ahora soporta cualquier esquema).
 6. Registra la publicación en `audit_log` (hash chain).
 7. Expone el DPP en el endpoint público (paso siguiente, ver §5).
 
@@ -174,14 +174,16 @@ Endpoint **independiente** del pipeline. Disponible en cualquier paso del wizard
 
 ## 5. DPP público
 
-El DPP generado es accesible vía URL canónica (GS1 Digital Link). El endpoint `GET /dpp/{gs1_uri}` aplica **content negotiation**:
+El DPP generado es accesible vía URL canónica cuya forma viene determinada por el esquema declarado por el plugin sectorial (ISO/IEC 15459 para baterías por Art. 77.3 de Reg. UE 2023/1542; GS1 Digital Link para sectores sin acto delegado específico). El endpoint `GET /dpp/{gs1_uri}` aplica **content negotiation**:
 
 | Header `Accept` | Respuesta |
 |---|---|
 | `application/ld+json` | JSON-LD CIRPASS-2 Core válido (consumido por máquinas, auditores, agregadores). |
 | `text/html` (default navegador) | Página HTML legible en móvil, con campos verificados destacados visualmente. |
 
-La página HTML diferencia visualmente **verified vs self_declared** para que el consumidor entienda la calidad del dato.
+La respuesta incluye únicamente los campos con `access_level = public` (Sección 1 del Annex XIII del Reg. UE 2023/1542 para baterías; el resto de sectores hereda `public` por defecto hasta que su acto delegado fije otra cosa). La página HTML diferencia visualmente **verified vs self_declared** (ver §9.1) para que el consumidor entienda la calidad del dato.
+
+El segmento `{gs1_uri}` de la ruta es un nombre histórico que se mantiene por compatibilidad con la primera iteración del proyecto; su contenido es ya agnóstico al esquema y soporta cualquier URI emitido por la fábrica del plugin.
 
 ---
 
@@ -189,14 +191,15 @@ La página HTML diferencia visualmente **verified vs self_declared** para que el
 
 Cada plugin es un **YAML** en `plugins/`. Define:
 - **Identidad del plugin**: nombre del sector, reglamento aplicable, versión.
-- **Campos del DPP**: nombre, tipo, obligatoriedad, cita normativa, regla de validación opcional.
+- **Esquema del identificador único** (`identifier_scheme`): canónico del sector (p. ej. `iso_iec_15459` para baterías; `gs1_digital_link` como fallback).
+- **Campos del DPP**: nombre, tipo, obligatoriedad, cita normativa, `access_level` (ver §9.2), regla de validación opcional.
 - **Documentos requeridos**: tipo (datasheet, certificado, LCA, SDS, declaración CE) y condición de obligatoriedad.
 - **Reglas adicionales**: validaciones cruzadas entre campos (ej. SoC mínimo, vida útil mínima).
 
 El sistema valida cada plugin contra `plugins/_schema.yaml` al arrancar. **Un plugin que no cumpla el schema no se carga**.
 
 **Cobertura del hackathon:**
-- `plugins/batteries.yaml` (F1-03) — Reglamento UE 2023/1542.
+- `plugins/batteries.yaml` (F1-03) — Reglamento UE 2023/1542, cubriendo las Secciones 1, 2 y 3 estáticas del Annex XIII (~32 campos). La Sección 4 (datos individuales dinámicos) se reconoce en el schema pero queda fuera del alcance del wizard del hackathon: son datos de telemetría que se inyectan en operación.
 - `plugins/textile.yaml` (F6-04) — ejemplo de contribución para validar la arquitectura de extensibilidad.
 
 ---
@@ -253,6 +256,10 @@ Todos los endpoints bajo prefijo `/api/v1`. Detalle de schemas en el código fue
 
 ## 9. Estados funcionales de los campos
 
+Cada campo del DPP tiene **dos dimensiones ortogonales**: provenance (cómo de fiable es el dato) y access_level (quién puede verlo). Ambas se persisten en `extracted_fields` y se exponen en la UI con badges distintos.
+
+### 9.1. Provenance (fiabilidad del dato)
+
 Definición canónica de los tres estados que aparecen en la UI y en `extracted_fields.provenance`:
 
 | Estado | UI | Cuándo se asigna |
@@ -260,6 +267,21 @@ Definición canónica de los tres estados que aparecen en la UI y en `extracted_
 | `verified` | 🟢 verde | El campo aparece tanto en el BOM del paso 3 **como** en un PDF subido, y el Recolector ha podido cruzar ambas fuentes con éxito. |
 | `self_declared` | 🟠 naranja | El campo aparece **solo** en el BOM, **o solo** en un PDF, sin verificación cruzada. |
 | `required_pending` | 🔴 rojo | Campo declarado obligatorio por el plugin del sector, sin dato disponible ni en BOM ni en PDFs. **Bloquea publicación**. |
+
+### 9.2. Access level (visibilidad del dato)
+
+Definición canónica de los cuatro niveles del Annex XIII del Reglamento UE 2023/1542, generalizados a todos los plugins. Cada campo del plugin declara su `access_level`; el plugin loader rechaza valores fuera del enum.
+
+| Estado | A quién se expone | Origen normativo |
+|---|---|---|
+| `public` | Cualquiera (URL pública del DPP) | Annex XIII Sección 1 (Reg. UE 2023/1542) o equivalente. Default para plugins sin acto delegado específico. |
+| `legitimate_interest` | Personas con interés legítimo + Comisión, sobre el **modelo** | Annex XIII Sección 2. Ej. composición detallada de cátodo/ánodo/electrolito, info de desmontaje, medidas de seguridad. |
+| `authorities_only` | Organismos notificados + autoridades de vigilancia del mercado + Comisión | Annex XIII Sección 3. Ej. resultados de informes de ensayo de conformidad. |
+| `individual` | Personas con interés legítimo sobre **una batería concreta** (no el modelo) | Annex XIII Sección 4. Datos dinámicos de telemetría: SoH actual, ciclos consumidos, accidentes, temperatura operativa, SoC. Fuera del alcance del wizard. |
+
+**Regla dura:** el endpoint público `GET /dpp/{gs1_uri}` solo devuelve campos con `access_level = public`. Los demás quedan accesibles vía endpoints específicos planificados para fases posteriores del proyecto (no cubiertos por el hackathon).
+
+La identidad del solicitante (operador notificado, MSA, interés legítimo) se resolverá a través de los actos de ejecución que la Comisión adoptará a más tardar el 18 de agosto de 2026 conforme al Art. 77.9 del Reglamento UE 2023/1542; hasta entonces el sistema solo expone el subconjunto `public`.
 
 ---
 
@@ -300,6 +322,8 @@ Los siguientes elementos **no** están cubiertos por este documento ni por los t
 - Generador de tickets Trello: [`crear_tickets_trello.js`](./crear_tickets_trello.js)
 - Reglamentos de referencia:
   - Reglamento UE 2024/1781 (ESPR)
-  - Reglamento UE 2023/1542 (baterías)
+  - Reglamento UE 2023/1542 (baterías) — **Art. 77** establece el pasaporte de batería; **Annex XIII** define las 4 secciones de información con sus niveles de acceso.
   - CIRPASS-2 Core Ontology (marzo 2025)
-  - GS1 Digital Link specification
+  - GS1 Digital Link specification (esquema de identificador por defecto para sectores sin acto delegado específico)
+  - ISO/IEC 15459-1/2/3/4/5/6 (esquema obligatorio para el identificador único de baterías por Art. 77.3 de Reg. UE 2023/1542)
+  - Battery Pass Consortium Data Attribute Longlist v1.3 (referencia industrial de implementación; ver `docs/research/battery-pass-v1.3-mandatory-attrs.md`)
