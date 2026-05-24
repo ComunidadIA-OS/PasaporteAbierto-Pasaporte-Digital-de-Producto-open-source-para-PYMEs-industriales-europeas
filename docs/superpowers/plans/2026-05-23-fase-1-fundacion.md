@@ -2586,7 +2586,7 @@ feat(llm): wrapper LiteLLM con defensas OWASP y error tipado (F1-04)
 
 **Alcance F1-05:** sólo infraestructura de observabilidad. Los agentes (Clasificador, Recolector, Chat) no existen aún — vienen en F2/F3/F4. Aquí dejamos los decoradores listos y los testeamos con funciones sintéticas. Las criterios 2 y 3 de F1-05 ("trazas en una corrida del wizard demo") se validarán al cierre de F2/F3.
 
-- [ ] **Paso 8.1 — Tests rojos (7 tests)**
+- [ ] **Paso 8.1 — Tests rojos (8 tests)**
 
 `backend/tests/test_decorators.py`:
 
@@ -2834,12 +2834,12 @@ __all__ = ["trace_chat", "trace_classifier", "trace_collector"]
 ```bash
 cd backend
 PATH="$HOME/.local/bin:$PATH" uv run pytest tests/test_decorators.py -v
-PATH="$HOME/.local/bin:$PATH" uv run pytest -v   # full suite, expect 53 (46 + 7 nuevos)
+PATH="$HOME/.local/bin:$PATH" uv run pytest -v   # full suite, expect 54 (46 + 8 nuevos)
 PATH="$HOME/.local/bin:$PATH" uv run ruff check .
 PATH="$HOME/.local/bin:$PATH" uv run ruff format --check .
 ```
 
-Esperado: 7 tests del decorador verdes. Suite completa 53/53. Ruff limpio.
+Esperado: 8 tests del decorador verdes. Suite completa 54/54. Ruff limpio.
 
 - [ ] **Paso 8.6 — Verificación visual de Langfuse en docker compose (diferido a T9)**
 
