@@ -6,6 +6,8 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 DocType = Literal["datasheet", "certificate", "lca", "sds", "ce_declaration"]
 FieldType = Literal["string", "number", "integer", "boolean", "enum", "repeater"]
+AccessLevel = Literal["public", "legitimate_interest", "authorities_only", "individual"]
+IdentifierScheme = Literal["gs1_digital_link", "iso_iec_15459"]
 
 
 class PluginValidationError(Exception):
@@ -26,6 +28,7 @@ class PluginField(BaseModel):
     type: FieldType
     required: bool
     citation: Citation
+    access_level: AccessLevel = "public"
     enum_values: list[str] | None = None
     validation: str | None = None
 
@@ -53,6 +56,7 @@ class Plugin(BaseModel):
     regulation: str
     version: str
     description: str = ""
+    identifier_scheme: IdentifierScheme = "gs1_digital_link"
     fields: list[PluginField] = Field(default_factory=list)
     required_documents: list[RequiredDocument] = Field(default_factory=list)
     cross_validations: list[CrossValidation] = Field(default_factory=list)

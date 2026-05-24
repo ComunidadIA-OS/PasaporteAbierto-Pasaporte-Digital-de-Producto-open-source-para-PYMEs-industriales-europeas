@@ -1,26 +1,17 @@
-name: "demo-sector"
+name: "invalid-access-level-sector"
 regulation: "EU 2024/1781"
 version: "0.1.0"
-description: "Plugin de prueba mínimo"
 identifier_scheme: "gs1_digital_link"
 
 fields:
   - id: model_name
     type: string
     required: true
+    access_level: not_a_real_level
     citation:
       regulation: "EU 2024/1781"
       article: "Art. 7(1)"
-  - id: weight_kg
-    type: number
-    required: false
-    access_level: legitimate_interest
-    citation:
-      regulation: "EU 2024/1781"
-      article: "Annex II"
 
 required_documents:
   - type: datasheet
     mandatory: true
-  - type: certificate
-    mandatory: false
