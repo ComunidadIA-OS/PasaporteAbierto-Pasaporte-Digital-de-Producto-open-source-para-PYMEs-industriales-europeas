@@ -20,7 +20,7 @@ Si una decisión técnica o funcional contradice estos documentos, **el document
 
 ## Stack planificado (definido en ARCHITECTURE.md)
 
-- **Backend:** FastAPI 0.115 + Python 3.11, Pydantic v2, SQLModel sobre SQLite única, ChromaDB embebido, embeddings `bge-m3` vía sentence-transformers, LiteLLM como router de modelos, Ollama (Qwen 2.5 14B por defecto) o APIs comerciales vía `MODEL_BACKEND`, `pdfplumber` + LLM para PDFs, `segno` para QR, PyNaCl (Ed25519) para firma.
+- **Backend:** FastAPI 0.115 + Python 3.11, Pydantic v2, SQLModel sobre SQLite única, ChromaDB embebido, embeddings `bge-m3` vía sentence-transformers, LiteLLM como router de modelos, Ollama (Qwen 2.5 14B por defecto) o APIs comerciales vía `MODEL_BACKEND`, `pdfplumber` + LLM para PDFs, `segno` para QR, PyNaCl (Ed25519) para firma. **El esquema del identificador único del DPP lo declara el plugin sectorial** (ISO/IEC 15459 para baterías por Art. 77.3 de Reg. UE 2023/1542; GS1 Digital Link como fallback genérico — ver `ARCHITECTURE.md §"Identificador único y niveles de acceso del DPP"`).
 - **Frontend:** Next.js 16 (App Router), TypeScript estricto, Tailwind, shadcn/ui, React Hook Form para formularios dinámicos generados desde plugins YAML.
 - **Observabilidad:** Langfuse self-hosted. Audit log con hash chain en SQLite (canal independiente de Langfuse).
 - **Despliegue:** `docker compose up` con backend, frontend, Langfuse y Ollama opcional (profile).
@@ -33,7 +33,7 @@ Estas reglas vienen del diseño y se aplican siempre, salvo que se actualice el 
 - **Sólo dos pasos del pipeline son IA**: Clasificador (paso 2) y Recolector (paso 5). Todo lo demás — validación, generación del DPP, firma, publicación — es código determinista cubierto por tests.
 - **El chat lateral nunca escribe en el estado del wizard.** El dato lo introduce siempre el fabricante. El chat es un endpoint independiente del pipeline.
 - **Toda respuesta del chat exige cita normativa concreta** (`[Reglamento X, Art. Y]`). Si el RAG no devuelve fragmentos relevantes, la respuesta canónica es "No tengo información suficiente para responder con base normativa".
-- **El Recolector no dialoga con el usuario.** Termina, escribe estado en `extracted_fields` y devuelve control al wizard. Los tres estados (`verified` / `self_declared` / `required_pending`) son canon — ver §9 de `FUNCIONAL.md`.
+- **El Recolector no dialoga con el usuario.** Termina, escribe estado en `extracted_fields` y devuelve control al wizard. Los tres estados de provenance (`verified` / `self_declared` / `required_pending`) son canon — ver §9.1 de `FUNCIONAL.md`. **Cada campo del plugin tiene además un `access_level` ortogonal** (`public` / `legitimate_interest` / `authorities_only` / `individual`) conforme a las 4 secciones del Annex XIII del Reg. UE 2023/1542 — ver §9.2 de `FUNCIONAL.md`. El endpoint público `GET /dpp/{gs1_uri}` solo expone campos con `access_level = public`.
 - **No se puede emitir un DPP parcial conforme.** Si falta cualquier campo obligatorio del plugin, la publicación queda bloqueada en el paso 6 (Verificador).
 - **Extensibilidad por configuración**: añadir un sector ESPR significa añadir un YAML en `plugins/`, no modificar el núcleo. Cada plugin se valida contra `plugins/_schema.yaml` al arrancar; un plugin que no cumpla el schema no se carga.
 - **Audit log con hash chain:** cada operación significativa escribe en `audit_log` con `prev_hash`. El endpoint `GET /audit/verify` recorre la cadena.

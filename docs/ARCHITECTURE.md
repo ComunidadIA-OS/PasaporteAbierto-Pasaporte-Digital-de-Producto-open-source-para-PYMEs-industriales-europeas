@@ -30,7 +30,13 @@ Paso 5, extracción. IA. El agente Recolector lee los PDFs subidos con un pipeli
 
 Paso 6, verificación. Determinista. El Verificador valida el DPP completo contra el schema del plugin más las reglas adicionales definidas en el YAML. Devuelve el estado de completitud, la lista de campos faltantes y las advertencias. Si la información obligatoria está incompleta, el sistema bloquea la publicación: no se puede emitir un DPP parcial conforme.
 
-Paso 7, generación del DPP. Determinista. Una vez validados los datos, el sistema ensambla el objeto CIRPASS-2 Core Ontology serializado en JSON-LD, genera el identificador GS1 Digital Link, el código QR resoluble, la página HTML pública con content negotiation, y opcionalmente firma el conjunto con Ed25519 usando la clave del fabricante.
+Paso 7, generación del DPP. Determinista. Una vez validados los datos, el sistema ensambla el objeto CIRPASS-2 Core Ontology serializado en JSON-LD, genera el identificador único del DPP conforme al esquema declarado por el plugin sectorial (ISO/IEC 15459-1/2/3/4/5/6 para baterías por el Art. 77.3 del Reglamento UE 2023/1542; GS1 Digital Link como esquema por defecto para sectores sin acto delegado específico de identificador), el código QR resoluble, la página HTML pública con content negotiation, y opcionalmente firma el conjunto con Ed25519 usando la clave del fabricante.
+
+## Identificador único y niveles de acceso del DPP
+
+El identificador único del DPP **lo declara el plugin sectorial**, no el núcleo. La razón es regulatoria: el Art. 77.3 del Reglamento UE 2023/1542 obliga a que el QR y el identificador único de un pasaporte de batería cumplan ISO/IEC 15459-1/2/3/4/5/6 o equivalentes; el Reglamento UE 2024/1781 (ESPR) deja la elección abierta a cada acto delegado sectorial y, hasta que llegue uno específico, GS1 Digital Link es el esquema de facto en la industria. El núcleo del sistema delega la generación del URI en una pequeña fábrica determinista parametrizada por el campo `identifier_scheme` que cada plugin declara. El nombre `gs1_uri` se conserva en la API pública (`GET /dpp/{gs1_uri}`) y en la columna del mismo nombre en `published_dpps` por compatibilidad con la primera iteración del proyecto, pero su contenido es agnóstico al esquema y soporta cualquier URI que el plugin produzca.
+
+El Anexo XIII del Reglamento UE 2023/1542 define **cuatro niveles de visibilidad** para los campos del DPP de batería: público general (Sección 1, 19 ítems), accesible solo a personas con interés legítimo y a la Comisión sobre el modelo (Sección 2, 4 ítems), accesible solo a organismos notificados y autoridades de vigilancia del mercado (Sección 3, 1 ítem), y datos accesibles a interés legítimo sobre una batería individual concreta (Sección 4, 4 ítems, dinámicos). Esta dimensión es **ortogonal al estado de provenance** del campo (`verified` / `self_declared` / `required_pending`). Cada campo del plugin declara su `access_level` con uno de los valores `public`, `legitimate_interest`, `authorities_only`, `individual`. Para sectores cuyo acto delegado todavía no fije esta dimensión, el plugin puede mantener el valor por defecto `public`. El endpoint público `GET /dpp/{gs1_uri}` filtra los campos según el `access_level` del solicitante: en el alcance del hackathon solo se devuelve el subconjunto `public`; los niveles restringidos quedan habilitados por la columna del campo en `extracted_fields` y por endpoints específicos planificados para fases posteriores.
 
 ## Chat lateral
 
@@ -81,7 +87,7 @@ La tabla `extracted_fields` guarda los campos que el Recolector ha extraído: re
 
 La tabla `audit_log` implementa el hash chain: identificador incremental, hash de la entrada anterior, hash del contenido actual, timestamp, operación y payload JSON. La integridad se verifica recorriendo la cadena desde la primera entrada.
 
-La tabla `published_dpps` guarda los DPPs ya emitidos: GS1 URI canónico, blob JSON-LD, firma Ed25519, fecha de publicación y referencia a la clave pública del fabricante.
+La tabla `published_dpps` guarda los DPPs ya emitidos: la columna `gs1_uri` almacena el URI canónico del pasaporte —cuya forma sigue el esquema declarado por el plugin sectorial (ISO/IEC 15459 para baterías, GS1 Digital Link como fallback genérico, u otro esquema registrado por un plugin futuro)—, blob JSON-LD, firma Ed25519, fecha de publicación y referencia a la clave pública del fabricante.
 
 ## Stack técnico
 
@@ -100,3 +106,5 @@ No usamos LangGraph ni LangChain. El pipeline es lineal con dos pasos IA bien ac
 No usamos PostgreSQL ni Redis. El caso de uso objetivo es una instancia por fabricante PYME con uso modesto. SQLite cubre persistencia y FastAPI BackgroundTasks cubre asincronía.
 
 No implementamos multi-tenant ni OAuth en el alcance del hackathon. Una instancia equivale a un fabricante, autenticada con basic auth si se necesita exponer en red local.
+
+No imponemos un esquema único de identificador del DPP. Cada plugin sectorial declara su `identifier_scheme` (ISO/IEC 15459 para baterías por mandato del Art. 77.3 del Reglamento UE 2023/1542; GS1 Digital Link como esquema por defecto para sectores sin acto delegado específico). La fábrica determinista del paso 7 delega la generación del URI canónico en la lógica del esquema declarado. Esto evita acoplar el núcleo a un estándar concreto que cambia entre actos delegados y deja la responsabilidad regulatoria del identificador en el plugin, que es donde la cita normativa concreta vive.

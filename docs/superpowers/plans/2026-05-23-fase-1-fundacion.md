@@ -53,12 +53,12 @@
 |---|---|
 | F1-01 Scaffolding monorepo | T1 (backend shell) + T2 (frontend shell) + T3 (docker compose) |
 | F1-02 Modelo SQLite | T4 |
-| F1-03 Plugins YAML | T5 (schema + loader) + T6 (batteries.yaml) |
+| F1-03 Plugins YAML | T5 (schema + loader) + **T5.1 (access_level + identifier_scheme)** + T6 (batteries.yaml conforme Annex XIII) |
 | F1-04 Router LiteLLM | T7 |
 | F1-05 Langfuse + decoradores | T8 |
 | Cierre F1 | T9 (README + verificación 30-min) |
 
-T1 es prerrequisito de todo lo demás. T2 y T3 dependen de T1. T4–T8 pueden ejecutarse en paralelo tras T3. T9 cierra.
+T1 es prerrequisito de todo lo demás. T2 y T3 dependen de T1. T4 y T5 son independientes y pueden correr en paralelo tras T3. **T5.1 depende de T5 commiteado; T6 depende de T5.1 commiteado** (la nueva sección del schema condiciona la forma del plugin). T7 y T8 pueden correr en paralelo tras T3. T9 cierra.
 
 ---
 
@@ -1390,13 +1390,299 @@ git commit -m "feat(plugins): schema YAML + loader con validación (F1-03)"
 
 ---
 
-## Task 6 — Plugin `batteries.yaml` (Reglamento UE 2023/1542)
+## Task 5.1 — Extender el plugin schema con `access_level` y `identifier_scheme`
+
+> **Razón:** la validación del plugin de baterías contra el texto oficial del Reglamento UE 2023/1542 (Art. 77 + Annex XIII + Anexo VI Parte A) reveló que el schema commiteado en T5 (`bdf4555`) no modela dos dimensiones obligatorias:
+>
+> 1. **`access_level` por campo** — el Annex XIII define 4 niveles de visibilidad (`public`, `legitimate_interest`, `authorities_only`, `individual`) que son ortogonales al `provenance`. Sin esto, el endpoint público del DPP expondría datos que la regulación exige restringir.
+> 2. **`identifier_scheme` del plugin** — el Art. 77.3 obliga a ISO/IEC 15459-1/2/3/4/5/6 para baterías; GS1 Digital Link es solo válido como fallback genérico para sectores sin acto delegado específico.
+>
+> T5.1 extiende el schema con **backward compatibility** (defaults razonables: `access_level=public`, `identifier_scheme=gs1_digital_link`) para no romper los fixtures ni los tests existentes. Es prerrequisito de T6 — sin esto, `batteries.yaml` no se puede expresar fielmente.
+
+**Files:**
+- Modify: `plugins/_schema.yaml`
+- Modify: `backend/src/app/plugins/loader.py`
+- Modify: `backend/tests/test_plugin_loader.py`
+- Modify: `backend/tests/fixtures/plugin_valid.yaml`
+- Create: `backend/tests/fixtures/plugin_invalid_access_level.yaml`
+- Create: `backend/tests/fixtures/plugin_invalid_identifier_scheme.yaml`
+
+- [ ] **Paso 5.1.1 — Tests nuevos (rojos)**
+
+Añadir a `backend/tests/test_plugin_loader.py` (al final, antes de cualquier fixture):
+
+```python
+def test_loader_accepts_access_level_legitimate_interest():
+    """Un fixture con access_level != 'public' debe cargar y exponerlo correctamente."""
+    plugin = load_plugin(FIXTURES / "plugin_valid.yaml")
+    al = [f.access_level for f in plugin.fields]
+    assert "legitimate_interest" in al, f"Esperaba algún campo con legitimate_interest, vi {al}"
+
+
+def test_loader_defaults_access_level_to_public():
+    """Un campo sin access_level explícito debe heredar 'public' (backward compat)."""
+    plugin = load_plugin(FIXTURES / "plugin_valid.yaml")
+    # El campo model_name del fixture NO declara access_level — debe ser 'public' por default
+    model_name = next(f for f in plugin.fields if f.id == "model_name")
+    assert model_name.access_level == "public"
+
+
+def test_loader_rejects_invalid_access_level():
+    """Valor fuera del enum debe ser rechazado por Pydantic Literal."""
+    with pytest.raises(PluginValidationError) as exc:
+        load_plugin(FIXTURES / "plugin_invalid_access_level.yaml")
+    msg = str(exc.value).lower()
+    assert "access_level" in msg or "literal" in msg or "no cumple el esquema" in msg
+
+
+def test_loader_accepts_iso_iec_15459_identifier_scheme():
+    """identifier_scheme debe aceptar iso_iec_15459 (obligatorio para baterías)."""
+    plugin = load_plugin(FIXTURES / "plugin_valid.yaml")
+    assert plugin.identifier_scheme in ("iso_iec_15459", "gs1_digital_link")
+
+
+def test_loader_defaults_identifier_scheme_to_gs1_digital_link():
+    """Un plugin sin identifier_scheme explícito hereda 'gs1_digital_link' (backward compat)."""
+    # Los fixtures de error que no declaran identifier_scheme tienen que poder cargarse sin él
+    # (el rechazo viene del error específico, no de la ausencia del campo nuevo)
+    # Lo verificamos cargando el fixture original (cuando aún no añadamos identifier_scheme).
+    # Después de Paso 5.1.3, plugin_valid.yaml SÍ lo declarará explícitamente.
+    # Este test se ejecuta sobre un plugin construido manualmente en memoria:
+    from app.plugins.loader import Plugin
+    p = Plugin(name="x", regulation="y", version="0.0.0", fields=[], required_documents=[])
+    assert p.identifier_scheme == "gs1_digital_link"
+
+
+def test_loader_rejects_unknown_identifier_scheme():
+    """identifier_scheme fuera del enum debe ser rechazado."""
+    with pytest.raises(PluginValidationError) as exc:
+        load_plugin(FIXTURES / "plugin_invalid_identifier_scheme.yaml")
+    msg = str(exc.value).lower()
+    assert "identifier_scheme" in msg or "literal" in msg or "no cumple el esquema" in msg
+```
+
+- [ ] **Paso 5.1.2 — Fixtures inválidos**
+
+`backend/tests/fixtures/plugin_invalid_access_level.yaml`:
+
+```yaml
+name: "invalid-access-level-sector"
+regulation: "EU 2024/1781"
+version: "0.1.0"
+identifier_scheme: "gs1_digital_link"
+
+fields:
+  - id: model_name
+    type: string
+    required: true
+    access_level: not_a_real_level   # ← rechazado por Literal
+    citation:
+      regulation: "EU 2024/1781"
+      article: "Art. 7(1)"
+
+required_documents:
+  - type: datasheet
+    mandatory: true
+```
+
+`backend/tests/fixtures/plugin_invalid_identifier_scheme.yaml`:
+
+```yaml
+name: "invalid-identifier-scheme-sector"
+regulation: "EU 2024/1781"
+version: "0.1.0"
+identifier_scheme: "carrier_pigeon"   # ← rechazado por Literal
+
+fields:
+  - id: model_name
+    type: string
+    required: true
+    citation:
+      regulation: "EU 2024/1781"
+      article: "Art. 7(1)"
+
+required_documents:
+  - type: datasheet
+    mandatory: true
+```
+
+- [ ] **Paso 5.1.3 — Actualizar fixture válido**
+
+Modificar `backend/tests/fixtures/plugin_valid.yaml`:
+
+```yaml
+name: "demo-sector"
+regulation: "EU 2024/1781"
+version: "0.1.0"
+description: "Plugin de prueba mínimo"
+identifier_scheme: "gs1_digital_link"
+
+fields:
+  - id: model_name
+    type: string
+    required: true
+    # access_level deliberadamente ausente para verificar default 'public'
+    citation:
+      regulation: "EU 2024/1781"
+      article: "Art. 7(1)"
+  - id: weight_kg
+    type: number
+    required: false
+    access_level: legitimate_interest   # ejercita un valor distinto del default
+    citation:
+      regulation: "EU 2024/1781"
+      article: "Annex II"
+
+required_documents:
+  - type: datasheet
+    mandatory: true
+  - type: certificate
+    mandatory: false
+```
+
+- [ ] **Paso 5.1.4 — Verificar rojo**
+
+```bash
+cd backend
+PATH="$HOME/.local/bin:$PATH" uv run pytest tests/test_plugin_loader.py -v
+```
+
+Esperado: los 6 tests nuevos fallan (AttributeError o assertion errors). Los 7 tests existentes pueden seguir verdes o fallar — depende de si el fixture actualizado en 5.1.3 rompió el test `test_loader_accepts_valid_plugin` (que ahora encuentra `access_level: legitimate_interest` en `weight_kg`). Si falla, se arreglará en el Paso 5.1.6 con la actualización del aserto. Es esperado en TDD.
+
+- [ ] **Paso 5.1.5 — Extender `loader.py`**
+
+En `backend/src/app/plugins/loader.py`:
+
+```python
+# Añadir bajo las definiciones existentes de DocType y FieldType:
+AccessLevel = Literal["public", "legitimate_interest", "authorities_only", "individual"]
+IdentifierScheme = Literal["gs1_digital_link", "iso_iec_15459"]
+
+
+# Modificar PluginField para añadir access_level con default 'public':
+class PluginField(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    type: FieldType
+    required: bool
+    citation: Citation
+    access_level: AccessLevel = "public"
+    enum_values: list[str] | None = None
+    validation: str | None = None
+
+
+# Modificar Plugin para añadir identifier_scheme con default 'gs1_digital_link':
+class Plugin(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    regulation: str
+    version: str
+    description: str = ""
+    identifier_scheme: IdentifierScheme = "gs1_digital_link"
+    fields: list[PluginField] = Field(default_factory=list)
+    required_documents: list[RequiredDocument] = Field(default_factory=list)
+    cross_validations: list[CrossValidation] = Field(default_factory=list)
+```
+
+- [ ] **Paso 5.1.6 — Actualizar `_schema.yaml`**
+
+Reescribir `plugins/_schema.yaml` (manteniendo el comentario header existente):
+
+```yaml
+# Schema canónico de plugins de sector ESPR.
+# Cada plugin YAML en plugins/ debe cumplir esta estructura.
+# Documentación canónica. La validación real vive en backend/src/app/plugins/loader.py.
+
+plugin:
+  required: [name, regulation, version, fields, required_documents]
+  properties:
+    name: { type: string }
+    regulation: { type: string }   # e.g. "EU 2023/1542"
+    version: { type: string }      # semver
+    description: { type: string }
+    identifier_scheme:
+      type: string
+      enum: [gs1_digital_link, iso_iec_15459]
+      default: gs1_digital_link
+      description: "Esquema del identificador único del DPP. Para baterías, ISO/IEC 15459-1/2/3/4/5/6 es obligatorio por Art. 77.3 del Reglamento UE 2023/1542. GS1 Digital Link es el esquema por defecto para sectores sin acto delegado específico."
+
+fields:
+  description: "Lista de campos del DPP exigidos por el sector"
+  item_required: [id, type, required, citation]
+  item_properties:
+    id: { type: string }
+    type: { type: string, enum: [string, number, integer, boolean, enum, repeater] }
+    required: { type: boolean }
+    citation:
+      required: [regulation, article]
+      properties:
+        regulation: { type: string }
+        article: { type: string }
+    access_level:
+      type: string
+      enum: [public, legitimate_interest, authorities_only, individual]
+      default: public
+      description: "Nivel de visibilidad del campo conforme a las 4 secciones del Annex XIII del Reglamento UE 2023/1542 (ver FUNCIONAL.md §9.2). Default 'public' para sectores sin acto delegado específico."
+    enum_values: { type: list, optional: true }
+    validation: { type: string, optional: true }
+
+required_documents:
+  description: "Documentos que el Recolector necesita"
+  item_required: [type, mandatory]
+  item_properties:
+    type: { type: string, enum: [datasheet, certificate, lca, sds, ce_declaration] }
+    mandatory: { type: boolean }
+    when: { type: string, optional: true }
+
+cross_validations:
+  description: "Reglas adicionales que cruzan campos"
+  optional: true
+  item_required: [id, rule]
+  item_properties:
+    id: { type: string }
+    rule: { type: string }
+    message: { type: string, optional: true }
+```
+
+Si el test `test_loader_accepts_valid_plugin` falla en este punto por la nueva aserción de tipos, **actualizarlo**: el campo `weight_kg` ahora tiene `access_level == "legitimate_interest"` — añadir un assert que verifique que `plugin.fields[1].access_level == "legitimate_interest"` para reforzar la cobertura.
+
+- [ ] **Paso 5.1.7 — Verificar verde**
+
+```bash
+cd backend
+PATH="$HOME/.local/bin:$PATH" uv run pytest tests/test_plugin_loader.py -v
+PATH="$HOME/.local/bin:$PATH" uv run ruff check .
+PATH="$HOME/.local/bin:$PATH" uv run ruff format --check .
+# Si format falla: uv run ruff format .
+```
+
+Esperado: 13 tests verdes (7 originales + 6 nuevos). Ruff limpio.
+
+- [ ] **⛔ Paso 5.1.8 — NO commit (política `feedback-commit-after-validation`)**
+
+Dejar el working tree con cambios sin commitear. Reportar status DONE con la lista de archivos modificados/creados. El controller commitea con mensaje:
+
+```
+feat(plugins): añade access_level por campo y identifier_scheme por plugin (F1-03)
+```
+
+tras dos APPROVED (spec compliance + code quality).
+
+---
+
+## Task 6 — Plugin `batteries.yaml` (Reglamento UE 2023/1542) conforme Annex XIII completo
+
+> **Importante:** este Task 6 ha sido **reescrito** tras validar el plan original contra el texto oficial del Reglamento UE 2023/1542 (Anexo XIII + Art. 77 + Anexo VI Parte A). El plan anterior tenía 17 campos con ~22 % de cobertura del Annex XIII y 5 citas erróneas (citaba Anexo VI Parte A donde debía citar Annex XIII; usaba `kWh` donde el reglamento exige Ah; usaba `Art. 19` para CE marking en lugar del correcto `Art. 18 + Annex XIII (1r)` para la Declaración UE de conformidad). Esta versión cubre **las 3 secciones estáticas del Annex XIII**: Sección 1 (pública, 19 ítems → ~38 campos al expandir agregadores como 1a, 1b y 1s), Sección 2 (interés legítimo, 4 ítems → 7 campos), Sección 3 (autoridades, 1 ítem). **Total: ~46-48 campos**. La Sección 4 (datos dinámicos individuales: SoC actual, ciclos consumidos, accidentes, temperatura operativa) queda **fuera del alcance** porque corresponde a telemetría operativa post-registro, no a datos que el fabricante introduzca en el wizard.
+
+> **Prerrequisito:** Task 5.1 commiteada (el schema necesita `access_level` y `identifier_scheme`).
 
 **Files:**
 - Create: `plugins/batteries.yaml`
-- Test: `backend/tests/test_batteries_plugin.py`
+- Create: `backend/tests/test_batteries_plugin.py`
 
-- [ ] **Paso 6.1 — Test de cobertura del plugin (rojo)**
+- [ ] **Paso 6.1 — Tests rojos**
 
 `backend/tests/test_batteries_plugin.py`:
 
@@ -1408,22 +1694,77 @@ from app.plugins.loader import load_plugin
 PLUGINS = Path(__file__).resolve().parents[2] / "plugins"
 
 
-def test_batteries_plugin_loads():
+def test_batteries_plugin_loads_with_iso_iec_15459():
+    """Art. 77.3 obliga a ISO/IEC 15459 para baterías."""
     plugin = load_plugin(PLUGINS / "batteries.yaml")
     assert plugin.regulation == "EU 2023/1542"
+    assert plugin.identifier_scheme == "iso_iec_15459"
 
 
-def test_batteries_has_at_least_15_required_fields():
+def test_batteries_has_at_least_25_required_fields():
+    """F1-03 acceptance: ≥25 campos obligatorios cubriendo Secciones 1+2+3."""
     plugin = load_plugin(PLUGINS / "batteries.yaml")
     required = [f for f in plugin.fields if f.required]
-    assert len(required) >= 15, f"Sólo {len(required)} campos obligatorios, F1-03 exige ≥15"
+    assert len(required) >= 25, f"Sólo {len(required)} campos obligatorios, F1-03 exige ≥25"
 
 
-def test_every_field_has_citation():
+def test_batteries_covers_annex_xiii_section_1():
+    """Annex XIII Sección 1 (público): ≥19 campos."""
+    plugin = load_plugin(PLUGINS / "batteries.yaml")
+    public = [f for f in plugin.fields if f.access_level == "public"]
+    assert len(public) >= 19, (
+        f"Sólo {len(public)} campos public; Annex XIII Sección 1 tiene 19 ítems agregados"
+    )
+
+
+def test_batteries_covers_annex_xiii_section_2():
+    """Annex XIII Sección 2 (interés legítimo): ≥4 campos."""
+    plugin = load_plugin(PLUGINS / "batteries.yaml")
+    legitimate = [f for f in plugin.fields if f.access_level == "legitimate_interest"]
+    assert len(legitimate) >= 4, (
+        f"Sólo {len(legitimate)} campos legitimate_interest; Annex XIII Sección 2 tiene 4 ítems"
+    )
+
+
+def test_batteries_covers_annex_xiii_section_3():
+    """Annex XIII Sección 3 (autoridades): ≥1 campo."""
+    plugin = load_plugin(PLUGINS / "batteries.yaml")
+    authorities = [f for f in plugin.fields if f.access_level == "authorities_only"]
+    assert len(authorities) >= 1, "Annex XIII Sección 3 exige resultados de informes de ensayo"
+
+
+def test_every_field_cites_reg_2023_1542_with_article_or_annex():
+    """Todas las citas son al Reglamento de baterías, con Art./Annex concreto."""
     plugin = load_plugin(PLUGINS / "batteries.yaml")
     for f in plugin.fields:
-        assert f.citation.regulation, f"Campo {f.id} sin regulation en citation"
-        assert f.citation.article, f"Campo {f.id} sin article en citation"
+        assert "2023/1542" in f.citation.regulation, (
+            f"Campo {f.id} cita reglamento incorrecto: {f.citation.regulation}"
+        )
+        article = f.citation.article
+        assert any(token in article for token in ("Art.", "Anexo", "Annex")), (
+            f"Campo {f.id} cita sin Art./Anexo: {article}"
+        )
+
+
+def test_batteries_uses_amperes_hours_for_rated_capacity():
+    """Annex XIII (1g) literal: 'capacidad asignada (en amperios-hora)'. NO kWh."""
+    plugin = load_plugin(PLUGINS / "batteries.yaml")
+    has_ah_capacity = any(f.id == "rated_capacity_ah" for f in plugin.fields)
+    has_kwh_capacity = any("kwh" in f.id.lower() and "capacity" in f.id.lower() for f in plugin.fields)
+    assert has_ah_capacity, "Annex XIII (1g) exige capacidad en Ah; campo rated_capacity_ah ausente"
+    assert not has_kwh_capacity, (
+        "Annex XIII (1g) exige Ah, no kWh — el plan original tenía esto incorrectamente como capacity_kwh"
+    )
+
+
+def test_batteries_eu_declaration_url_cites_art_18():
+    """Annex XIII (1r) → Art. 18, NO Art. 19 (Art. 19 sería marcado CE, no DPP)."""
+    plugin = load_plugin(PLUGINS / "batteries.yaml")
+    decl = next((f for f in plugin.fields if f.id == "eu_declaration_of_conformity_url"), None)
+    assert decl is not None, "Falta campo eu_declaration_of_conformity_url (Annex XIII 1r)"
+    assert "Art. 18" in decl.citation.article, (
+        f"La Declaración UE de conformidad cita Art. 18, no {decl.citation.article}"
+    )
 
 
 def test_batteries_requires_typical_documents():
@@ -1434,84 +1775,407 @@ def test_batteries_requires_typical_documents():
 
 - [ ] **Paso 6.2 — Crear `plugins/batteries.yaml`**
 
+El YAML cubre **Annex XIII Secciones 1, 2 y 3** del Reglamento UE 2023/1542. La numeración (1a)-(1s) sigue las letras del Anexo XIII en el texto oficial; los citados a Anexo VI Parte A son sub-elementos heredados del agregador 1a.
+
 ```yaml
 name: "batteries"
 regulation: "EU 2023/1542"
 version: "0.1.0"
-description: "Plugin del Reglamento UE 2023/1542 sobre baterías industriales y EV"
+description: "Plugin del Reglamento UE 2023/1542 sobre pilas y baterías. v0.1.0 cubre las 3 secciones estáticas del Annex XIII (1 pública, 2 interés legítimo, 3 autoridades) para baterías industriales >2 kWh y vehículos eléctricos. Sección 4 (datos individuales dinámicos) queda fuera del alcance del wizard — corresponde a telemetría operativa post-registro."
+identifier_scheme: "iso_iec_15459"   # Art. 77.3 de Reg. UE 2023/1542
 
 fields:
-  - id: battery_model
+  # ═══ Annex XIII Sección 1 — INFO PÚBLICA DEL MODELO ═══
+
+  # (1a) → Anexo VI Parte A, expandido a sub-campos
+  - id: battery_passport_unique_id
     type: string
     required: true
-    citation: { regulation: "EU 2023/1542", article: "Art. 13(1)" }
-  - id: manufacturer_name
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Art. 77.3 (identificador único conforme ISO/IEC 15459)"
+  - id: battery_serial_number
     type: string
     required: true
-    citation: { regulation: "EU 2023/1542", article: "Art. 38" }
-  - id: manufacturer_address
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Art. 38.6; Anexo IX"
+  - id: manufacturer_identifier
     type: string
     required: true
-    citation: { regulation: "EU 2023/1542", article: "Art. 38" }
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo VI Parte A(1); Art. 38.7"
   - id: battery_category
     type: enum
     required: true
-    enum_values: [portable, industrial, ev, lmt, sli]
-    citation: { regulation: "EU 2023/1542", article: "Art. 3(1)" }
-  - id: chemistry
+    access_level: public
+    enum_values: [lmt, industrial, ev, sli, stationary, portable]
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1a); Anexo VI Parte A(2); Art. 38.6"
+  - id: manufacturing_place
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1a); Anexo VI Parte A(3)"
+  - id: manufacturing_date
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1a); Anexo VI Parte A(4)"
+  - id: battery_mass_kg
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1a); Anexo VI Parte A(5)"
+  - id: extinguishing_agent
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1a); Anexo VI Parte A(9)"
+
+  # (1b) composición material
+  - id: battery_chemistry
     type: enum
     required: true
-    enum_values: [li_ion, lifepo4, ni_mh, lead_acid, na_ion, other]
-    citation: { regulation: "EU 2023/1542", article: "Annex VI Part A(1)" }
-  - id: nominal_voltage_v
-    type: number
-    required: true
-    citation: { regulation: "EU 2023/1542", article: "Annex VI Part A(2)" }
-  - id: capacity_kwh
-    type: number
-    required: true
-    citation: { regulation: "EU 2023/1542", article: "Annex VI Part A(2)" }
-  - id: mass_kg
-    type: number
-    required: true
-    citation: { regulation: "EU 2023/1542", article: "Annex VI Part A(3)" }
-  - id: expected_lifetime_cycles
-    type: integer
-    required: true
-    citation: { regulation: "EU 2023/1542", article: "Art. 14(1)" }
-  - id: state_of_health_initial
-    type: number
-    required: true
-    validation: ">=0 and <=1"
-    citation: { regulation: "EU 2023/1542", article: "Art. 14(3)" }
-  - id: carbon_footprint_kgco2e_kwh
-    type: number
-    required: true
-    citation: { regulation: "EU 2023/1542", article: "Art. 7" }
-  - id: recycled_content_cobalt_pct
-    type: number
-    required: true
-    citation: { regulation: "EU 2023/1542", article: "Art. 8(1)" }
-  - id: recycled_content_lithium_pct
-    type: number
-    required: true
-    citation: { regulation: "EU 2023/1542", article: "Art. 8(1)" }
-  - id: recycled_content_nickel_pct
-    type: number
-    required: true
-    citation: { regulation: "EU 2023/1542", article: "Art. 8(1)" }
+    access_level: public
+    enum_values: [li_ion, lifepo4, ni_mh, ni_cd, lead_acid, na_ion, other]
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1b); Anexo VI Parte A(7)"
   - id: hazardous_substances
     type: repeater
     required: true
-    citation: { regulation: "EU 2023/1542", article: "Annex VI Part A(7)" }
-  - id: ce_marking_present
-    type: boolean
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1b); Anexo VI Parte A(8)"
+  - id: critical_raw_materials
+    type: repeater
     required: true
-    citation: { regulation: "EU 2023/1542", article: "Art. 19" }
-  - id: collection_recycling_info_url
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1b); Anexo VI Parte A(10)"
+
+  # (1c) huella de carbono
+  - id: carbon_footprint_kgco2e_per_kwh_total
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1c); Art. 7.1"
+  - id: carbon_footprint_study_url
     type: string
-    required: false
-    citation: { regulation: "EU 2023/1542", article: "Art. 74" }
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1c); Art. 7.1(g)"
+
+  # (1d) diligencia debida
+  - id: due_diligence_report_url
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1d); Art. 52.3"
+
+  # (1e) contenido reciclado
+  - id: recycled_content_cobalt_pct
+    type: number
+    required: true
+    access_level: public
+    validation: ">=0 and <=100"
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1e); Art. 8.1"
+  - id: recycled_content_lithium_pct
+    type: number
+    required: true
+    access_level: public
+    validation: ">=0 and <=100"
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1e); Art. 8.1"
+  - id: recycled_content_nickel_pct
+    type: number
+    required: true
+    access_level: public
+    validation: ">=0 and <=100"
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1e); Art. 8.1"
+  - id: recycled_content_lead_pct
+    type: number
+    required: true
+    access_level: public
+    validation: ">=0 and <=100"
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1e); Art. 8.1"
+
+  # (1f) contenido renovable
+  - id: renewable_content_pct
+    type: number
+    required: true
+    access_level: public
+    validation: ">=0 and <=100"
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1f)"
+
+  # (1g) capacidad asignada — Annex XIII literal: "amperios-hora"
+  - id: rated_capacity_ah
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1g)"
+
+  # (1h) tensiones mín/nominal/máx
+  - id: voltage_min_v
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1h)"
+  - id: voltage_nominal_v
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1h)"
+  - id: voltage_max_v
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1h)"
+
+  # (1i) capacidad de potencia original + límites
+  - id: original_power_capability_w
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1i); Art. 10; Anexo IV Parte B(4)"
+  - id: max_permitted_power_w
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1i)"
+
+  # (1j) vida útil prevista + prueba de referencia
+  - id: expected_lifetime_cycles
+    type: integer
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1j); Anexo IV Parte A(5)"
+  - id: cycle_life_reference_test
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1j)"
+
+  # (1k) límite de capacidad para agotamiento — solo EV
+  - id: capacity_exhaustion_threshold_pct
+    type: number
+    required: false   # condicional: solo aplicable a EV (validar en cross_validation)
+    access_level: public
+    validation: ">=0 and <=100"
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1k) — solo vehículos eléctricos"
+
+  # (1l) rango temperatura en reposo
+  - id: idle_temp_range_min_c
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1l)"
+  - id: idle_temp_range_max_c
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1l)"
+
+  # (1m) garantía
+  - id: warranty_period_months
+    type: integer
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1m)"
+
+  # (1n) eficiencia round-trip inicial + al 50% del ciclo
+  - id: roundtrip_efficiency_initial_pct
+    type: number
+    required: true
+    access_level: public
+    validation: ">=0 and <=100"
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1n); Art. 10; Anexo IV(6)"
+  - id: roundtrip_efficiency_at_50pct_lifecycle_pct
+    type: number
+    required: true
+    access_level: public
+    validation: ">=0 and <=100"
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1n); Anexo IV(6)"
+
+  # (1o) resistencia interna celda + pack
+  - id: internal_resistance_cell_ohm
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1o); Art. 10; Anexo IV Parte A(3)"
+  - id: internal_resistance_pack_ohm
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1o); Anexo IV Parte A(3)"
+
+  # (1p) C-rate de la prueba ciclo de vida
+  - id: cycle_life_test_c_rate
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1p)"
+
+  # (1q) marcado del Art. 13.3 y .4
+  - id: marking_requirements_url
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1q); Art. 13.3-4"
+
+  # (1r) Declaración UE de conformidad — NO es Art. 19 (CE marking), es Art. 18
+  - id: eu_declaration_of_conformity_url
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1r); Art. 18"
+
+  # (1s) info gestión de residuos (Art. 74.1.a-f consolidado en 2 URLs)
+  - id: waste_management_info_url
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1s); Art. 74.1.a-e"
+  - id: environmental_health_impact_info_url
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (1s); Art. 74.1.f"
+
+  # ═══ Annex XIII Sección 2 — INTERÉS LEGÍTIMO + COMISIÓN ═══
+
+  - id: composition_cathode
+    type: string
+    required: true
+    access_level: legitimate_interest
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (2a)"
+  - id: composition_anode
+    type: string
+    required: true
+    access_level: legitimate_interest
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (2a)"
+  - id: composition_electrolyte
+    type: string
+    required: true
+    access_level: legitimate_interest
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (2a)"
+  - id: component_part_numbers
+    type: repeater
+    required: true
+    access_level: legitimate_interest
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (2b)"
+  - id: spare_parts_sources_url
+    type: string
+    required: true
+    access_level: legitimate_interest
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (2b)"
+  - id: dismantling_info_url
+    type: string
+    required: true
+    access_level: legitimate_interest
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (2c)"
+  - id: safety_measures_url
+    type: string
+    required: true
+    access_level: legitimate_interest
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (2d); Art. 74.2"
+
+  # ═══ Annex XIII Sección 3 — SOLO AUTORIDADES Y COMISIÓN ═══
+
+  - id: conformity_test_reports_url
+    type: string
+    required: true
+    access_level: authorities_only
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Annex XIII (3); Anexo VIII Parte A(2h)"
 
 required_documents:
   - type: datasheet
@@ -1523,35 +2187,46 @@ required_documents:
     when: "battery_category in [industrial, ev]"
   - type: lca
     mandatory: true
-    when: "capacity_kwh > 2"
+    when: "rated_capacity_ah * voltage_nominal_v / 1000 > 2"   # >2 kWh
   - type: sds
     mandatory: false
 
 cross_validations:
-  - id: soh_in_range
-    rule: "state_of_health_initial >= 0 and state_of_health_initial <= 1"
-    message: "El SoH inicial debe estar entre 0 y 1"
+  - id: voltage_consistency
+    rule: "voltage_min_v <= voltage_nominal_v <= voltage_max_v"
+    message: "Las tensiones declaradas deben cumplir min ≤ nominal ≤ max (Annex XIII (1h))"
+  - id: idle_temp_consistency
+    rule: "idle_temp_range_min_c < idle_temp_range_max_c"
+    message: "El rango de temperatura en reposo debe tener mínimo menor que máximo (Annex XIII (1l))"
   - id: lifetime_min_cycles
     rule: "expected_lifetime_cycles >= 500"
-    message: "Por debajo de 500 ciclos, revisar Art. 14(1) del Reglamento 2023/1542"
+    message: "Por debajo de 500 ciclos, revisar Anexo IV Parte A(5) del Reglamento UE 2023/1542"
+  - id: capacity_exhaustion_required_for_ev
+    rule: "battery_category != 'ev' or capacity_exhaustion_threshold_pct != null"
+    message: "El límite de capacidad para agotamiento es obligatorio para baterías de vehículos eléctricos (Annex XIII (1k))"
 ```
 
-- [ ] **Paso 6.3 — Verificar tests verdes**
+- [ ] **Paso 6.3 — Verificar verde**
 
 ```bash
 cd backend
-uv run pytest tests/test_batteries_plugin.py -v
+PATH="$HOME/.local/bin:$PATH" uv run pytest tests/test_batteries_plugin.py -v
+PATH="$HOME/.local/bin:$PATH" uv run pytest -v   # full suite, expect 22 verde (13 anteriores + 9 nuevos)
+PATH="$HOME/.local/bin:$PATH" uv run ruff check .
+PATH="$HOME/.local/bin:$PATH" uv run ruff format --check .
 ```
 
-Esperado: 4 tests PASS. Si "≥15" falla, añade más campos obligatorios (revisa Annex VI para más opciones legítimas, no inventes datos).
+Esperado: 9 tests del plugin de baterías verdes. Suite completa 22/22.
 
-- [ ] **Paso 6.4 — Commit**
+- [ ] **⛔ Paso 6.4 — NO commit (política `feedback-commit-after-validation`)**
 
-```bash
-cd ..
-git add plugins/batteries.yaml backend/tests/test_batteries_plugin.py
-git commit -m "feat(plugins): plugin baterías UE 2023/1542 con ≥15 campos obligatorios (F1-03)"
+Dejar el working tree con cambios. Reportar status DONE con la lista de archivos creados. El controller commitea con mensaje:
+
 ```
+feat(plugins): plugin baterías conforme Annex XIII de Reg. UE 2023/1542 (F1-03)
+```
+
+tras dos APPROVED.
 
 ---
 
@@ -2150,7 +2825,7 @@ Marca con ✅/❌ cada criterio. Cualquier ❌ es bloqueante para cerrar F1.
 
 **F1-03:**
 - [ ] El loader rechaza con error claro YAMLs que no cumplen `_schema.yaml`.
-- [ ] `batteries.yaml` define ≥15 campos obligatorios con cita normativa cada uno.
+- [ ] `batteries.yaml` define ≥25 campos obligatorios con cita normativa cada uno, cubriendo las 3 secciones estáticas del Annex XIII del Reg. UE 2023/1542 (Sección 1 pública, Sección 2 interés legítimo, Sección 3 autoridades).
 - [ ] Tests cubren ≥1 plugin válido y ≥2 inválidos.
 
 **F1-04:**

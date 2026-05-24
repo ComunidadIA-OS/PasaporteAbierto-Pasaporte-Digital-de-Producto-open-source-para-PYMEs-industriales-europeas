@@ -1,0 +1,444 @@
+name: "batteries"
+regulation: "EU 2023/1542"
+version: "0.1.0"
+description: "Plugin del Reglamento UE 2023/1542 sobre pilas y baterías. v0.1.0 cubre las 3 secciones estáticas del Anexo XIII (Sección 1 pública, Sección 2 interés legítimo, Sección 3 autoridades) para baterías industriales >2 kWh y vehículos eléctricos. Sección 4 (datos individuales dinámicos) queda fuera del alcance del wizard — corresponde a telemetría operativa post-registro."
+identifier_scheme: "iso_iec_15459"   # Art. 77.3 de Reg. UE 2023/1542
+
+fields:
+  # ═══ Anexo XIII Sección 1 — INFO PÚBLICA DEL MODELO ═══
+
+  # (1a) → Anexo VI Parte A, expandido a sub-campos
+  - id: battery_passport_unique_id
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Art. 77.3 (identificador único conforme ISO/IEC 15459)"
+  - id: battery_serial_number
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Art. 38.6; Anexo IX"
+  - id: manufacturer_identifier
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo VI Parte A(1); Art. 38.7"
+  - id: battery_category
+    type: enum
+    required: true
+    access_level: public
+    enum_values: [lmt, industrial, ev, sli, stationary, portable]
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1a); Anexo VI Parte A(2); Art. 38.6"
+  - id: manufacturing_place
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1a); Anexo VI Parte A(3)"
+  - id: manufacturing_date
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1a); Anexo VI Parte A(4)"
+  - id: battery_mass_kg
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1a); Anexo VI Parte A(5)"
+  - id: extinguishing_agent
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1a); Anexo VI Parte A(9)"
+
+  # (1b) composición material
+  - id: battery_chemistry
+    type: enum
+    required: true
+    access_level: public
+    enum_values: [li_ion, lifepo4, ni_mh, ni_cd, lead_acid, na_ion, other]
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1b); Anexo VI Parte A(7)"
+  - id: hazardous_substances
+    type: repeater
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1b); Anexo VI Parte A(8)"
+  - id: critical_raw_materials
+    type: repeater
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1b); Anexo VI Parte A(10)"
+
+  # (1c) huella de carbono
+  - id: carbon_footprint_kgco2e_per_kwh
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1c); Art. 7.1"
+  - id: carbon_footprint_study_url
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1c); Art. 7.1(g)"
+
+  # (1d) diligencia debida
+  - id: due_diligence_report_url
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1d); Art. 52.3"
+
+  # (1e) contenido reciclado
+  - id: recycled_content_cobalt_pct
+    type: number
+    required: true
+    access_level: public
+    validation: ">=0 and <=100"
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1e); Art. 8.1"
+  - id: recycled_content_lithium_pct
+    type: number
+    required: true
+    access_level: public
+    validation: ">=0 and <=100"
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1e); Art. 8.1"
+  - id: recycled_content_nickel_pct
+    type: number
+    required: true
+    access_level: public
+    validation: ">=0 and <=100"
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1e); Art. 8.1"
+  - id: recycled_content_lead_pct
+    type: number
+    required: true
+    access_level: public
+    validation: ">=0 and <=100"
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1e); Art. 8.1"
+
+  # (1f) contenido renovable
+  - id: renewable_content_pct
+    type: number
+    required: true
+    access_level: public
+    validation: ">=0 and <=100"
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1f)"
+
+  # (1g) capacidad asignada (Ah) — Anexo XIII literal: "amperios-hora"
+  - id: rated_capacity_ah
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1g)"
+
+  # (1h) tensiones mín/nominal/máx
+  - id: voltage_min_v
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1h)"
+  - id: voltage_nominal_v
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1h)"
+  - id: voltage_max_v
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1h)"
+
+  # (1i) capacidad de potencia original + límites
+  - id: original_power_capability_w
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1i); Art. 10; Anexo IV Parte B(4)"
+  - id: max_permitted_power_w
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1i)"
+
+  # (1j) vida útil prevista + prueba de referencia
+  - id: expected_lifetime_cycles
+    type: integer
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1j); Anexo IV Parte A(5)"
+  - id: cycle_life_reference_test
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1j)"
+
+  # (1k) límite de capacidad para agotamiento — solo EV
+  - id: capacity_exhaustion_threshold_pct
+    type: number
+    required: false   # condicional: solo aplicable a EV (validar en cross_validation)
+    access_level: public
+    validation: ">=0 and <=100"
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1k) — solo vehículos eléctricos"
+
+  # (1l) rango temperatura en reposo
+  - id: idle_temperature_min_c
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1l)"
+  - id: idle_temperature_max_c
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1l)"
+
+  # (1m) garantía
+  - id: warranty_period_months
+    type: integer
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1m)"
+
+  # (1n) eficiencia round-trip inicial + al 50% del ciclo
+  - id: roundtrip_efficiency_initial_pct
+    type: number
+    required: true
+    access_level: public
+    validation: ">=0 and <=100"
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1n); Art. 10; Anexo IV(6)"
+  - id: roundtrip_efficiency_mid_lifecycle_pct
+    type: number
+    required: true
+    access_level: public
+    validation: ">=0 and <=100"
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1n); Anexo IV(6)"
+
+  # (1o) resistencia interna celda + pack
+  - id: internal_resistance_cell_ohm
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1o); Art. 10; Anexo IV Parte A(3)"
+  - id: internal_resistance_pack_ohm
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1o); Anexo IV Parte A(3)"
+
+  # (1p) C-rate de la prueba ciclo de vida
+  - id: cycle_life_test_c_rate
+    type: number
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1p)"
+
+  # (1q) marcado del Art. 13.3 y .4
+  - id: marking_requirements_url
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1q); Art. 13.3-4"
+
+  # (1r) Declaración UE de conformidad — NO es Art. 19 (CE marking), es Art. 18
+  - id: eu_declaration_of_conformity_url
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1r); Art. 18"
+
+  # (1s) info gestión de residuos (Art. 74.1.a-f consolidado en 2 URLs)
+  - id: waste_management_info_url
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1s); Art. 74.1.a-e"
+  - id: environmental_health_impact_info_url
+    type: string
+    required: true
+    access_level: public
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (1s); Art. 74.1.f"
+
+  # ═══ Anexo XIII Sección 2 — INTERÉS LEGÍTIMO + COMISIÓN ═══
+
+  - id: composition_cathode
+    type: string
+    required: true
+    access_level: legitimate_interest
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (2a)"
+  - id: composition_anode
+    type: string
+    required: true
+    access_level: legitimate_interest
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (2a)"
+  - id: composition_electrolyte
+    type: string
+    required: true
+    access_level: legitimate_interest
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (2a)"
+  - id: component_part_numbers
+    type: repeater
+    required: true
+    access_level: legitimate_interest
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (2b)"
+  - id: spare_parts_sources_url
+    type: string
+    required: true
+    access_level: legitimate_interest
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (2b)"
+  - id: dismantling_info_url
+    type: string
+    required: true
+    access_level: legitimate_interest
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (2c)"
+  - id: safety_measures_url
+    type: string
+    required: true
+    access_level: legitimate_interest
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (2d); Art. 74.2"
+
+  # ═══ Anexo XIII Sección 3 — SOLO AUTORIDADES Y COMISIÓN ═══
+
+  - id: conformity_test_reports_url
+    type: string
+    required: true
+    access_level: authorities_only
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Anexo XIII (3); Anexo VIII Parte A(2h)"
+
+  # ═══ Anexo XIII Sección 4 — INTENCIONALMENTE FUERA DEL ALCANCE ═══
+  #
+  # La Sección 4 (a-d) describe datos dinámicos por batería individual:
+  # parámetros de rendimiento (Art. 10.1) al introducirse en el mercado y en cambios
+  # de estado, SoH (Art. 14), estado del ciclo de vida ("original" / "adaptado" /
+  # "reutilizado" / "remanufacturado" / "residuo"), número de ciclos consumidos,
+  # accidentes, temperatura operativa y SoC. Son emitidos por el BMS y la operación,
+  # NO por el fabricante al registrar el modelo. Quedan fuera del alcance del wizard
+  # del hackathon y se modelarán en una fase futura como pipeline de telemetría
+  # separado del plugin. Ver `docs/ARCHITECTURE.md` §"Identificador único y niveles
+  # de acceso del DPP" y `docs/FUNCIONAL.md` §9.2.
+
+required_documents:
+  - type: datasheet
+    mandatory: true
+  - type: ce_declaration
+    mandatory: true
+  - type: certificate
+    mandatory: true
+    when: "battery_category in [industrial, ev]"
+  - type: lca
+    mandatory: true
+    when: "rated_capacity_ah * voltage_nominal_v / 1000 > 2"   # >2 kWh
+  - type: sds
+    mandatory: false
+
+# Las `rule` strings expresan la lógica en una sintaxis ilustrativa (operadores tipo
+# Python). El evaluador del Verificador (paso 6 del wizard) las interpretará en F3
+# o F6; hasta entonces sirven como contrato legible para el fabricante y para
+# tests que parseen su intención. El umbral de 500 ciclos en `lifetime_min_cycles`
+# es un piso conservador para industrial/EV (Anexo IV Parte A(5) lo modula por
+# subcategoría; el plugin futuro puede afinar por `battery_category`).
+cross_validations:
+  - id: voltage_consistency
+    rule: "voltage_min_v <= voltage_nominal_v <= voltage_max_v"
+    message: "Las tensiones declaradas deben cumplir min ≤ nominal ≤ max (Anexo XIII (1h))"
+  - id: idle_temp_consistency
+    rule: "idle_temperature_min_c < idle_temperature_max_c"
+    message: "El rango de temperatura en reposo debe tener mínimo menor que máximo (Anexo XIII (1l))"
+  - id: lifetime_min_cycles
+    rule: "expected_lifetime_cycles >= 500"
+    message: "Por debajo de 500 ciclos, revisar Anexo IV Parte A(5) del Reglamento UE 2023/1542"
+  - id: capacity_exhaustion_required_for_ev
+    rule: "battery_category != 'ev' or capacity_exhaustion_threshold_pct != null"
+    message: "El límite de capacidad para agotamiento es obligatorio para baterías de vehículos eléctricos (Anexo XIII (1k))"
