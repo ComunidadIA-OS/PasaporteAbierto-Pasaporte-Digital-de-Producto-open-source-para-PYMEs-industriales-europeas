@@ -2566,106 +2566,174 @@ feat(llm): wrapper LiteLLM con defensas OWASP y error tipado (F1-04)
 
 ---
 
-## Task 8 — Observabilidad: cliente Langfuse y decoradores
+## Task 8 — Observabilidad: integración Langfuse v2 `@observe` + LiteLLM auto-callback
+
+> **Rediseño 2026-05-24 tras revisión de documentación oficial de Langfuse:** este Task 8 abandona la implementación custom con `_make_tracer + try/except/finally` (descartada del working tree antes de commitear) en favor de la **mejor práctica oficial de Langfuse v2** descubierta en la documentación. Tres cambios sobre la versión anterior del plan:
+>
+> 1. **`@observe` decorator de `langfuse.decorators`** sustituye al `_make_tracer` custom. Auto-captura input/output/latency/errores, **auto-nesting via contextvars** (función decorada que llama a otra decorada genera spans hijo automáticamente), async-native, tolerante a fallos del cliente por diseño (las defensas D1 — trace failure no rompe app — y D2 — init failure no rompe import — son inherentes). Wrappers finos: `trace_classifier = observe(name="classifier")`, etc. ~10 LOC totales vs ~35 LOC custom anteriores.
+>
+> 2. **Auto-integración LiteLLM ↔ Langfuse** vía `litellm.success_callback = ["langfuse"]`. Cada llamada a `complete()` del wrapper T7 emite automáticamente un span `generation` a Langfuse con `model`, `tokens_in/out`, `cost`, `latency`, `prompt`, `response` — sin escribir código de tracing en T7. Cuando F3 use `@trace_classifier def classify(...)`, el span `classifier` se convierte en padre del span `generation` automático = árbol de observabilidad perfecto out-of-the-box.
+>
+> 3. **`langfuse_context.update_current_observation(metadata={...})`** para metadata custom (cita normativa, modelo, decisiones intermedias). Más explícito que la magia anterior de auto-extraer `cita_normativa` del output dict. Los callers F3/F4 lo invocarán explícitamente dentro de cada función decorada cuando aplique.
+>
+> **No upgrade a Langfuse v3/v4 server.** Mantenemos `langfuse==2.*` en pyproject y `langfuse/langfuse:2` en docker-compose. El upgrade a v3+ requeriría `clickhouse + redis + langfuse-worker` adicionales y migración de DB — fuera del alcance del hackathon, documentado como TODO para post-F1.
+>
+> **OWASP LLM02 / LLM07 (PII y prompts en trazas) sigue como TODO documentado.** `@observe` captura args/output crudos igual que nuestro `_make_tracer` hacía. La mitigación (`capture_input=False` por decorador, o redacción explícita) es una decisión de producto para F4 cuando los agentes reales empiecen a procesar PII.
 
 **Files:**
 - Create: `backend/src/app/observability/__init__.py`, `backend/src/app/observability/langfuse_client.py`, `backend/src/app/observability/decorators.py`
-- Modify: `backend/src/app/llm/router.py` (integración opcional con Langfuse)
 - Test: `backend/tests/test_decorators.py`
 
 **Alcance F1-05:** sólo infraestructura de observabilidad. Los agentes (Clasificador, Recolector, Chat) no existen aún — vienen en F2/F3/F4. Aquí dejamos los decoradores listos y los testeamos con funciones sintéticas. Las criterios 2 y 3 de F1-05 ("trazas en una corrida del wizard demo") se validarán al cierre de F2/F3.
 
-- [ ] **Paso 8.1 — Tests de los decoradores (rojo)**
+- [ ] **Paso 8.1 — Tests rojos (8 tests)**
 
 `backend/tests/test_decorators.py`:
 
 ```python
 from unittest.mock import MagicMock
 
+import litellm
+import pytest
+
 from app.observability.decorators import trace_chat, trace_classifier, trace_collector
+from app.observability.langfuse_client import configure_litellm_callbacks, get_client
 
 
-def test_trace_classifier_captures_inputs_and_outputs(monkeypatch):
-    fake_client = MagicMock()
-    monkeypatch.setattr("app.observability.decorators._client", fake_client)
+# ═══ Tests de wrappers semánticos sobre @observe ═══
+
+
+def test_trace_classifier_wraps_function_call():
+    """Aplicar @trace_classifier no rompe la función decorada."""
 
     @trace_classifier
     def fake_classify(description: str) -> dict:
-        return {
-            "sector": "batteries",
-            "confidence": 0.91,
-            "cita_normativa": "EU 2023/1542 Art. 13",
-        }
+        return {"sector": "batteries", "confidence": 0.91}
 
     result = fake_classify("batería para EV")
-    assert result["sector"] == "batteries"
-
-    # Debe haber abierto una span "classifier"
-    fake_client.trace.assert_called_once()
-    trace_kwargs = fake_client.trace.call_args.kwargs
-    assert trace_kwargs.get("name") == "classifier"
-    # Debe haber registrado la cita normativa cuando el output la incluye
-    assert "cita_normativa" in trace_kwargs.get("metadata", {})
+    assert result == {"sector": "batteries", "confidence": 0.91}
 
 
-def test_trace_collector_separates_spans(monkeypatch):
-    fake_client = MagicMock()
-    monkeypatch.setattr("app.observability.decorators._client", fake_client)
-
+def test_trace_collector_wraps_function_call():
     @trace_collector
     def fake_collect(pdf_path: str) -> dict:
         return {"fields_extracted": 12}
 
-    fake_collect("doc.pdf")
-    assert fake_client.trace.call_args.kwargs["name"] == "collector"
+    assert fake_collect("doc.pdf") == {"fields_extracted": 12}
 
 
-def test_trace_chat_includes_citation(monkeypatch):
-    fake_client = MagicMock()
-    monkeypatch.setattr("app.observability.decorators._client", fake_client)
-
+def test_trace_chat_wraps_function_call():
     @trace_chat
     def fake_chat(q: str) -> dict:
-        return {"answer": "...", "cita_normativa": "EU 2024/1781 Art. 7"}
+        return {"answer": "x", "cita_normativa": "EU 2024/1781 Art. 7"}
 
-    fake_chat("¿qué exige el ESPR?")
-    metadata = fake_client.trace.call_args.kwargs["metadata"]
-    assert metadata["cita_normativa"] == "EU 2024/1781 Art. 7"
+    assert fake_chat("¿qué exige el ESPR?") == {
+        "answer": "x",
+        "cita_normativa": "EU 2024/1781 Art. 7",
+    }
 
 
-def test_decorator_does_not_swallow_exceptions(monkeypatch):
-    fake_client = MagicMock()
-    monkeypatch.setattr("app.observability.decorators._client", fake_client)
+def test_decorators_propagate_exceptions():
+    """Las excepciones de la función decorada llegan al caller intactas
+    (no las traga ni las enmascara — solo @observe captura su propia
+    excepción interna si Langfuse falla).
+    """
 
     @trace_classifier
-    def broken(description: str) -> dict:
+    def broken(x):
         raise ValueError("boom")
-
-    import pytest
 
     with pytest.raises(ValueError, match="boom"):
         broken("x")
 
-    # La traza debe haberse abierto y cerrado con el error registrado
-    fake_client.trace.assert_called_once()
+
+# ═══ Tests de auto-integración LiteLLM ═══
+
+
+def test_configure_litellm_callbacks_enables_when_client_present(monkeypatch):
+    """Con cliente Langfuse activo, litellm.success_callback contiene 'langfuse'.
+    Habilita el auto-tracing de cada complete() del wrapper T7 sin código extra.
+    """
+    fake_client = MagicMock()
+    monkeypatch.setattr(litellm, "success_callback", [])
+    monkeypatch.setattr(litellm, "failure_callback", [])
+
+    configure_litellm_callbacks(fake_client)
+
+    assert "langfuse" in litellm.success_callback
+    assert "langfuse" in litellm.failure_callback
+
+
+def test_configure_litellm_callbacks_skips_when_no_client(monkeypatch):
+    """Sin cliente Langfuse, no se modifica el callback de LiteLLM
+    (la app arranca degradadamente sin telemetría).
+    """
+    monkeypatch.setattr(litellm, "success_callback", [])
+    monkeypatch.setattr(litellm, "failure_callback", [])
+
+    configure_litellm_callbacks(None)
+
+    assert "langfuse" not in litellm.success_callback
+    assert "langfuse" not in litellm.failure_callback
+
+
+def test_configure_litellm_callbacks_is_idempotent(monkeypatch):
+    """Llamar dos veces no duplica 'langfuse' en los callbacks
+    (la app puede invocarlo en boot y en re-config sin efectos extraños).
+    """
+    fake_client = MagicMock()
+    monkeypatch.setattr(litellm, "success_callback", [])
+    monkeypatch.setattr(litellm, "failure_callback", [])
+
+    configure_litellm_callbacks(fake_client)
+    configure_litellm_callbacks(fake_client)
+
+    assert litellm.success_callback.count("langfuse") == 1
+    assert litellm.failure_callback.count("langfuse") == 1
+
+
+# ═══ Tests de get_client (degradación graceful) ═══
+
+
+def test_get_client_returns_none_without_credentials(monkeypatch):
+    """Sin LANGFUSE_PUBLIC_KEY/SECRET_KEY, get_client devuelve None silenciosamente
+    para que la app arranque sin telemetría.
+    """
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "langfuse_public_key", "")
+    monkeypatch.setattr(settings, "langfuse_secret_key", "")
+    get_client.cache_clear()
+
+    assert get_client() is None
 ```
 
-- [ ] **Paso 8.2 — Verificar que falla**
+- [ ] **Paso 8.2 — Verificar rojo**
 
 ```bash
 cd backend
-uv run pytest tests/test_decorators.py -v
+PATH="$HOME/.local/bin:$PATH" uv run pytest tests/test_decorators.py -v
 ```
 
-Esperado: ImportError.
+Esperado: ImportError de `app.observability.decorators` o `app.observability.langfuse_client`.
 
-- [ ] **Paso 8.3 — Cliente Langfuse**
+- [ ] **Paso 8.3 — Cliente Langfuse + helper de callbacks LiteLLM**
 
 `backend/src/app/observability/__init__.py` vacío. `backend/src/app/observability/langfuse_client.py`:
 
 ```python
+"""Cliente Langfuse + auto-integración con LiteLLM.
+
+Mejor práctica oficial de Langfuse v2 verificada en docs (2026-05-24): el SDK
+inicializa el cliente HTTP de forma perezosa (no abre conexiones hasta emitir
+la primera traza), así que envolver `Langfuse(...)` en try/except no aporta
+valor — un fallo solo aparecería en la primera llamada real, no aquí. La
+degradación graceful viene de devolver `None` cuando faltan credenciales.
+"""
+
 from functools import lru_cache
 
+import litellm
 from langfuse import Langfuse
 
 from app.config import settings
@@ -2673,9 +2741,12 @@ from app.config import settings
 
 @lru_cache(maxsize=1)
 def get_client() -> Langfuse | None:
-    """Devuelve un cliente Langfuse si hay credenciales configuradas, si no None.
+    """Devuelve un cliente Langfuse si hay credenciales, si no None.
 
-    En desarrollo local sin claves, Langfuse no se invoca pero la app sigue.
+    Sin claves en `.env`, la app sigue arrancando sin telemetría. Los
+    decoradores `@observe` de Langfuse v2 son tolerantes a cliente=None
+    por diseño (se convierten en no-ops silenciosos), así que los callers
+    de los decoradores semánticos no necesitan verificar nada.
     """
     if not (settings.langfuse_public_key and settings.langfuse_secret_key):
         return None
@@ -2684,95 +2755,110 @@ def get_client() -> Langfuse | None:
         secret_key=settings.langfuse_secret_key,
         host=settings.langfuse_host,
     )
+
+
+def configure_litellm_callbacks(client: Langfuse | None) -> None:
+    """Habilita el auto-tracing de LiteLLM hacia Langfuse.
+
+    Con cliente Langfuse activo, cada llamada a `litellm.completion()` emite
+    automáticamente un span `generation` a Langfuse con `model`,
+    `tokens_in/out`, `cost`, `latency`, `prompt`, `response` — sin escribir
+    código de tracing en el wrapper T7. Combinado con `@trace_classifier`
+    en F3, el span del clasificador se convierte en padre del span
+    `generation` automático de LiteLLM = árbol de observabilidad perfecto.
+
+    Idempotente: llamadas repetidas no duplican "langfuse" en los callbacks.
+    Sin cliente, es no-op.
+    """
+    if client is None:
+        return
+    if "langfuse" not in litellm.success_callback:
+        litellm.success_callback.append("langfuse")
+    if "langfuse" not in litellm.failure_callback:
+        litellm.failure_callback.append("langfuse")
+
+
+# Side effect intencional al import: si hay credenciales en `.env`, los
+# callbacks de LiteLLM quedan configurados automáticamente. Se ejecuta en el
+# boot de la app FastAPI cuando los agentes IA (F3+) importen este módulo.
+# Para sobrescribir en tests, usar monkeypatch sobre
+# litellm.success_callback / litellm.failure_callback.
+configure_litellm_callbacks(get_client())
 ```
 
-- [ ] **Paso 8.4 — Decoradores**
+- [ ] **Paso 8.4 — Decoradores semánticos sobre `@observe`**
 
 `backend/src/app/observability/decorators.py`:
 
 ```python
-"""Decoradores que emiten trazas Langfuse por componente IA.
+"""Decoradores semánticos para los componentes IA del proyecto.
 
-Los decoradores son tolerantes a la ausencia de cliente Langfuse: si no hay
-credenciales en `.env`, ejecutan la función envuelta sin emitir traza.
+Wrappers finos sobre `langfuse.decorators.observe`, la mejor práctica
+oficial de Langfuse v2. `@observe` captura input/output/latency/errores
+automáticamente, soporta async, hace auto-nesting via contextvars (una
+función decorada que llame a otra decorada genera spans hijo
+automáticamente) y es tolerante a fallos del cliente Langfuse por diseño.
+
+Uso típico desde F3/F4:
+
+    @trace_classifier
+    def classify(description: str) -> dict:
+        result = complete(description, system="Eres clasificador...")
+        # Auto-traza `generation` gracias a litellm.success_callback=["langfuse"]
+        # configurado en langfuse_client.py al import.
+        parsed = parse_classifier_output(result.content)
+        from langfuse.decorators import langfuse_context
+        langfuse_context.update_current_observation(
+            metadata={"cita_normativa": parsed["cita"]}
+        )
+        return parsed
+
+Las defensas que existían en una versión anterior del plan (D1: trace
+failure no rompe app; D2: init failure no rompe import) son inherentes a
+`@observe` y al lazy init del SDK v2: el decorador captura sus propias
+excepciones internas y el cliente Langfuse se inicializa sólo al emitir
+la primera traza, no al import.
 """
 
-from collections.abc import Callable
-from functools import wraps
-from time import perf_counter
-from typing import Any
+from langfuse.decorators import observe
 
-from app.observability.langfuse_client import get_client
+trace_classifier = observe(name="classifier")
+trace_collector = observe(name="collector")
+trace_chat = observe(name="chat")
 
-_client = get_client()  # patcheable en tests
-
-
-def _make_tracer(component_name: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
-        @wraps(fn)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            client = _client
-            start = perf_counter()
-            metadata: dict[str, Any] = {}
-            error: Exception | None = None
-            output: Any = None
-            try:
-                output = fn(*args, **kwargs)
-                if isinstance(output, dict) and "cita_normativa" in output:
-                    metadata["cita_normativa"] = output["cita_normativa"]
-                return output
-            except Exception as exc:
-                error = exc
-                metadata["error"] = repr(exc)
-                raise
-            finally:
-                if client is not None:
-                    client.trace(
-                        name=component_name,
-                        input={"args": args, "kwargs": kwargs},
-                        output=None if error else output,
-                        metadata=metadata,
-                        latency_ms=int((perf_counter() - start) * 1000),
-                    )
-
-        return wrapper
-
-    return decorator
-
-
-trace_classifier = _make_tracer("classifier")
-trace_collector = _make_tracer("collector")
-trace_chat = _make_tracer("chat")
+__all__ = ["trace_chat", "trace_classifier", "trace_collector"]
 ```
 
-- [ ] **Paso 8.5 — Verificar tests verdes**
+- [ ] **Paso 8.5 — Verificar verde**
 
 ```bash
 cd backend
-uv run pytest tests/test_decorators.py -v
+PATH="$HOME/.local/bin:$PATH" uv run pytest tests/test_decorators.py -v
+PATH="$HOME/.local/bin:$PATH" uv run pytest -v   # full suite, expect 54 (46 + 8 nuevos)
+PATH="$HOME/.local/bin:$PATH" uv run ruff check .
+PATH="$HOME/.local/bin:$PATH" uv run ruff format --check .
 ```
 
-Esperado: 4 tests PASS.
+Esperado: 8 tests del decorador verdes. Suite completa 54/54. Ruff limpio.
 
-- [ ] **Paso 8.6 — Verificar Langfuse en docker compose**
+- [ ] **Paso 8.6 — Verificación visual de Langfuse en docker compose (diferido a T9)**
+
+Para validar end-to-end en T9 (cierre F1), el operador puede:
 
 ```bash
 docker compose up -d langfuse langfuse-db
 sleep 15
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3001
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3001   # 200 o 302
 ```
 
-Esperado: 200 o 302. Abre `http://localhost:3001` en el navegador, crea cuenta admin, copia las API keys generadas en la UI y rellena `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` en `.env`. Para el alcance de F1 esto se documenta en el README — no se automatiza.
+Abrir `http://localhost:3001`, crear cuenta admin, copiar API keys en `.env`. Documentado en el README de T9. En T8 no se ejecuta — solo se deja la infraestructura lista.
 
-```bash
-docker compose down
+- [ ] **⛔ Paso 8.7 — NO commit**
+
+Política `feedback-commit-after-validation`: el implementer subagent **no commitea**. Deja working tree con cambios. Controller commitea tras spec compliance review + code quality review APPROVED con mensaje:
+
 ```
-
-- [ ] **Paso 8.7 — Commit**
-
-```bash
-git add backend/src/app/observability backend/tests/test_decorators.py
-git commit -m "feat(observability): cliente Langfuse + decoradores classifier/collector/chat (F1-05)"
+feat(observability): @observe de langfuse v2 + auto-integración LiteLLM (F1-05)
 ```
 
 ---
