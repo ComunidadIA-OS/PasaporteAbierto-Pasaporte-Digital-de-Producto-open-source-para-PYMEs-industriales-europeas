@@ -2568,9 +2568,18 @@ feat(llm): wrapper LiteLLM con defensas OWASP y error tipado (F1-04)
 
 ## Task 8 — Observabilidad: cliente Langfuse y decoradores
 
+> **Endurecimiento defensivo del 2026-05-24:** este Task 8 incorpora 2 defensas de robustez desde el primer commit, siguiendo el patrón establecido en T7. **No cambian la API**, no añaden complejidad significativa, y previenen que un fallo de telemetría tire el wizard entero en producción.
+>
+> 1. **D1 — `client.trace()` failures no rompen la app.** El `finally` envuelve la llamada a `client.trace(...)` en `try/except Exception: pass`. Sin esta defensa, una caída de Langfuse o un timeout en su API enmascararía el `return` o la excepción original de la función decorada (porque en Python una excepción en `finally` cancela el flujo normal). En producción esto significaría que una caída de telemetría rompe el wizard entero.
+>
+> 2. **D2 — `get_client()` init failures no rompen el import.** El constructor de `Langfuse(...)` puede fallar si las claves están mal formadas, el host es inalcanzable al arranque, o la librería levanta excepción de configuración. Sin defensa, el `_client = get_client()` en `decorators.py` reventaría al importarse el módulo, brickeando el backend entero. Con `try: return Langfuse(...) except Exception: return None`, la app sigue funcionando degradadamente (sin telemetría) hasta que el operador arregle la configuración.
+>
+> Un test adicional (`test_trace_failure_does_not_break_function`) verifica la defensa D1; total 5 tests en lugar de 4.
+>
+> **OWASP LLM02 / LLM07 (PII y prompts en trazas) NO se cubren aquí.** Las trazas capturan `input={"args": args, "kwargs": kwargs}` y `output`, que pueden contener PII o system prompts. Es una decisión de producto (¿confiamos en el host Langfuse self-hosted? ¿lo queremos en red interna o público?) que merece su propia conversación. Se queda como TODO documentado para F2/F3 cuando los agentes reales empiecen a llamar al wrapper.
+
 **Files:**
 - Create: `backend/src/app/observability/__init__.py`, `backend/src/app/observability/langfuse_client.py`, `backend/src/app/observability/decorators.py`
-- Modify: `backend/src/app/llm/router.py` (integración opcional con Langfuse)
 - Test: `backend/tests/test_decorators.py`
 
 **Alcance F1-05:** sólo infraestructura de observabilidad. Los agentes (Clasificador, Recolector, Chat) no existen aún — vienen en F2/F3/F4. Aquí dejamos los decoradores listos y los testeamos con funciones sintéticas. Las criterios 2 y 3 de F1-05 ("trazas en una corrida del wizard demo") se validarán al cierre de F2/F3.
@@ -2648,6 +2657,29 @@ def test_decorator_does_not_swallow_exceptions(monkeypatch):
 
     # La traza debe haberse abierto y cerrado con el error registrado
     fake_client.trace.assert_called_once()
+
+
+# ═══ Defensa D1 ═══
+
+
+def test_trace_failure_does_not_break_function(monkeypatch):
+    """D1: si client.trace() levanta (Langfuse caído, timeout de red, etc.),
+    la función decorada debe seguir devolviendo su resultado normal. Un fallo
+    de telemetría NUNCA debe romper el flujo del wizard en producción.
+    """
+    fake_client = MagicMock()
+    fake_client.trace.side_effect = RuntimeError("Langfuse unreachable")
+    monkeypatch.setattr("app.observability.decorators._client", fake_client)
+
+    @trace_classifier
+    def fake_classify(description: str) -> dict:
+        return {"sector": "batteries", "confidence": 0.91}
+
+    # No debe levantar RuntimeError de Langfuse: el resultado del clasificador
+    # llega al caller intacto, y el fallo de telemetría se traga silenciosamente.
+    result = fake_classify("batería para EV")
+    assert result == {"sector": "batteries", "confidence": 0.91}
+    fake_client.trace.assert_called_once()
 ```
 
 - [ ] **Paso 8.2 — Verificar que falla**
@@ -2676,14 +2708,26 @@ def get_client() -> Langfuse | None:
     """Devuelve un cliente Langfuse si hay credenciales configuradas, si no None.
 
     En desarrollo local sin claves, Langfuse no se invoca pero la app sigue.
+
+    Defensa D2: el constructor de `Langfuse(...)` puede fallar (claves mal
+    formadas, host inalcanzable en boot, librería levanta excepción de
+    configuración). Si esto ocurriera durante el `import` del módulo
+    `decorators.py`, todo el backend quedaría brickeado. Tragamos cualquier
+    excepción aquí y devolvemos None para que la app siga arrancando
+    degradadamente (sin telemetría) hasta que el operador arregle la config.
     """
     if not (settings.langfuse_public_key and settings.langfuse_secret_key):
         return None
-    return Langfuse(
-        public_key=settings.langfuse_public_key,
-        secret_key=settings.langfuse_secret_key,
-        host=settings.langfuse_host,
-    )
+    try:
+        return Langfuse(
+            public_key=settings.langfuse_public_key,
+            secret_key=settings.langfuse_secret_key,
+            host=settings.langfuse_host,
+        )
+    except Exception:
+        # No queremos que un fallo de init de telemetría tire el backend.
+        # TODO: log a stderr/logging interno cuando el módulo logging esté integrado.
+        return None
 ```
 
 - [ ] **Paso 8.4 — Decoradores**
@@ -2727,13 +2771,25 @@ def _make_tracer(component_name: str) -> Callable[[Callable[..., Any]], Callable
                 raise
             finally:
                 if client is not None:
-                    client.trace(
-                        name=component_name,
-                        input={"args": args, "kwargs": kwargs},
-                        output=None if error else output,
-                        metadata=metadata,
-                        latency_ms=int((perf_counter() - start) * 1000),
-                    )
+                    # Defensa D1: si client.trace() levanta (Langfuse caído,
+                    # timeout, error de serialización), tragamos la excepción
+                    # silenciosamente. Sin esto, un fallo en finally cancelaría
+                    # el `return output` (o enmascararía la excepción original
+                    # de fn) — un fallo de telemetría romperia el flujo del
+                    # wizard. Telemetría es best-effort: si Langfuse no está
+                    # disponible, la app sigue funcionando.
+                    try:
+                        client.trace(
+                            name=component_name,
+                            input={"args": args, "kwargs": kwargs},
+                            output=None if error else output,
+                            metadata=metadata,
+                            latency_ms=int((perf_counter() - start) * 1000),
+                        )
+                    except Exception:
+                        # TODO: log a stderr cuando el módulo logging esté
+                        # integrado. Por ahora pass para no acoplar.
+                        pass
 
         return wrapper
 
@@ -2749,10 +2805,13 @@ trace_chat = _make_tracer("chat")
 
 ```bash
 cd backend
-uv run pytest tests/test_decorators.py -v
+PATH="$HOME/.local/bin:$PATH" uv run pytest tests/test_decorators.py -v
+PATH="$HOME/.local/bin:$PATH" uv run pytest -v   # full suite, expect 51 (46 + 5 nuevos)
+PATH="$HOME/.local/bin:$PATH" uv run ruff check .
+PATH="$HOME/.local/bin:$PATH" uv run ruff format --check .
 ```
 
-Esperado: 4 tests PASS.
+Esperado: 5 tests PASS (4 originales + 1 defensa D1). Suite completa 51/51.
 
 - [ ] **Paso 8.6 — Verificar Langfuse en docker compose**
 
@@ -2768,11 +2827,12 @@ Esperado: 200 o 302. Abre `http://localhost:3001` en el navegador, crea cuenta a
 docker compose down
 ```
 
-- [ ] **Paso 8.7 — Commit**
+- [ ] **⛔ Paso 8.7 — NO commit**
 
-```bash
-git add backend/src/app/observability backend/tests/test_decorators.py
-git commit -m "feat(observability): cliente Langfuse + decoradores classifier/collector/chat (F1-05)"
+Política `feedback-commit-after-validation`: el implementer subagent **no commitea**. Deja working tree con cambios. Controller commitea tras spec compliance review + code quality review APPROVED con mensaje:
+
+```
+feat(observability): cliente Langfuse + decoradores con defensas de robustez (F1-05)
 ```
 
 ---
