@@ -2230,23 +2230,34 @@ tras dos APPROVED.
 
 ---
 
-## Task 7 — Router de modelos con LiteLLM
+## Task 7 — Router de modelos con LiteLLM (con defensas OWASP LLM01/LLM07/LLM10)
+
+> **Endurecimiento OWASP del 2026-05-24:** este Task 7 incorpora 3 defensas del OWASP Top 10 for LLM Applications (versión 2025) desde el primer commit, para que los callers (F3 Clasificador, F3+F5 Recolector, F4 Chat) hereden una API segura por defecto y no haya que retrofittear seguridad en cada componente IA.
+>
+> 1. **LLM01 Prompt Injection** — la API expone parámetro `system: str | None` separado de `prompt: str`. Los callers nunca concatenan instrucción de sistema con input de usuario; LiteLLM y el modelo distinguen los roles `system` / `user` explícitamente.
+> 2. **LLM07 System Prompt Leakage** — el mensaje exterior de `LLMBackendError` es **sanitizado** y NO contiene el contenido del prompt ni el detalle de la excepción original de LiteLLM (que puede embeber el prompt en su `args[0]`). El detalle completo queda accesible vía `__cause__` (preservado por `raise ... from exc`) para depuración interna (Langfuse, traceback en logs).
+> 3. **LLM10 Unbounded Consumption** — defaults conservadores `timeout=30.0` segundos y `max_tokens=2000`. Mitiga (a) llamadas a Ollama que se cuelgan bloqueando workers, (b) respuestas infinitas con APIs comerciales que disparan coste. Los callers pueden overridear cuando la tarea lo justifique (Recolector con PDFs largos, etc.).
+>
+> Fuente: https://genai.owasp.org/llm-top-10/ (2025). Decisión y trazabilidad en el commit `docs(plan)` que precede a esta tarea.
 
 **Files:**
 - Create: `backend/src/app/llm/__init__.py`, `backend/src/app/llm/router.py`
 - Test: `backend/tests/test_llm_router.py`
 
-- [ ] **Paso 7.1 — Tests del wrapper (rojo)**
+- [ ] **Paso 7.1 — Tests del wrapper (rojos)**
 
-`backend/tests/test_llm_router.py`:
+`backend/tests/test_llm_router.py` — 8 tests: 5 funcionales + 3 OWASP.
 
 ```python
 from unittest.mock import patch
 
 import pytest
 
+from app.config import settings
 from app.llm.router import LLMBackendError, LLMResponse, complete, parse_backend
 
+
+# ═══ Tests funcionales ═══
 
 def test_parse_backend_ollama():
     backend = parse_backend("ollama:qwen2.5:14b")
@@ -2266,7 +2277,10 @@ def test_parse_backend_rejects_malformed():
 
 
 def test_complete_returns_typed_response(monkeypatch):
-    monkeypatch.setenv("MODEL_BACKEND", "ollama:qwen2.5:14b")
+    # NOTE: Settings es un singleton de pydantic-settings instanciado a nivel
+    # módulo; monkeypatch.setenv no afecta al singleton ya creado. Usar
+    # monkeypatch.setattr sobre el objeto settings, igual que test_health.py.
+    monkeypatch.setattr(settings, "model_backend", "ollama:qwen2.5:14b")
 
     fake_response = {
         "choices": [{"message": {"content": "respuesta del modelo"}}],
@@ -2287,26 +2301,115 @@ def test_complete_returns_typed_response(monkeypatch):
 
 
 def test_complete_raises_typed_error_on_backend_failure(monkeypatch):
-    monkeypatch.setenv("MODEL_BACKEND", "ollama:qwen2.5:14b")
+    monkeypatch.setattr(settings, "model_backend", "ollama:qwen2.5:14b")
 
     with patch("app.llm.router.litellm.completion", side_effect=RuntimeError("ollama down")):
         with pytest.raises(LLMBackendError) as exc:
             complete("hola")
 
-    assert "ollama" in str(exc.value).lower()
     assert exc.value.backend == "ollama:qwen2.5:14b"
+    # El backend identifica el origen del fallo; el detalle del exc original
+    # queda en __cause__ (preservado por raise ... from exc) — accesible para
+    # depuración interna pero no expuesto en el mensaje del error.
+    assert exc.value.__cause__ is not None
+
+
+# ═══ Defensas OWASP ═══
+
+def test_complete_passes_system_message_when_provided(monkeypatch):
+    """OWASP LLM01 (Prompt Injection): separar system de user evita injection
+    por concatenación. El parámetro `system=` debe traducirse en un mensaje
+    con role=system distinto del role=user.
+    """
+    monkeypatch.setattr(settings, "model_backend", "ollama:qwen2.5:14b")
+
+    fake_response = {
+        "choices": [{"message": {"content": "ok"}}],
+        "usage": {"prompt_tokens": 5, "completion_tokens": 1, "total_tokens": 6},
+        "model": "ollama/qwen2.5:14b",
+    }
+
+    with patch("app.llm.router.litellm.completion", return_value=fake_response) as mocked:
+        complete("¿qué es ESPR?", system="Eres asistente normativo. Cita siempre.")
+
+    call_kwargs = mocked.call_args.kwargs
+    messages = call_kwargs["messages"]
+    assert messages[0] == {"role": "system", "content": "Eres asistente normativo. Cita siempre."}
+    assert messages[1] == {"role": "user", "content": "¿qué es ESPR?"}
+
+
+def test_complete_passes_timeout_and_max_tokens(monkeypatch):
+    """OWASP LLM10 (Unbounded Consumption): los overrides explícitos de
+    timeout y max_tokens deben propagarse a litellm.completion.
+    """
+    monkeypatch.setattr(settings, "model_backend", "ollama:qwen2.5:14b")
+
+    fake_response = {
+        "choices": [{"message": {"content": "ok"}}],
+        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        "model": "ollama/qwen2.5:14b",
+    }
+
+    with patch("app.llm.router.litellm.completion", return_value=fake_response) as mocked:
+        complete("test", timeout=10.0, max_tokens=500)
+
+    call_kwargs = mocked.call_args.kwargs
+    assert call_kwargs["timeout"] == 10.0
+    assert call_kwargs["max_tokens"] == 500
+
+
+def test_complete_uses_safe_defaults_for_timeout_and_max_tokens(monkeypatch):
+    """OWASP LLM10: si no se pasan, defaults conservadores (timeout=30.0,
+    max_tokens=2000) — mitigan DoS por llamadas que se cuelgan y respuestas
+    sin tope con APIs comerciales.
+    """
+    monkeypatch.setattr(settings, "model_backend", "ollama:qwen2.5:14b")
+
+    fake_response = {
+        "choices": [{"message": {"content": "ok"}}],
+        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        "model": "ollama/qwen2.5:14b",
+    }
+
+    with patch("app.llm.router.litellm.completion", return_value=fake_response) as mocked:
+        complete("test")
+
+    call_kwargs = mocked.call_args.kwargs
+    assert call_kwargs["timeout"] == 30.0
+    assert call_kwargs["max_tokens"] == 2000
+
+
+def test_llm_backend_error_does_not_echo_prompt(monkeypatch):
+    """OWASP LLM07 (System Prompt Leakage): el mensaje exterior de
+    LLMBackendError NO debe contener el prompt ni el mensaje crudo de la
+    excepción original de LiteLLM (que algunos backends populan con eco del
+    request body). El detalle queda accesible via __cause__ para depuración.
+    """
+    monkeypatch.setattr(settings, "model_backend", "ollama:qwen2.5:14b")
+
+    secret_prompt = "SYSTEM_PROMPT_SECRETO_QUE_NO_DEBE_FILTRARSE"
+    backend_exception_with_echo = RuntimeError(f"Bad request: messages=[{secret_prompt}]")
+
+    with patch("app.llm.router.litellm.completion", side_effect=backend_exception_with_echo):
+        with pytest.raises(LLMBackendError) as exc:
+            complete(secret_prompt)
+
+    # El mensaje exterior identifica el backend pero NO contiene el prompt
+    assert secret_prompt not in str(exc.value)
+    # El detalle completo sigue accesible via __cause__ para Langfuse/tracebacks
+    assert exc.value.__cause__ is backend_exception_with_echo
 ```
 
 - [ ] **Paso 7.2 — Verificar que falla**
 
 ```bash
 cd backend
-uv run pytest tests/test_llm_router.py -v
+PATH="$HOME/.local/bin:$PATH" uv run pytest tests/test_llm_router.py -v
 ```
 
 Esperado: ImportError de `app.llm.router`.
 
-- [ ] **Paso 7.3 — Implementar el router**
+- [ ] **Paso 7.3 — Implementar el router con defensas OWASP**
 
 `backend/src/app/llm/__init__.py` vacío. `backend/src/app/llm/router.py`:
 
@@ -2335,7 +2438,14 @@ class LLMResponse:
 
 
 class LLMBackendError(RuntimeError):
-    """Fallo del backend de LLM. Llevará `backend` y mensaje legible."""
+    """Fallo del backend de LLM con mensaje sanitizado.
+
+    OWASP LLM07 (System Prompt Leakage): el mensaje exterior identifica el
+    backend (`self.backend`) pero NO contiene el contenido del prompt ni el
+    mensaje crudo de la excepción original. El detalle completo queda
+    accesible via `__cause__` (preservado por `raise ... from exc`) para
+    depuración en entorno controlado (Langfuse, tracebacks).
+    """
 
     def __init__(self, message: str, *, backend: str) -> None:
         super().__init__(message)
@@ -2368,22 +2478,54 @@ def _to_litellm_model(parsed: ParsedBackend) -> str:
     return f"{parsed.provider}/{parsed.model}"
 
 
-def complete(prompt: str, **opts) -> LLMResponse:
-    """Wrapper único para todo el sistema. Lee MODEL_BACKEND del entorno.
+# Defaults OWASP LLM10 (Unbounded Consumption) — conservadores; los callers
+# pueden overridear cuando la tarea lo justifique (Recolector con PDFs largos,
+# Clasificador con corpus extenso, etc.).
+DEFAULT_TIMEOUT_SECONDS = 30.0
+DEFAULT_MAX_TOKENS = 2000
 
-    Lanza LLMBackendError tipado si el backend falla.
+
+def complete(
+    prompt: str,
+    *,
+    system: str | None = None,
+    timeout: float = DEFAULT_TIMEOUT_SECONDS,
+    max_tokens: int | None = DEFAULT_MAX_TOKENS,
+    **opts,
+) -> LLMResponse:
+    """Wrapper único de LLM para todo el sistema. Lee MODEL_BACKEND del entorno.
+
+    OWASP LLM01 (Prompt Injection): `system` y `prompt` van como mensajes
+    separados (role=system y role=user) a litellm; nunca se concatenan en una
+    sola cadena. Los callers deben usar `system=` para instrucciones del
+    sistema; `prompt` queda exclusivamente para input de usuario.
+
+    OWASP LLM10 (Unbounded Consumption): defaults conservadores de timeout y
+    max_tokens. Override explícito por argumento cuando la tarea lo justifique.
+
+    OWASP LLM07 (System Prompt Leakage): si el backend falla, levanta
+    LLMBackendError con mensaje genérico (NO contiene el prompt ni el detalle
+    de la excepción original). El detalle queda en `__cause__` para
+    depuración interna.
     """
     parsed = parse_backend(settings.model_backend)
     model_id = _to_litellm_model(parsed)
+    messages: list[dict] = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
     try:
         response = litellm.completion(
             model=model_id,
-            messages=[{"role": "user", "content": prompt}],
+            messages=messages,
+            timeout=timeout,
+            max_tokens=max_tokens,
             **opts,
         )
-    except Exception as exc:  # litellm levanta varios tipos
+    except Exception as exc:
+        # OWASP LLM07: mensaje sanitizado al exterior; detalle en __cause__.
         raise LLMBackendError(
-            f"Backend {parsed.raw} ({parsed.provider}) falló: {exc}",
+            f"Backend {parsed.raw} ({parsed.provider}) falló — ver __cause__ para detalle.",
             backend=parsed.raw,
         ) from exc
 
@@ -2402,28 +2544,24 @@ def complete(prompt: str, **opts) -> LLMResponse:
 
 ```bash
 cd backend
-uv run pytest tests/test_llm_router.py -v
+PATH="$HOME/.local/bin:$PATH" uv run pytest tests/test_llm_router.py -v
+PATH="$HOME/.local/bin:$PATH" uv run pytest -v   # full suite, expect 38 (30 + 8 nuevos)
+PATH="$HOME/.local/bin:$PATH" uv run ruff check .
+PATH="$HOME/.local/bin:$PATH" uv run ruff format --check .
 ```
 
-Esperado: 5 tests PASS.
+Esperado: 8 tests del router verdes. Suite completa 38/38. Ruff limpio.
 
-- [ ] **Paso 7.5 — Health endpoint refleja el backend real (verificación)**
+- [ ] **Paso 7.5 — Verificación de no regresión del health endpoint**
 
-El endpoint `/api/v1/health` ya devuelve `backend` desde `settings.model_backend`. Verifica que cambiar `MODEL_BACKEND` se propaga:
+`backend/tests/test_health.py` ya tiene 2 tests (instalados en T1) que verifican que `/api/v1/health` refleja `settings.model_backend`. La suite completa debe seguir verde.
 
-```bash
-cd backend
-MODEL_BACKEND=anthropic:claude-opus-4 uv run pytest tests/test_health.py -v
+- [ ] **⛔ Paso 7.6 — NO commit**
+
+Política `feedback-commit-after-validation`: el implementer subagent **no commitea**. Deja working tree con cambios. Controller commitea tras spec compliance review + code quality review APPROVED con mensaje:
+
 ```
-
-Si el segundo test de health falla, ajusta para que `Settings` se relea por test (`importlib.reload`).
-
-- [ ] **Paso 7.6 — Commit**
-
-```bash
-cd ..
-git add backend/src/app/llm backend/tests/test_llm_router.py
-git commit -m "feat(llm): wrapper LiteLLM con MODEL_BACKEND y error tipado (F1-04)"
+feat(llm): wrapper LiteLLM con defensas OWASP y error tipado (F1-04)
 ```
 
 ---
