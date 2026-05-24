@@ -2,6 +2,8 @@ from datetime import datetime
 
 from sqlmodel import JSON, Column, Field, SQLModel
 
+from app.time_utils import utcnow
+
 
 class WizardSession(SQLModel, table=True):
     __tablename__ = "sessions"
@@ -11,5 +13,5 @@ class WizardSession(SQLModel, table=True):
     sector: str | None = None
     plugin: str | None = None
     classification_confidence: float | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow, index=True)
+    updated_at: datetime = Field(default_factory=utcnow)
