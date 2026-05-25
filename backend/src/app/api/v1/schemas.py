@@ -42,7 +42,11 @@ class Citation(_Base):
 
 
 class CreateSessionRequest(_Base):
-    description: str = Field(min_length=20, description="Paso 1 — texto libre del fabricante")
+    description: str = Field(
+        min_length=20,
+        max_length=2000,
+        description="Paso 1 — texto libre del fabricante",
+    )
 
 
 class CreateSessionResponse(_Base):
@@ -76,7 +80,7 @@ class UpdateProgressRequest(_Base):
     """
 
     step: int | None = Field(default=None, ge=1, le=7)
-    description: str | None = Field(default=None, min_length=20)
+    description: str | None = Field(default=None, min_length=20, max_length=2000)
     bom: dict[str, Any] | None = None
 
 
