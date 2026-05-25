@@ -12,10 +12,9 @@ Política de severidad:
   - `cross_validation` fallida → `warnings` → NO bloquea publicación (el
     plugin puede marcarlas como críticas haciéndolas required en su campo).
 
-Las reglas de `cross_validations` se evalúan con `eval()` en un namespace
-restringido: `__builtins__` vacío y solo las claves del BOM como variables.
-El YAML del plugin es código de configuración del repo, no input externo,
-así que la superficie de ataque está acotada.
+Las reglas de `cross_validations` se evalúan con el evaluador AST seguro
+de `app.plugins.conditions` (sin `eval()`). El YAML del plugin es código
+de configuración del repo, no input externo.
 """
 
 from __future__ import annotations
@@ -80,12 +79,17 @@ def _deserialize_value(value: str, field_def: PluginField) -> Any:
             return parsed if isinstance(parsed, list) else None
         except json.JSONDecodeError:
             return None
+    # enum: validar que el valor está en la lista permitida
+    if field_def.type == "enum":
+        allowed = field_def.enum_values or []
+        if allowed and value not in allowed:
+            return None
     # string, enum → string tal cual
     return value
 
 
 def _eval_rule(rule: str, bom: dict[str, Any]) -> bool | None:
-    """Evalúa una expresión del YAML contra el BOM.
+    """Evalúa una expresión del YAML contra el BOM usando AST seguro.
 
     Devuelve:
       - True si la regla se cumple
@@ -93,22 +97,28 @@ def _eval_rule(rule: str, bom: dict[str, Any]) -> bool | None:
       - None si no se puede evaluar (campos faltantes, error de sintaxis)
         → tratamos como "indeterminado", no se reporta como warning.
 
-    Seguridad: `__builtins__` vacío + namespace = BOM bloquean cualquier
-    acceso al runtime Python. Los plugins son código de configuración del
-    repo (no input externo), así que evaluar expresiones controladas es
-    seguro.
+    Usa el evaluador AST de ``app.plugins.conditions`` en lugar de
+    ``eval()`` para evitar ejecución arbitraria de código.
     """
     try:
-        return bool(eval(rule, {"__builtins__": {}}, bom))
-    except (NameError, KeyError, TypeError, SyntaxError):
+        return bool(_safe_eval(rule, bom))
+    except Exception:
         return None
+
+
+def _safe_eval(expression: str, bom: dict[str, Any]) -> Any:
+    """Evalúa una expresión Python simple de forma segura vía AST."""
+    import ast as _ast
+
+    from app.plugins.conditions import _eval_node
+
+    tree = _ast.parse(expression, mode="eval")
+    return _eval_node(tree.body, bom)
 
 
 def verify_session(db: Session, session: WizardSession, plugin: Plugin) -> VerifyResult:
     """Valida la sesión contra el schema del plugin. Función pura sobre la BD."""
-    rows = db.exec(
-        select(ExtractedField).where(ExtractedField.session_id == session.id)
-    ).all()
+    rows = db.exec(select(ExtractedField).where(ExtractedField.session_id == session.id)).all()
     by_id: dict[str, ExtractedField] = {r.field_id: r for r in rows}
 
     missing: list[MissingFieldInfo] = []

@@ -32,7 +32,13 @@ DbSession = Annotated[Session, Depends(get_session)]
 
 
 def _resolve_by_slug(db: Session, slug: str) -> PublishedDPP:
-    """Encuentra el DPP cuyo `session_id` empieza por `slug`."""
+    """Encuentra el DPP cuyo `session_id` empieza por `slug`.
+
+    Valida que el slug tenga exactamente 8 caracteres (primer segmento
+    del UUID4) para evitar colisiones con prefijos cortos.
+    """
+    if len(slug) != 8 or not slug.isalnum():
+        raise HTTPException(status_code=404, detail="dpp_not_found")
     pdpp = db.exec(
         select(PublishedDPP).where(PublishedDPP.session_id.startswith(slug))  # type: ignore[attr-defined]
     ).first()
@@ -99,7 +105,9 @@ def get_public_dpp(
     accept: str = Header(default="application/ld+json"),
 ):
     pdpp = _resolve_by_slug(db, slug)
-    if "text/html" in accept:
+    # Parsear Accept correctamente: split por comas y comparar media types
+    accepted_types = [t.split(";")[0].strip() for t in accept.split(",")]
+    if "text/html" in accepted_types:
         return HTMLResponse(_render_html(pdpp))
     # Default: JSON-LD CIRPASS-2 Core con firma adjunta como header extra.
     return JSONResponse(
