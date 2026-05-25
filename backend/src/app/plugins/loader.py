@@ -39,6 +39,7 @@ class RequiredDocument(BaseModel):
     type: DocType
     mandatory: bool
     when: str | None = None
+    citation: Citation | None = None
 
 
 class CrossValidation(BaseModel):

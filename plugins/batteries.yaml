@@ -412,14 +412,28 @@ fields:
 required_documents:
   - type: datasheet
     mandatory: true
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Art. 38 (información mínima del producto); Anexo VIII"
   - type: ce_declaration
     mandatory: true
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Art. 18 (Declaración UE de conformidad); Anexo IX"
   - type: certificate
     mandatory: true
     when: "battery_category in [industrial, ev]"
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Art. 41 (procedimientos de evaluación de la conformidad)"
   - type: lca
     mandatory: true
     when: "rated_capacity_ah * voltage_nominal_v / 1000 > 2"   # >2 kWh
+    citation:
+      regulation: "EU 2023/1542"
+      article: "Art. 7 (huella de carbono); Anexo II"
+  # SDS sigue el Reglamento REACH (UE 1907/2006 Art. 31), no el 2023/1542 — sin
+  # citation aquí: la API devuelve citation=null para este documento.
   - type: sds
     mandatory: false
 

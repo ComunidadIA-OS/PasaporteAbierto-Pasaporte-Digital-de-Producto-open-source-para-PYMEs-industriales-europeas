@@ -42,6 +42,13 @@ required_documents:
     type: { type: string, enum: [datasheet, certificate, lca, sds, ce_declaration] }
     mandatory: { type: boolean }
     when: { type: string, optional: true }  # condición sobre campos del BOM
+    citation:
+      optional: true
+      description: "Cita normativa del documento (opcional; si falta, list_documents devuelve citation=null)."
+      required: [regulation, article]
+      properties:
+        regulation: { type: string }
+        article: { type: string }
 
 cross_validations:
   description: "Reglas adicionales que cruzan campos"
