@@ -1,8 +1,6 @@
-"""Endpoint del chat lateral (PR-0 stub).
+"""Endpoint del chat lateral (F3-04).
 
-Persona B sustituye este stub en F3-04. Invariantes a respetar al
-reemplazarlo (ver CLAUDE.md):
-
+Invariantes (CLAUDE.md):
   - El chat NUNCA escribe en el estado del wizard.
   - Si el RAG no devuelve fragmentos relevantes, la respuesta canónica es
     "No tengo información suficiente para responder con base normativa"
@@ -11,37 +9,62 @@ reemplazarlo (ver CLAUDE.md):
     `Citation` poblado.
 """
 
-from fastapi import APIRouter, Response
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends
+from sqlmodel import Session, select
 
 from app.api.v1.schemas import ChatFragment, ChatRequest, ChatResponse, Citation
+from app.chat import answer as chat_answer
+from app.db.session import get_session
+from app.models.sessions import WizardSession
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
+DbSession = Annotated[Session, Depends(get_session)]
+
 
 @router.post("", response_model=ChatResponse)
-def chat_stub(body: ChatRequest, response: Response) -> ChatResponse:
-    """STUB de F3-04. Devuelve respuesta fija con cita normativa simulada."""
-    response.headers["X-Stub"] = "true"
+def chat(body: ChatRequest, db: DbSession) -> ChatResponse:
+    """Chat lateral con cita normativa obligatoria (F3-04).
+
+    Cada respuesta exitosa incluye cita. Si el RAG no encuentra fragmentos
+    relevantes, devuelve la negativa canónica con citation=None.
+    El chat nunca escribe en el estado del wizard.
+    """
+    # Obtener contexto del wizard (paso actual, sector, etc.)
+    context: dict[str, Any] | None = None
+    row = db.exec(select(WizardSession).where(WizardSession.id == body.session_id)).first()
+    if row:
+        progress = row.progress or {}
+        context = {
+            "step": progress.get("step", 1),
+            "sector": row.sector,
+            "plugin": row.plugin,
+        }
+
+    # Determinar idioma del contexto
+    idioma = "es"  # Default; podría inferirse de la sesión
+
+    result = chat_answer(body.message, session_context=context, idioma=idioma)
+
+    citation = None
+    if result.citation_regulation:
+        citation = Citation(
+            regulation=result.citation_regulation,
+            article=result.citation_article or "",
+            url=result.citation_url,
+        )
+
     return ChatResponse(
-        answer=(
-            "Para baterías industriales recargables, el Reglamento UE 2023/1542 "
-            "exige declarar la huella de carbono, el contenido reciclado y la "
-            "capacidad nominal, entre otros. [Reglamento UE 2023/1542, Art. 7]"
-        ),
-        citation=Citation(
-            regulation="Reglamento UE 2023/1542",
-            article="Art. 7",
-            url=None,
-        ),
+        answer=result.answer,
+        citation=citation,
         fragments=[
             ChatFragment(
-                cita="Reglamento UE 2023/1542, Art. 7",
-                texto=(
-                    "Los productores facilitarán a los consumidores y a otros "
-                    "usuarios finales información clara, fiable y pertinente sobre "
-                    "las baterías…"
-                ),
-                score=0.82,
-            ),
+                cita=f.cita,
+                texto=f.texto[:500],
+                score=f.score,
+            )
+            for f in result.fragments[:3]
         ],
     )
