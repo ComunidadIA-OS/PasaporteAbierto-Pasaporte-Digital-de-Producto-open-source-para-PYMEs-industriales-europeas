@@ -17,14 +17,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 
-import {
-  ApiError,
-  api,
-  type Citation,
-  type ClassifyResponse,
-  type PluginSummary,
-  type SessionState,
-} from "@/app/lib/api";
+import { ApiError, api, type Citation, type PluginSummary, type SessionState } from "@/app/lib/api";
 
 const CONFIDENCE_THRESHOLD = 0.7;
 
@@ -36,9 +29,6 @@ export function Step2Sector({
   onSessionChange: (s: SessionState) => void;
 }) {
   const [pluginCatalog, setPluginCatalog] = useState<PluginSummary[]>([]);
-  const [lastCitation, setLastCitation] = useState<Citation | null>(
-    session.classification_citation,
-  );
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [overrideOpen, setOverrideOpen] = useState(false);
@@ -54,12 +44,18 @@ export function Step2Sector({
   const requiresReview =
     !hasSector || (session.classification_confidence ?? 0) < CONFIDENCE_THRESHOLD;
 
+  // La cita viene siempre de session.classification_citation: el backend la
+  // persiste en sessions.progress y _to_session_state la rehidrata. No
+  // mantenemos un state local porque se desincronizaría al recargar la página
+  // (la cita persistida llegaría como prop pero el useState ya estaría fijado
+  // al primer valor del render inicial).
+  const citation: Citation | null = session.classification_citation;
+
   function runClassify() {
     setError(null);
     startTransition(async () => {
       try {
-        const r: ClassifyResponse = await api.classify(session.session_id);
-        setLastCitation(r.citation);
+        await api.classify(session.session_id);
         const next = await api.getSession(session.session_id);
         onSessionChange(next);
       } catch (err) {
@@ -74,19 +70,18 @@ export function Step2Sector({
     setError(null);
     startTransition(async () => {
       try {
+        // El override en backend borra progress["classification_citation"]
+        // (no hay cita normativa que respalde una decisión humana del fabricante).
         const updated = await api.overrideClassification(session.session_id, {
           sector,
           plugin,
           reason,
         });
         setOverrideOpen(false);
-        setLastCitation(null); // override no garantiza cita previa
         onSessionChange(updated);
       } catch (err) {
         setError(
-          err instanceof ApiError
-            ? `Error ${err.status} al guardar override.`
-            : "Override falló.",
+          err instanceof ApiError ? `Error ${err.status} al guardar override.` : "Override falló.",
         );
       }
     });
@@ -107,7 +102,7 @@ export function Step2Sector({
         <ClassificationBadge
           sector={session.sector!}
           confidence={session.classification_confidence ?? 0}
-          citation={lastCitation}
+          citation={citation}
         />
       )}
 
@@ -153,19 +148,13 @@ export function Step2Sector({
   );
 }
 
-function NoClassification({
-  onClassify,
-  pending,
-}: {
-  onClassify: () => void;
-  pending: boolean;
-}) {
+function NoClassification({ onClassify, pending }: { onClassify: () => void; pending: boolean }) {
   return (
     <div className="rounded-lg border border-blue-200 bg-blue-50 p-6">
       <h2 className="text-lg font-semibold text-blue-900">Clasificar el producto</h2>
       <p className="mt-1 text-sm text-blue-800">
-        El sistema identificará el sector ESPR aplicable a partir de la descripción
-        del paso 1 y citará el reglamento que lo justifica.
+        El sistema identificará el sector ESPR aplicable a partir de la descripción del paso 1 y
+        citará el reglamento que lo justifica.
       </p>
       <button
         type="button"
@@ -231,8 +220,8 @@ function ReviewWarning() {
       role="alert"
       className="rounded-md border-l-4 border-amber-500 bg-amber-50 p-4 text-sm text-amber-900"
     >
-      <strong className="font-semibold">Revisa la clasificación.</strong> La confianza es
-      inferior al 70%. Confirma manualmente que el sector es correcto antes de continuar.
+      <strong className="font-semibold">Revisa la clasificación.</strong> La confianza es inferior
+      al 70%. Confirma manualmente que el sector es correcto antes de continuar.
     </div>
   );
 }
