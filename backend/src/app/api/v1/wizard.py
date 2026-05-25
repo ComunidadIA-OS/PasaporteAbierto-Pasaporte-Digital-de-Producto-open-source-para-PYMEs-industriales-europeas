@@ -1,15 +1,25 @@
-"""Endpoints del wizard de 7 pasos (PR-0).
+"""Router del wizard de 7 pasos.
 
-Estado:
-  - POST /sessions y GET /sessions/{id} están **implementados** contra SQLite
-    (persistencia real). Son la mínima base que F4-01 amplía.
-  - Los demás endpoints son **stubs deterministas** marcados con header
-    `X-Stub: true`. Devuelven datos fijos representativos para que el
-    frontend pueda maquetar y B/A puedan trabajar sin esperar al otro.
+Todos los endpoints están implementados (F3-F5). Endpoints expuestos:
 
-Cada stub queda etiquetado con el ticket que lo reemplazará. Sustituir el
-stub por la implementación real **no debe** cambiar el schema de salida
-(ver `schemas.py`).
+  - POST   /sessions                                   (paso 1, crear sesión)
+  - GET    /sessions/{id}                              (reanudar sesión)
+  - PATCH  /sessions/{id}                              (autosave de progreso)
+  - POST   /sessions/{id}/classify                     (paso 2, Clasificador)
+  - POST   /sessions/{id}/classify/override            (override manual)
+  - PUT    /sessions/{id}/bom                          (paso 3, BOM)
+  - GET    /sessions/{id}/documents                    (paso 4, listar requeridos)
+  - POST   /sessions/{id}/documents                    (paso 4, subir PDF)
+  - GET    /sessions/{id}/documents/{doc_id}/excerpt   (fragmento PDF fuente)
+  - POST   /sessions/{id}/extract                      (paso 5, Recolector SSE)
+  - GET    /sessions/{id}/verify                       (paso 6, Verificador)
+  - POST   /sessions/{id}/dpp                          (paso 7, generar y publicar)
+  - GET    /sessions/{id}/dpp/qr.png                   (QR PNG del DPP)
+  - GET    /sessions/{id}/dpp/qr.svg                   (QR SVG del DPP)
+
+Los schemas Pydantic en `app.api.v1.schemas` actúan como contrato
+congelado entre backend y frontend: cambiar el shape de respuesta
+exige ticket explícito y migración del cliente.
 """
 
 import hashlib
@@ -75,16 +85,6 @@ _PLUGINS_DIR: Path = Path(__file__).resolve().parents[5] / "plugins"
 DbSession = Annotated[Session, Depends(get_session)]
 
 router = APIRouter(prefix="/sessions", tags=["wizard"])
-
-
-def _stub(response: Response) -> None:
-    """Marca la respuesta como stub para que el frontend lo detecte."""
-    response.headers["X-Stub"] = "true"
-
-
-# ---------------------------------------------------------------------------
-# Implementados de verdad (mínimo necesario para que F4-01 trabaje contra BD)
-# ---------------------------------------------------------------------------
 
 
 def _to_session_state(row: WizardSession, db: Session | None = None) -> SessionState:
@@ -208,11 +208,6 @@ def update_progress(
     db.commit()
     db.refresh(row)
     return _to_session_state(row, db)
-
-
-# ---------------------------------------------------------------------------
-# Stubs — Persona A los reemplaza en F3-01 / F4-03 / F3-03 / F4-06
-# ---------------------------------------------------------------------------
 
 
 @router.post("/{session_id}/classify", response_model=ClassifyResponse)
@@ -877,11 +872,6 @@ def dpp_qr_png(session_id: str, db: DbSession) -> Response:
 def dpp_qr_svg(session_id: str, db: DbSession) -> Response:
     pdpp = _published_or_404(db, session_id)
     return Response(content=generate_qr_svg(_public_url_for(pdpp)), media_type="image/svg+xml")
-
-
-# ---------------------------------------------------------------------------
-# Stub SSE — Persona B reemplaza en F3-02
-# ---------------------------------------------------------------------------
 
 
 @router.post("/{session_id}/extract")
