@@ -75,14 +75,13 @@ def format_citation(fragment: Fragment) -> str:
     return f"{base}.{fragment.apartado}" if fragment.apartado else base
 
 
-def search_corpus(
-    query: str,
-    top_k: int = 5,
-    filters: Filters | None = None,
-) -> list[Result]:
-    """Recupera fragmentos del corpus por similitud semántica.
-
-    Implementación pendiente — la entrega F2-03 sustituye este stub.
-    F2-04 puede importar la firma desde ya para escribir tests.
-    """
-    raise NotImplementedError("Implementación pendiente — ver ticket F2-03.")
+# La implementación de `search_corpus` vive en `app.rag.retrieval` (F2-03)
+# y se reexporta desde `app.rag.__init__` para mantener `from app.rag import
+# search_corpus` como el único punto de entrada estable. La firma canónica
+# es:
+#
+#     def search_corpus(
+#         query: str,
+#         top_k: int = 5,
+#         filters: Filters | None = None,
+#     ) -> list[Result]: ...
