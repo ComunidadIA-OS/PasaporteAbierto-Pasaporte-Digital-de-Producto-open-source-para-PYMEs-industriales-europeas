@@ -1,29 +1,21 @@
 import type { Metadata } from "next";
-import { DM_Mono, IBM_Plex_Sans, Newsreader } from "next/font/google";
+import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
 
 import "./globals.css";
 
-// Tema Quiet (D): Newsreader (serif italic) para títulos, IBM Plex Sans para body,
-// DM Mono para mono. Los pesos vienen de los specs del bundle de diseño.
-const newsreader = Newsreader({
-  variable: "--font-newsreader",
+// Tema Compliance OS: Space Grotesk (head + body) y JetBrains Mono (mono).
+// Pesos según specs del bundle de diseño.
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
-  style: ["normal", "italic"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
-const plexSans = IBM_Plex_Sans({
-  variable: "--font-plex-sans",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  display: "swap",
-});
-
-const dmMono = DM_Mono({
-  variable: "--font-dm-mono",
-  subsets: ["latin"],
-  weight: ["400", "500"],
+  weight: ["400", "500", "700"],
   display: "swap",
 });
 
@@ -39,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${newsreader.variable} ${plexSans.variable} ${dmMono.variable}`}>
+    <html lang="es" className={`${spaceGrotesk.variable} ${jetbrainsMono.variable}`}>
       <body>
         <div className="app-root">
           <div className="app-content">{children}</div>

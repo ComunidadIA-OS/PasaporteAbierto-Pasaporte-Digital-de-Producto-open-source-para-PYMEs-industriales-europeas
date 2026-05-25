@@ -4,8 +4,8 @@
 //   POST /api/v1/sessions → redirige a /wizard/{session_id}
 // donde se sirve el shell con persistencia y reanudación por URL.
 //
-// Diseño Quiet: columna única centrada, sin aside derecha, textarea con
-// borde generoso, contador en mono, CTA terracota.
+// Diseño Compliance OS: columna única centrada, sin aside derecha, textarea
+// brutalist con borde nítido, contador en mono, CTA verde compliance.
 
 "use client";
 
