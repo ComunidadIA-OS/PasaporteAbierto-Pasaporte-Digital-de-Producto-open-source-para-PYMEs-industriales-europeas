@@ -301,6 +301,28 @@ export const api = {
     return request(`/sessions/${sessionId}/documents`);
   },
 
+  async uploadDocument(
+    sessionId: string,
+    file: File,
+    docType: string,
+  ): Promise<UploadDocumentResponse> {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(
+      `${API_V1}/sessions/${sessionId}/documents?doc_type=${encodeURIComponent(docType)}`,
+      { method: "POST", body: form },
+    );
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new ApiError(
+        (body as Record<string, string>).detail ?? res.statusText,
+        res.status,
+        body,
+      );
+    }
+    return (await res.json()) as UploadDocumentResponse;
+  },
+
   verify(sessionId: string): Promise<VerifyResponse> {
     return request(`/sessions/${sessionId}/verify`);
   },
