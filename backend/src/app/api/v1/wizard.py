@@ -15,6 +15,7 @@ stub por la implementación real **no debe** cambiar el schema de salida
 import asyncio
 import json
 import uuid
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -45,8 +46,14 @@ from app.api.v1.schemas import (
 from app.audit import append_entry as append_audit
 from app.classifier import classify as run_classifier
 from app.db.session import get_session
+from app.models.extracted_fields import ExtractedField
 from app.models.sessions import WizardSession
+from app.plugins.loader import Plugin, PluginField, load_all_plugins
 from app.time_utils import utcnow
+
+# Resolver del directorio de plugins. Duplicado con api/v1/plugins.py por
+# simplicidad; si crece se mueve a app/plugins/registry.
+_PLUGINS_DIR: Path = Path(__file__).resolve().parents[5] / "plugins"
 
 DbSession = Annotated[Session, Depends(get_session)]
 
@@ -239,15 +246,138 @@ def classify_override(
     return _to_session_state(row)
 
 
+def _validate_field_value(field: PluginField, value: Any) -> str | None:
+    """Devuelve mensaje de error si el valor no encaja en el tipo del campo, else None."""
+    if value is None:
+        return None  # ausencia se controla aparte (required check)
+    ftype = field.type
+    if ftype == "string":
+        if not isinstance(value, str):
+            return "se esperaba string"
+    elif ftype == "integer":
+        if isinstance(value, bool) or not isinstance(value, int):
+            return "se esperaba integer"
+    elif ftype == "number":
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            return "se esperaba number"
+    elif ftype == "boolean":
+        if not isinstance(value, bool):
+            return "se esperaba boolean"
+    elif ftype == "enum":
+        if not isinstance(value, str):
+            return "se esperaba string (enum)"
+        allowed = field.enum_values or []
+        if value not in allowed:
+            return f"valor fuera del enum permitido ({', '.join(allowed)})"
+    elif ftype == "repeater" and not isinstance(value, list):
+        return "se esperaba lista (repeater)"
+    return None
+
+
+def _resolve_plugin(name: str | None) -> Plugin:
+    """Carga el plugin asociado a la sesión; 400 si no hay sector o 404 si falta YAML."""
+    if not name:
+        raise HTTPException(status_code=400, detail="session_has_no_plugin")
+    plugins = load_all_plugins(_PLUGINS_DIR)
+    plugin = plugins.get(name)
+    if plugin is None:
+        raise HTTPException(status_code=404, detail=f"plugin_not_found: {name}")
+    return plugin
+
+
 @router.put("/{session_id}/bom", response_model=BomResponse)
-def put_bom_stub(
+def put_bom(
     session_id: str,
     body: BomRequest,
-    response: Response,
+    db: DbSession,
 ) -> BomResponse:
-    """STUB de F4-03. Acepta cualquier dict sin validar contra plugin."""
-    _stub(response)
-    return BomResponse(accepted=True, errors=[])
+    """Guarda el BOM del paso 3 con `provenance='self_declared'`.
+
+    Validaciones:
+      - Cada `field_id` debe existir en el plugin de la sesión.
+      - Cada valor debe encajar en el tipo declarado en el plugin.
+      - `required` faltantes se reportan en `errors` pero NO bloquean el save
+        (save parcial permitido — el chequeo "puede avanzar" lo hace F3-03).
+
+    Persiste en `extracted_fields` con upsert por (session_id, field_id) y
+    `provenance='self_declared'`. F3-02 (Recolector) hace UPDATE sobre los
+    mismos registros si verifica con PDFs.
+    """
+    row = _get_or_404(db, session_id)
+    plugin = _resolve_plugin(row.plugin)
+    field_map: dict[str, PluginField] = {f.id: f for f in plugin.fields}
+
+    errors: list[dict[str, str]] = []
+    valid_inputs: dict[str, Any] = {}
+
+    for fid, value in body.fields.items():
+        field = field_map.get(fid)
+        if field is None:
+            errors.append({"field_id": fid, "message": "campo no definido en el plugin"})
+            continue
+        err = _validate_field_value(field, value)
+        if err:
+            errors.append({"field_id": fid, "message": err})
+            continue
+        valid_inputs[fid] = value
+
+    # Required faltantes (no rompen el save, solo se reportan).
+    # Si el usuario envió el campo pero con tipo inválido, el error de tipo
+    # ya está reportado; no duplicamos "requerido — falta valor".
+    submitted = set(body.fields.keys())
+    for f in plugin.fields:
+        if not f.required or f.id in submitted:
+            continue
+        already = db.exec(
+            select(ExtractedField).where(
+                ExtractedField.session_id == session_id,
+                ExtractedField.field_id == f.id,
+            )
+        ).first()
+        if already is None:
+            errors.append({"field_id": f.id, "message": "requerido — falta valor"})
+
+    # Upsert de los valores válidos.
+    for fid, value in valid_inputs.items():
+        existing = db.exec(
+            select(ExtractedField).where(
+                ExtractedField.session_id == session_id,
+                ExtractedField.field_id == fid,
+            )
+        ).first()
+        serialized = (
+            json.dumps(value) if isinstance(value, dict | list | bool) else str(value)
+        )
+        if existing is not None:
+            existing.value = serialized
+            existing.provenance = "self_declared"
+            existing.confidence = 1.0
+            existing.source_document_id = None
+            db.add(existing)
+        else:
+            db.add(
+                ExtractedField(
+                    session_id=session_id,
+                    field_id=fid,
+                    value=serialized,
+                    provenance="self_declared",
+                    confidence=1.0,
+                    source_document_id=None,
+                )
+            )
+
+    # Reflejar BOM válido en progress (para reanudación rápida sin re-leer).
+    progress: dict[str, Any] = dict(row.progress or {})
+    progress["bom"] = {**progress.get("bom", {}), **valid_inputs}
+    row.progress = progress
+    row.updated_at = utcnow()
+    db.add(row)
+    db.commit()
+
+    return BomResponse(
+        accepted=not any(e["message"] != "requerido — falta valor" for e in errors),
+        errors=[{"field_id": e["field_id"], "message": e["message"]} for e in errors],
+    )
 
 
 @router.get("/{session_id}/documents", response_model=DocumentsListResponse)

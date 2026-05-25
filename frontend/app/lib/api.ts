@@ -85,6 +85,34 @@ export interface PluginsListResponse {
   plugins: PluginSummary[];
 }
 
+export type FieldType = "string" | "number" | "integer" | "boolean" | "enum" | "repeater";
+
+export interface PluginFieldDefinition {
+  id: string;
+  type: FieldType;
+  required: boolean;
+  citation: { regulation: string; article: string };
+  access_level: AccessLevel;
+  enum_values: string[] | null;
+  validation: string | null;
+}
+
+export interface PluginRequiredDocument {
+  type: DocType;
+  mandatory: boolean;
+  when: string | null;
+}
+
+export interface PluginDetail {
+  name: string;
+  regulation: string;
+  version: string;
+  description: string;
+  identifier_scheme: "gs1_digital_link" | "iso_iec_15459";
+  fields: PluginFieldDefinition[];
+  required_documents: PluginRequiredDocument[];
+}
+
 // --- BOM (F4-03) ------------------------------------------------------------
 
 export interface BomRequest {
@@ -256,6 +284,10 @@ export const api = {
 
   listPlugins(): Promise<PluginsListResponse> {
     return request("/plugins");
+  },
+
+  getPluginDetail(name: string): Promise<PluginDetail> {
+    return request(`/plugins/${encodeURIComponent(name)}`);
   },
 
   putBom(sessionId: string, body: BomRequest): Promise<BomResponse> {
