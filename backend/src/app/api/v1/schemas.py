@@ -187,6 +187,23 @@ class UploadDocumentResponse(_Base):
     )
 
 
+class DocumentExcerptResponse(_Base):
+    """Fragmento del PDF que respalda un campo extraído (F4-05 criterio 2).
+
+    `excerpt` contiene texto crudo con `…` indicando truncación; el frontend
+    lo renderiza como pre-formatted. `match_found=False` cuando el valor no
+    aparece literal en el PDF: se devuelve el inicio del documento como
+    contexto general en vez de un fragmento concreto.
+    """
+
+    document_id: int
+    field_id: str
+    value: str
+    excerpt: str
+    match_found: bool
+    page_number: int | None = None
+
+
 # --- POST /sessions/{id}/extract (F3-02 SSE) --------------------------------
 
 
@@ -281,3 +298,18 @@ class ChatResponse(_Base):
     answer: str
     citation: Citation | None = None
     fragments: list[ChatFragment] = Field(default_factory=list)
+
+
+class ChatHistoryMessage(_Base):
+    """Mensaje persistido del histórico del chat (F3-04 criterio 3)."""
+
+    role: Literal["user", "assistant"]
+    content: str
+    citation: Citation | None = None
+    created_at: datetime
+
+
+class ChatHistoryResponse(_Base):
+    """Histórico completo del chat para una sesión, ordenado cronológicamente."""
+
+    messages: list[ChatHistoryMessage] = Field(default_factory=list)

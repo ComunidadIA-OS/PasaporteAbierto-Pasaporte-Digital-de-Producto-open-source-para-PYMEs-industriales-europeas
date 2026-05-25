@@ -155,6 +155,15 @@ export interface UploadDocumentResponse {
   deduplicated: boolean;
 }
 
+export interface DocumentExcerptResponse {
+  document_id: number;
+  field_id: string;
+  value: string;
+  excerpt: string;
+  match_found: boolean;
+  page_number: number | null;
+}
+
 // --- Recolector SSE (F3-02 / F4-05) -----------------------------------------
 
 export type ExtractEvent =
@@ -218,6 +227,17 @@ export interface ChatResponse {
   answer: string;
   citation: Citation | null;
   fragments: ChatFragment[];
+}
+
+export interface ChatHistoryMessage {
+  role: "user" | "assistant";
+  content: string;
+  citation: Citation | null;
+  created_at: string;
+}
+
+export interface ChatHistoryResponse {
+  messages: ChatHistoryMessage[];
 }
 
 // --- Cliente ----------------------------------------------------------------
@@ -303,6 +323,15 @@ export const api = {
     return request(`/sessions/${sid(sessionId)}/documents`);
   },
 
+  documentExcerpt(
+    sessionId: string,
+    docId: number,
+    fieldId: string,
+  ): Promise<DocumentExcerptResponse> {
+    const qs = `?field_id=${encodeURIComponent(fieldId)}`;
+    return request(`/sessions/${sid(sessionId)}/documents/${docId}/excerpt${qs}`);
+  },
+
   async uploadDocument(
     sessionId: string,
     file: File,
@@ -335,6 +364,10 @@ export const api = {
 
   chat(body: ChatRequest): Promise<ChatResponse> {
     return request("/chat", { method: "POST", body: JSON.stringify(body) });
+  },
+
+  chatHistory(sessionId: string): Promise<ChatHistoryResponse> {
+    return request(`/sessions/${sid(sessionId)}/chat`);
   },
 
   // SSE del Recolector. NOTA F4-05: EventSource solo hace GET; al ser

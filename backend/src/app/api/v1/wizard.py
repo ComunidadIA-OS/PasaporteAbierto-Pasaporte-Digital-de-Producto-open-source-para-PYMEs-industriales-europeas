@@ -31,6 +31,7 @@ from app.api.v1.schemas import (
     CreateSessionRequest,
     CreateSessionResponse,
     DocType,
+    DocumentExcerptResponse,
     DocumentsListResponse,
     DppResponse,
     FieldValue,
@@ -578,6 +579,113 @@ async def upload_document(
             uploaded_at=doc.uploaded_at,
         ),
         deduplicated=False,
+    )
+
+
+# Longitud del fragmento devuelto en el endpoint de excerpt. ~200 chars antes
+# y después del match suelen bastar para que el fabricante reconozca el dato
+# en su PDF y verifique visualmente la extracción del Recolector.
+_EXCERPT_CONTEXT_CHARS: int = 200
+
+
+def _find_excerpt_in_pdf(
+    blob_path: str, value: str
+) -> tuple[str, bool, int | None]:
+    """Busca `value` (case-insensitive) en el texto del PDF y devuelve contexto.
+
+    Retorna (excerpt, match_found, page_number_o_None). Si el valor no
+    aparece literal en ninguna página, devuelve los primeros 500 chars del
+    PDF como contexto general con match_found=False. pdfplumber se importa
+    perezosamente porque es pesado y solo lo necesita este endpoint.
+    """
+    import pdfplumber
+
+    needle = value.strip().lower()
+    if not needle:
+        return "", False, None
+
+    with pdfplumber.open(blob_path) as pdf:
+        for page_idx, page in enumerate(pdf.pages, start=1):
+            text = page.extract_text() or ""
+            haystack = text.lower()
+            pos = haystack.find(needle)
+            if pos == -1:
+                continue
+            start = max(0, pos - _EXCERPT_CONTEXT_CHARS)
+            end = min(len(text), pos + len(needle) + _EXCERPT_CONTEXT_CHARS)
+            prefix = "…" if start > 0 else ""
+            suffix = "…" if end < len(text) else ""
+            return f"{prefix}{text[start:end].strip()}{suffix}", True, page_idx
+
+        # No encontrado: devolver un primer pantallazo del PDF como contexto.
+        first_page_text = (pdf.pages[0].extract_text() or "").strip()
+        snippet = first_page_text[:500]
+        if len(first_page_text) > 500:
+            snippet += "…"
+        return snippet, False, None
+
+
+@router.get(
+    "/{session_id}/documents/{doc_id}/excerpt",
+    response_model=DocumentExcerptResponse,
+)
+def get_document_excerpt(
+    session_id: str,
+    doc_id: int,
+    field_id: str,
+    db: DbSession,
+) -> DocumentExcerptResponse:
+    """Devuelve un fragmento del PDF que respalda un campo extraído (F4-05 #2).
+
+    Permite al fabricante verificar visualmente la procedencia del valor
+    extraído por el Recolector. Si el valor aparece literal en el PDF, se
+    devuelve con ~200 chars de contexto antes/después y el número de página;
+    si no aparece (campos numéricos formateados de forma distinta, valores
+    self_declared no presentes en PDF), se devuelve un pantallazo del inicio
+    con `match_found=False`.
+
+    Errores:
+      - 404 si la sesión, el documento o el campo no existen.
+      - 409 si el documento no pertenece a esta sesión (evita filtración de
+        contenido entre sesiones).
+    """
+    _get_or_404(db, session_id)
+
+    doc = db.exec(select(Document).where(Document.id == doc_id)).first()
+    if doc is None:
+        raise HTTPException(status_code=404, detail="document_not_found")
+    if doc.session_id != session_id:
+        # No filtramos blobs entre sesiones aunque el id sea adivinable.
+        raise HTTPException(status_code=409, detail="document_not_in_session")
+
+    ef = db.exec(
+        select(ExtractedField).where(
+            ExtractedField.session_id == session_id,
+            ExtractedField.field_id == field_id,
+        )
+    ).first()
+    if ef is None:
+        raise HTTPException(status_code=404, detail="field_not_found")
+
+    try:
+        excerpt, match_found, page = _find_excerpt_in_pdf(doc.blob_path, ef.value)
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=404, detail="document_blob_missing"
+        ) from None
+    except Exception as e:
+        # pdfplumber fallando no debe tumbar el endpoint: devolvemos 422 con motivo.
+        raise HTTPException(
+            status_code=422, detail=f"pdf_read_error: {type(e).__name__}"
+        ) from e
+
+    return DocumentExcerptResponse(
+        document_id=doc_id,
+        field_id=field_id,
+        value=ef.value,
+        excerpt=excerpt,
+        match_found=match_found,
+        page_number=page,
     )
 
 

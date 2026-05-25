@@ -10,7 +10,7 @@
 
 "use client";
 
-import { useCallback, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
 import { api, type SessionState } from "@/app/lib/api";
 
@@ -178,11 +178,39 @@ interface ChatMessage {
 }
 
 function ChatPanel({ sessionId }: { sessionId: string }) {
-  // Invariante: el chat NUNCA escribe en el estado del wizard.
+  // Invariante: el chat NUNCA escribe en el estado del wizard. Sí persiste su
+  // propio histórico en chat_messages (canal independiente, F3-04 criterio 3).
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Carga el histórico persistido al montar. Si la red falla, deja el panel
+  // vacío — el usuario aún puede enviar mensajes nuevos.
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .chatHistory(sessionId)
+      .then((res) => {
+        if (cancelled) return;
+        setMessages(
+          res.messages.map((m) => ({
+            id: ++chatMsgId,
+            role: m.role,
+            text: m.content,
+            citation: m.citation,
+          })),
+        );
+        // Scroll al final tras pintar para que la última respuesta sea visible.
+        setTimeout(() => scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight), 0);
+      })
+      .catch(() => {
+        // Sin histórico → arranca con panel vacío; el chat sigue siendo usable.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
 
   const send = useCallback(async () => {
     const text = input.trim();

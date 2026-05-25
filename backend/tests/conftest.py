@@ -20,6 +20,7 @@ from app.main import app
 # Importa modelos para registrar metadata en SQLModel.
 from app.models import (  # noqa: F401
     audit_log,
+    chat_messages,
     documents,
     extracted_fields,
     published_dpps,

@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { api, type SessionState } from "@/app/lib/api";
+import { api, type DocumentExcerptResponse, type SessionState } from "@/app/lib/api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const API_V1 = `${API_BASE}/api/v1`;
@@ -54,7 +54,29 @@ export function Step5Extract({
   const [fields, setFields] = useState<ExtractedField[]>([]);
   const [done, setDone] = useState<DoneSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [excerpt, setExcerpt] = useState<DocumentExcerptResponse | null>(null);
+  const [excerptLoading, setExcerptLoading] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  const showExcerpt = useCallback(
+    async (field: ExtractedField) => {
+      if (field.source_document_id == null) return;
+      setExcerptLoading(field.field_id);
+      try {
+        const res = await api.documentExcerpt(
+          session.session_id,
+          field.source_document_id,
+          field.field_id,
+        );
+        setExcerpt(res);
+      } catch {
+        setError("No se pudo cargar el fragmento del PDF.");
+      } finally {
+        setExcerptLoading(null);
+      }
+    },
+    [session.session_id],
+  );
 
   // Aborta el stream SSE al desmontar para no dejar fetch huérfanos ni
   // disparar setState sobre componente desmontado.
@@ -209,11 +231,16 @@ export function Step5Extract({
                 <th className="px-4 py-2 text-left font-medium text-gray-600">Valor</th>
                 <th className="px-4 py-2 text-left font-medium text-gray-600">Procedencia</th>
                 <th className="px-4 py-2 text-left font-medium text-gray-600">Confianza</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-600">Fuente</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {fields.map((f) => {
                 const badge = PROVENANCE_BADGE[f.provenance];
+                // F4-05 criterio 2: cada fila verified/self_declared enlaza al
+                // fragmento del PDF fuente. required_pending no tiene fuente.
+                const canShowSource =
+                  f.source_document_id != null && f.provenance !== "required_pending";
                 return (
                   <tr key={f.field_id}>
                     <td className="px-4 py-2 font-mono text-xs">{f.field_id}</td>
@@ -230,11 +257,68 @@ export function Step5Extract({
                     <td className="px-4 py-2 text-xs text-gray-500">
                       {Math.round(f.confidence * 100)}%
                     </td>
+                    <td className="px-4 py-2 text-xs">
+                      {canShowSource ? (
+                        <button
+                          type="button"
+                          onClick={() => showExcerpt(f)}
+                          disabled={excerptLoading === f.field_id}
+                          className="text-blue-600 underline hover:text-blue-800 disabled:opacity-50"
+                        >
+                          {excerptLoading === f.field_id ? "Cargando…" : "Ver fuente"}
+                        </button>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Modal del fragmento del PDF fuente (F4-05 criterio 2) */}
+      {excerpt && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="excerpt-title"
+        >
+          <div className="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 id="excerpt-title" className="text-sm font-semibold">
+                  Fragmento fuente · <code className="font-mono">{excerpt.field_id}</code>
+                </h3>
+                <p className="mt-1 text-xs text-gray-500">
+                  Valor extraído: <code className="font-mono">{excerpt.value}</code>
+                  {excerpt.page_number != null && (
+                    <span className="ml-2">· página {excerpt.page_number}</span>
+                  )}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExcerpt(null)}
+                className="rounded-md px-2 py-1 text-sm text-gray-500 hover:bg-gray-100"
+                aria-label="Cerrar"
+              >
+                ✕
+              </button>
+            </div>
+            {!excerpt.match_found && (
+              <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                El valor no aparece literal en el PDF (posiblemente formateado distinto o inferido).
+                Mostramos un pantallazo del inicio del documento como contexto.
+              </p>
+            )}
+            <pre className="mt-3 whitespace-pre-wrap break-words rounded-md border border-gray-200 bg-gray-50 p-3 text-xs leading-relaxed text-gray-800">
+              {excerpt.excerpt}
+            </pre>
+          </div>
         </div>
       )}
 
