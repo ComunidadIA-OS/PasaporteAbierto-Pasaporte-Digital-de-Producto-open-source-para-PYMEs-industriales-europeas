@@ -24,3 +24,8 @@ seed:
 
 reset:
 	cd backend && uv run python -m scripts.reset_db
+
+.PHONY: ingest
+INGEST_ARGS ?=
+ingest:
+	cd backend && PYTHONPATH=src uv run python -m app.rag.ingest $(INGEST_ARGS)
