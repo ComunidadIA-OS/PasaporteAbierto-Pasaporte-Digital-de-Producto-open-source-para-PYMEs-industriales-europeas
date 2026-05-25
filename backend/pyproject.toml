@@ -16,6 +16,8 @@ dependencies = [
     "httpx==0.27.*",
     "beautifulsoup4==4.12.*",
     "lxml==5.*",
+    "chromadb==0.5.*",
+    "sentence-transformers==3.*",
 ]
 
 [dependency-groups]
@@ -31,3 +33,6 @@ dev = [
 testpaths = ["tests"]
 asyncio_mode = "auto"
 pythonpath = ["src"]
+markers = [
+    "slow: tests que descargan el modelo bge-m3 (~2 GB) o tocan ChromaDB; omitir con -m 'not slow'",
+]
