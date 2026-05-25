@@ -30,7 +30,7 @@ Paso 5, extracción. IA. El agente Recolector lee los PDFs subidos con un pipeli
 
 Paso 6, verificación. Determinista. El Verificador valida el DPP completo contra el schema del plugin más las reglas adicionales definidas en el YAML. Devuelve el estado de completitud, la lista de campos faltantes y las advertencias. Si la información obligatoria está incompleta, el sistema bloquea la publicación: no se puede emitir un DPP parcial conforme.
 
-Paso 7, generación del DPP. Determinista. Una vez validados los datos, el sistema ensambla el objeto CIRPASS-2 Core Ontology serializado en JSON-LD, genera el identificador único del DPP conforme al esquema declarado por el plugin sectorial (ISO/IEC 15459-1/2/3/4/5/6 para baterías por el Art. 77.3 del Reglamento UE 2023/1542; GS1 Digital Link como esquema por defecto para sectores sin acto delegado específico de identificador), el código QR resoluble, la página HTML pública con content negotiation, y opcionalmente firma el conjunto con Ed25519 usando la clave del fabricante.
+Paso 7, generación del DPP. Determinista. Una vez validados los datos, el sistema ensambla un documento JSON-LD con vocabulario local bajo el namespace URN `urn:pasaporte-abierto:dpp:v1#` —alineado con el modelo conceptual CIRPASS-2 Core (marzo 2025) y emitiendo cada campo como `{value, provenance}`— hasta que el consorcio publique un `@context` HTTP-resolvable estable (ver `docs/adr/0002-jsonld-vocabulario-local.md`); genera el identificador único del DPP conforme al esquema declarado por el plugin sectorial (ISO/IEC 15459-1/2/3/4/5/6 para baterías por el Art. 77.3 del Reglamento UE 2023/1542; GS1 Digital Link como esquema por defecto para sectores sin acto delegado específico de identificador), el código QR resoluble, la página HTML pública con content negotiation, y opcionalmente firma el conjunto con Ed25519 usando la clave del fabricante.
 
 ## Identificador único y niveles de acceso del DPP
 
@@ -46,7 +46,7 @@ Si el RAG no devuelve fragmentos relevantes, el chat responde "no tengo informac
 
 ## Capa de datos y conocimiento
 
-El corpus RAG contiene el Reglamento UE 2024/1781 (ESPR), el Reglamento UE 2023/1542 (baterías), los actos delegados publicados a fecha de despliegue, la ontología CIRPASS-2 Core (marzo 2025) y la especificación GS1 Digital Link. El corpus se chunca semánticamente, se embebe con bge-m3 (modelo multilingüe que permite consulta en castellano, inglés, francés, portugués y alemán) y se indexa en ChromaDB embebido.
+El corpus RAG contiene el Reglamento UE 2024/1781 (ESPR), el Reglamento UE 2023/1542 (baterías), los actos delegados publicados a fecha de despliegue, la ontología CIRPASS-2 Core (marzo 2025, indexada como referencia conceptual; el `@context` JSON-LD del DPP emitido es local hasta que el consorcio publique uno HTTP-resolvable estable — ver `docs/adr/0002-jsonld-vocabulario-local.md`) y la especificación GS1 Digital Link. El corpus se chunca semánticamente, se embebe con bge-m3 (modelo multilingüe que permite consulta en castellano, inglés, francés, portugués y alemán) y se indexa en ChromaDB embebido.
 
 El directorio `plugins/` contiene un archivo YAML por sector. Cada plugin describe los campos del DPP, los documentos requeridos, las validaciones adicionales y las citas regulatorias asociadas. El formato del plugin está documentado en `plugins/_schema.yaml`.
 

@@ -15,7 +15,7 @@ El alcance del hackathon (1 semana, 6 fases) cubre:
 - Wizard guiado de 7 pasos para registrar un producto y generar su DPP.
 - Pipeline IA con dos componentes acotados (Clasificador y Recolector) y todo lo demás determinista.
 - Chat lateral normativo con cita obligatoria.
-- Generación del DPP en JSON-LD CIRPASS-2 Core, QR resoluble vía identificador único declarado por el plugin sectorial (ISO/IEC 15459-1/2/3/4/5/6 para baterías por Art. 77.3 del Reglamento UE 2023/1542; GS1 Digital Link como esquema por defecto), endpoint público con content negotiation.
+- Generación del DPP en JSON-LD con vocabulario local alineado con el modelo conceptual CIRPASS-2 Core (ver [ADR 0002](./adr/0002-jsonld-vocabulario-local.md)), QR resoluble vía identificador único declarado por el plugin sectorial (ISO/IEC 15459-1/2/3/4/5/6 para baterías por Art. 77.3 del Reglamento UE 2023/1542; GS1 Digital Link como esquema por defecto), endpoint público con content negotiation.
 - Plugins YAML para cubrir actos delegados sectoriales por configuración (no por código).
 - Observabilidad (Langfuse) y trazabilidad inmutable (audit log con hash chain).
 
@@ -146,7 +146,7 @@ Si hay campos críticos vacíos, el botón "Generar DPP" del paso 7 **está desh
 - Confirmación de **firma Ed25519** (si se activó).
 
 **Qué hace el sistema:**
-1. Ensambla el DPP en **JSON-LD CIRPASS-2 Core** (marzo 2025) filtrando los campos por su `access_level` (ver §9.2).
+1. Ensambla el DPP en **JSON-LD** con vocabulario local bajo el namespace URN `urn:pasaporte-abierto:dpp:v1#`, filtrando los campos por su `access_level` (ver §9.2) y emitiendo cada campo como `{value, provenance}` para mantener trazabilidad por dato. La estructura queda alineada con el modelo conceptual de CIRPASS-2 Core (marzo 2025) pero usa namespace propio hasta que el consorcio publique un `@context` HTTP-resolvable estable — ver [ADR 0002](./adr/0002-jsonld-vocabulario-local.md).
 2. Genera el identificador único canónico delegando en la fábrica del esquema declarado por el plugin (`identifier_scheme`).
 3. Genera el QR con `segno`.
 4. Opcionalmente firma con Ed25519 (PyNaCl), persistiendo la clave pública.
@@ -178,7 +178,7 @@ El DPP generado es accesible vía URL canónica cuya forma viene determinada por
 
 | Header `Accept` | Respuesta |
 |---|---|
-| `application/ld+json` | JSON-LD CIRPASS-2 Core válido (consumido por máquinas, auditores, agregadores). |
+| `application/ld+json` | JSON-LD válido con vocabulario local `urn:pasaporte-abierto:dpp:v1#` (consumido por máquinas, auditores, agregadores). Alineado con el modelo conceptual CIRPASS-2 Core; ver [ADR 0002](./adr/0002-jsonld-vocabulario-local.md). |
 | `text/html` (default navegador) | Página HTML legible en móvil, con campos verificados destacados visualmente. |
 
 La respuesta incluye únicamente los campos con `access_level = public` (Sección 1 del Annex XIII del Reg. UE 2023/1542 para baterías; el resto de sectores hereda `public` por defecto hasta que su acto delegado fije otra cosa). La página HTML diferencia visualmente **verified vs self_declared** (ver §9.1) para que el consumidor entienda la calidad del dato.
@@ -291,7 +291,7 @@ Al cierre del hackathon, el sistema debe cumplir simultáneamente:
 
 1. `docker compose up` levanta toda la solución en una máquina nueva en ≤30 minutos siguiendo solo el README.
 2. Un fabricante PYME completa el wizard de 7 pasos con datos demo de un producto del sector baterías y obtiene su DPP publicado en ≤15 minutos.
-3. El DPP resultante es accesible vía URL pública y vía QR, y pasa la validación de schema CIRPASS-2 Core.
+3. El DPP resultante es accesible vía URL pública y vía QR, valida su estructura interna y emite `provenance` por campo. La alineación formal con CIRPASS-2 Core queda pendiente de que el consorcio publique un `@context` HTTP-resolvable estable — ver [ADR 0002](./adr/0002-jsonld-vocabulario-local.md).
 4. El chat responde con cita normativa al 100 % de las preguntas del set de referencia, y se niega correctamente fuera de dominio.
 5. Existen al menos dos plugins funcionales (`batteries.yaml`, `textile.yaml`) cargados desde YAML sin tocar el núcleo.
 6. La integridad del audit log es verificable end-to-end.
@@ -323,7 +323,7 @@ Los siguientes elementos **no** están cubiertos por este documento ni por los t
 - Reglamentos de referencia:
   - Reglamento UE 2024/1781 (ESPR)
   - Reglamento UE 2023/1542 (baterías) — **Art. 77** establece el pasaporte de batería; **Annex XIII** define las 4 secciones de información con sus niveles de acceso.
-  - CIRPASS-2 Core Ontology (marzo 2025)
+  - CIRPASS-2 Core Ontology (marzo 2025) — modelo conceptual de referencia. El sistema usa un vocabulario local interno (`urn:pasaporte-abierto:dpp:v1#`) hasta que el consorcio publique su `@context` HTTP-resolvable; ver [ADR 0002](./adr/0002-jsonld-vocabulario-local.md).
   - GS1 Digital Link specification (esquema de identificador por defecto para sectores sin acto delegado específico)
   - ISO/IEC 15459-1/2/3/4/5/6 (esquema obligatorio para el identificador único de baterías por Art. 77.3 de Reg. UE 2023/1542)
   - Battery Pass Consortium Data Attribute Longlist v1.3 (referencia industrial de implementación; ver `docs/research/battery-pass-v1.3-mandatory-attrs.md`)
