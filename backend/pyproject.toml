@@ -20,6 +20,7 @@ dependencies = [
     "sentence-transformers==3.*",
     "pynacl==1.5.*",
     "segno==1.6.*",
+    "python-multipart==0.0.*",
 ]
 
 [dependency-groups]

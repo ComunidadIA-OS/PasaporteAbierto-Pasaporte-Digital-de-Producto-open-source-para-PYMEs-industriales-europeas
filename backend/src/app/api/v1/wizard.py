@@ -19,7 +19,7 @@ import uuid
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlmodel import Session, select
 
@@ -41,6 +41,8 @@ from app.api.v1.schemas import (
     RequiredDocumentSpec,
     SessionState,
     UpdateProgressRequest,
+    UploadDocumentResponse,
+    UploadedDocument,
     VerifyResponse,
     VerifyWarning,
 )
@@ -57,9 +59,11 @@ from app.dpp import (
     get_or_create_keypair,
     sign_payload,
 )
+from app.models.documents import Document
 from app.models.extracted_fields import ExtractedField
 from app.models.published_dpps import PublishedDPP
 from app.models.sessions import WizardSession
+from app.plugins.conditions import evaluate_when
 from app.plugins.loader import Plugin, PluginField, load_all_plugins
 from app.time_utils import utcnow
 from app.verifier import verify_session as run_verifier
@@ -358,9 +362,7 @@ def put_bom(
                 ExtractedField.field_id == fid,
             )
         ).first()
-        serialized = (
-            json.dumps(value) if isinstance(value, dict | list | bool) else str(value)
-        )
+        serialized = json.dumps(value) if isinstance(value, dict | list | bool) else str(value)
         if existing is not None:
             existing.value = serialized
             existing.provenance = "self_declared"
@@ -393,32 +395,127 @@ def put_bom(
     )
 
 
+_UPLOADS_DIR: Path = Path(__file__).resolve().parents[5] / "backend" / "data" / "uploads"
+_MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10 MB
+
+
 @router.get("/{session_id}/documents", response_model=DocumentsListResponse)
-def list_documents_stub(session_id: str, response: Response) -> DocumentsListResponse:
-    """STUB de F4-04. Devuelve 3 docs requeridos típicos de baterías."""
-    _stub(response)
+def list_documents(session_id: str, db: DbSession) -> DocumentsListResponse:
+    """Listado de documentos requeridos y subidos (F4-04).
+
+    Deriva la lista de documentos requeridos del plugin + BOM (condiciones
+    `when`). Nunca hardcodeado en frontend.
+    """
+    row = _get_or_404(db, session_id)
+    plugin = _resolve_plugin(row.plugin)
+    bom = _bom_from_extracted(db, session_id, plugin)
+
+    # Documentos ya subidos
+    uploaded_rows = db.exec(select(Document).where(Document.session_id == session_id)).all()
+    uploaded_types = {d.doc_type for d in uploaded_rows}
+
+    # Documentos requeridos según plugin + condiciones when
+    required: list[RequiredDocumentSpec] = []
+    for rd in plugin.required_documents:
+        if not evaluate_when(rd.when, bom):
+            continue
+        required.append(
+            RequiredDocumentSpec(
+                doc_type=rd.type,
+                mandatory=rd.mandatory,
+                citation=Citation(
+                    regulation=f"Reglamento {plugin.regulation}",
+                    article="Annex XIII",
+                ),
+                uploaded=rd.type in uploaded_types,
+            )
+        )
+
     return DocumentsListResponse(
-        required=[
-            RequiredDocumentSpec(
-                doc_type="datasheet",
-                mandatory=True,
-                citation=Citation(regulation="Reglamento UE 2023/1542", article="Annex XIII §1"),
-                uploaded=False,
-            ),
-            RequiredDocumentSpec(
-                doc_type="certificate",
-                mandatory=True,
-                citation=Citation(regulation="Reglamento UE 2023/1542", article="Art. 7"),
-                uploaded=False,
-            ),
-            RequiredDocumentSpec(
-                doc_type="lca",
-                mandatory=False,
-                citation=Citation(regulation="Reglamento UE 2023/1542", article="Annex II"),
-                uploaded=False,
-            ),
+        required=required,
+        uploaded=[
+            UploadedDocument(
+                id=d.id,  # type: ignore[arg-type]
+                doc_type=d.doc_type,
+                sha256=d.sha256,
+                uploaded_at=d.uploaded_at,
+            )
+            for d in uploaded_rows
         ],
-        uploaded=[],
+    )
+
+
+@router.post("/{session_id}/documents", response_model=UploadDocumentResponse)
+async def upload_document(
+    session_id: str,
+    file: UploadFile,
+    db: DbSession,
+    doc_type: str = Query(
+        ..., description="Tipo de documento: datasheet, certificate, lca, sds, ce_declaration"
+    ),
+) -> UploadDocumentResponse:
+    """Subida de documentos con deduplicación por SHA-256 (F4-04).
+
+    - Límite de 10 MB por fichero.
+    - Si el hash ya existe para esta sesión, devuelve el documento existente.
+    - Guarda el blob en `backend/data/uploads/{session_id}/`.
+    """
+    _get_or_404(db, session_id)
+
+    # Leer contenido y validar tamaño
+    content = await file.read()
+    if len(content) > _MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"file_too_large: máximo {_MAX_FILE_SIZE // (1024 * 1024)} MB",
+        )
+
+    # Calcular SHA-256
+    file_hash = hashlib.sha256(content).hexdigest()
+
+    # Deduplicar por hash dentro de la sesión
+    existing = db.exec(
+        select(Document).where(
+            Document.session_id == session_id,
+            Document.sha256 == file_hash,
+        )
+    ).first()
+    if existing:
+        return UploadDocumentResponse(
+            document=UploadedDocument(
+                id=existing.id,  # type: ignore[arg-type]
+                doc_type=existing.doc_type,
+                sha256=existing.sha256,
+                uploaded_at=existing.uploaded_at,
+            ),
+            deduplicated=True,
+        )
+
+    # Guardar blob en disco
+    session_dir = _UPLOADS_DIR / session_id
+    session_dir.mkdir(parents=True, exist_ok=True)
+    blob_path = session_dir / f"{file_hash}.pdf"
+    blob_path.write_bytes(content)
+
+    # Persistir en BD
+    doc = Document(
+        session_id=session_id,
+        doc_type=doc_type,
+        blob_path=str(blob_path),
+        sha256=file_hash,
+    )
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+
+    return UploadDocumentResponse(
+        document=UploadedDocument(
+            id=doc.id,  # type: ignore[arg-type]
+            doc_type=doc.doc_type,
+            sha256=doc.sha256,
+            uploaded_at=doc.uploaded_at,
+        ),
+        deduplicated=False,
     )
 
 
@@ -456,9 +553,7 @@ def verify(session_id: str, db: DbSession) -> VerifyResponse:
 
 def _bom_from_extracted(db: Session, session_id: str, plugin: Plugin) -> dict[str, Any]:
     """Recupera todos los `extracted_fields` de la sesión deserializados."""
-    rows = db.exec(
-        select(ExtractedField).where(ExtractedField.session_id == session_id)
-    ).all()
+    rows = db.exec(select(ExtractedField).where(ExtractedField.session_id == session_id)).all()
     field_map = {f.id: f for f in plugin.fields}
     bom: dict[str, Any] = {}
     for r in rows:
@@ -512,9 +607,7 @@ def generate_dpp(session_id: str, db: DbSession) -> DppResponse:
             },
         )
 
-    existing = db.exec(
-        select(PublishedDPP).where(PublishedDPP.session_id == session_id)
-    ).first()
+    existing = db.exec(select(PublishedDPP).where(PublishedDPP.session_id == session_id)).first()
     if existing is not None:
         raise HTTPException(status_code=409, detail="dpp_already_published")
 
@@ -560,9 +653,7 @@ def generate_dpp(session_id: str, db: DbSession) -> DppResponse:
 
 
 def _published_or_404(db: Session, session_id: str) -> PublishedDPP:
-    pdpp = db.exec(
-        select(PublishedDPP).where(PublishedDPP.session_id == session_id)
-    ).first()
+    pdpp = db.exec(select(PublishedDPP).where(PublishedDPP.session_id == session_id)).first()
     if pdpp is None:
         raise HTTPException(status_code=404, detail="dpp_not_published")
     return pdpp
