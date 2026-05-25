@@ -38,11 +38,13 @@ from app.api.v1.schemas import (
     MissingField,
     RequiredDocumentSpec,
     SessionState,
+    UpdateProgressRequest,
     VerifyResponse,
     VerifyWarning,
 )
 from app.db.session import get_session
 from app.models.sessions import WizardSession
+from app.time_utils import utcnow
 
 DbSession = Annotated[Session, Depends(get_session)]
 
@@ -57,6 +59,30 @@ def _stub(response: Response) -> None:
 # ---------------------------------------------------------------------------
 # Implementados de verdad (mínimo necesario para que F4-01 trabaje contra BD)
 # ---------------------------------------------------------------------------
+
+
+def _to_session_state(row: WizardSession) -> SessionState:
+    progress: dict[str, Any] = row.progress or {}
+    return SessionState(
+        session_id=row.id,
+        current_step=progress.get("step", 1),
+        description=progress.get("description"),
+        sector=row.sector,
+        plugin=row.plugin,
+        classification_confidence=row.classification_confidence,
+        classification_citation=None,
+        bom=progress.get("bom", {}),
+        extracted_fields=[],
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def _get_or_404(db: Session, session_id: str) -> WizardSession:
+    row = db.exec(select(WizardSession).where(WizardSession.id == session_id)).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="session_not_found")
+    return row
 
 
 @router.post("", response_model=CreateSessionResponse, status_code=201)
@@ -81,24 +107,48 @@ def get_session_state(
     session_id: str,
     db: DbSession,
 ) -> SessionState:
-    """Reanuda una sesión existente. F4-01 ampliará con BOM y extracted_fields."""
-    row = db.exec(select(WizardSession).where(WizardSession.id == session_id)).first()
-    if row is None:
-        raise HTTPException(status_code=404, detail="session_not_found")
-    progress: dict[str, Any] = row.progress or {}
-    return SessionState(
-        session_id=row.id,
-        current_step=progress.get("step", 1),
-        description=progress.get("description"),
-        sector=row.sector,
-        plugin=row.plugin,
-        classification_confidence=row.classification_confidence,
-        classification_citation=None,
-        bom=progress.get("bom", {}),
-        extracted_fields=[],
-        created_at=row.created_at,
-        updated_at=row.updated_at,
-    )
+    """Reanuda una sesión existente."""
+    return _to_session_state(_get_or_404(db, session_id))
+
+
+@router.patch("/{session_id}", response_model=SessionState)
+def update_progress(
+    session_id: str,
+    body: UpdateProgressRequest,
+    db: DbSession,
+) -> SessionState:
+    """Autosave del wizard. Mergea campos del body en `sessions.progress`.
+
+    Reglas:
+      - `step` reemplaza el actual (no se puede saltar a step > current+1 desde
+        cliente; eso lo enforza el frontend, pero el backend NO bloquea
+        retroceder ni avanzar — la regla de "no saltar hacia adelante" es UX,
+        no de seguridad).
+      - `bom` hace shallow-merge: claves no enviadas se mantienen.
+      - `description` reemplaza la descripción del paso 1.
+
+    `extracted_fields`, `sector`, `plugin` y `classification_confidence` se
+    actualizan por endpoints específicos (classify, extract). NO se aceptan
+    por aquí.
+    """
+    row = _get_or_404(db, session_id)
+    progress: dict[str, Any] = dict(row.progress or {})
+
+    if body.step is not None:
+        progress["step"] = body.step
+    if body.description is not None:
+        progress["description"] = body.description
+    if body.bom is not None:
+        existing_bom: dict[str, Any] = dict(progress.get("bom", {}))
+        existing_bom.update(body.bom)
+        progress["bom"] = existing_bom
+
+    row.progress = progress
+    row.updated_at = utcnow()
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return _to_session_state(row)
 
 
 # ---------------------------------------------------------------------------

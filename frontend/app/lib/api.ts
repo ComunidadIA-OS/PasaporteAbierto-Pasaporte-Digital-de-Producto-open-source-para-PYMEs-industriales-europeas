@@ -37,6 +37,12 @@ export interface CreateSessionResponse {
   created_at: string;
 }
 
+export interface UpdateProgressRequest {
+  step?: number;
+  description?: string;
+  bom?: Record<string, unknown>;
+}
+
 export interface SessionState {
   session_id: string;
   current_step: number;
@@ -213,6 +219,13 @@ export const api = {
 
   getSession(sessionId: string): Promise<SessionState> {
     return request(`/sessions/${sessionId}`);
+  },
+
+  updateProgress(sessionId: string, body: UpdateProgressRequest): Promise<SessionState> {
+    return request(`/sessions/${sessionId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
   },
 
   classify(sessionId: string): Promise<ClassifyResponse> {

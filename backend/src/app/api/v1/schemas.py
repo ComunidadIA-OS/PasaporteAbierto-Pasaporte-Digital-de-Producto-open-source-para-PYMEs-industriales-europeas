@@ -50,6 +50,21 @@ class CreateSessionResponse(_Base):
     created_at: datetime
 
 
+# --- PATCH /sessions/{id} (F4-01 autosave) ----------------------------------
+
+
+class UpdateProgressRequest(_Base):
+    """Mutación parcial del estado de la sesión (autosave del wizard).
+
+    Todos los campos son opcionales; los presentes se mergean con el estado
+    existente. `bom` hace shallow-merge (no reemplaza claves no incluidas).
+    """
+
+    step: int | None = Field(default=None, ge=1, le=7)
+    description: str | None = Field(default=None, min_length=20)
+    bom: dict[str, Any] | None = None
+
+
 # --- GET /sessions/{id} -----------------------------------------------------
 
 
