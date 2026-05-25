@@ -56,6 +56,39 @@ class ChatResult:
     fragments: list[Result]
 
 
+# Regex para detectar citas inline tipo "[Reglamento UE 2023/1542" o "[UE 2023/1542".
+# Capturamos el identificador del reglamento (lo que va tras "Reglamento " o tras "[").
+_INLINE_CITE_RE = re.compile(r"\[\s*(?:Reglamento\s+)?([^,\]]+?)\s*(?:,|\])", re.IGNORECASE)
+
+
+def _negative_result(fragments: list[Result]) -> ChatResult:
+    """Resultado canónico de "no se puede responder con base normativa"."""
+    return ChatResult(
+        answer=NEGATIVE_RESPONSE,
+        citation_regulation=None,
+        citation_article=None,
+        citation_url=None,
+        fragments=fragments,
+    )
+
+
+def _citation_matches_fragment(answer_text: str, fragment_regulation: str) -> bool:
+    """True si TODAS las citas inline del cuerpo coinciden con el reglamento del fragmento.
+
+    El objetivo es detectar alucinaciones de cita: si el LLM mete "[Reglamento UE
+    2009/125, Art. 99]" pero el fragmento RAG real es "UE 2024/1781", el badge
+    estructurado dirá una cosa y el cuerpo otra — preferimos devolver la negativa
+    canónica antes que mostrar un mismatch al usuario.
+
+    Retorna True también si no hay ninguna cita inline (entonces se inyectará la real).
+    """
+    mentions = _INLINE_CITE_RE.findall(answer_text)
+    if not mentions:
+        return True
+    normalized_target = fragment_regulation.strip().lower()
+    return all(normalized_target in m.strip().lower() for m in mentions)
+
+
 @trace_chat
 def answer(
     message: str,
@@ -65,27 +98,32 @@ def answer(
     """Responde una pregunta del fabricante con cita normativa obligatoria.
 
     Pipeline lineal:
-    1. RAG → fragmentos relevantes.
+    1. RAG → fragmentos relevantes (filtrados por sector del wizard si aplica).
     2. Si vacío → negativa canónica.
     3. Prompt con fragmentos + contexto → LLM.
     4. Cita extraída del fragmento real (anti-alucinación).
     """
-    # 1. Buscar fragmentos relevantes
+    # 1. Buscar fragmentos relevantes. El filtro `sector` incluye fragmentos del
+    # sector + transversales (sector=None), conforme a app.rag.schema.Filters.
+    sector: str | None = None
+    if session_context:
+        raw_sector = session_context.get("sector")
+        if isinstance(raw_sector, str) and raw_sector and raw_sector != "unknown":
+            sector = raw_sector
+
     try:
-        fragments = search_corpus(message, top_k=5, filters=Filters(idioma=idioma))
+        fragments = search_corpus(
+            message,
+            top_k=5,
+            filters=Filters(idioma=idioma, sector=sector),
+        )
     except Exception:
         fragments = []
 
     # 2. Sin fragmentos → negativa canónica
     if not fragments:
         _publish_metadata(None, message)
-        return ChatResult(
-            answer=NEGATIVE_RESPONSE,
-            citation_regulation=None,
-            citation_article=None,
-            citation_url=None,
-            fragments=[],
-        )
+        return _negative_result([])
 
     # 3. Construir prompt y llamar al LLM
     prompt = _build_prompt(message, fragments, session_context)
@@ -109,20 +147,11 @@ def answer(
     # 4. Parsear respuesta y extraer cita del fragmento real
     parsed = _parse_llm_json(response.content)
     if parsed is None:
-        # No parseable: usar texto crudo + cita del fragmento top-1
-        frag = fragments[0]
-        raw_answer = response.content.strip()
-        if not raw_answer:
-            raw_answer = NEGATIVE_RESPONSE
-        result = ChatResult(
-            answer=raw_answer,
-            citation_regulation=f"Reglamento {frag.reglamento}",
-            citation_article=_render_article(frag.articulo, frag.apartado),
-            citation_url=str(frag.fuente_url),
-            fragments=fragments,
-        )
-        _publish_metadata(result, message)
-        return result
+        # No parseable: la invariante #3 obliga a cuerpo + cita coherentes; preferimos
+        # devolver la negativa canónica antes que adjuntar un cuerpo crudo con una cita
+        # estructurada que el usuario no puede verificar.
+        _publish_metadata(None, message)
+        return _negative_result(fragments)
 
     answer_text = str(parsed.get("answer", "")).strip()
     fragment_index = int(parsed.get("fragment_index", 0) or 0)
@@ -130,13 +159,7 @@ def answer(
     # Validar que no sea la negativa
     if NEGATIVE_RESPONSE.lower() in answer_text.lower() or not answer_text:
         _publish_metadata(None, message)
-        return ChatResult(
-            answer=NEGATIVE_RESPONSE,
-            citation_regulation=None,
-            citation_article=None,
-            citation_url=None,
-            fragments=fragments,
-        )
+        return _negative_result(fragments)
 
     # Anti-alucinación: fragment_index en rango
     if not (0 <= fragment_index < len(fragments)):
@@ -146,8 +169,15 @@ def answer(
     citation_reg = f"Reglamento {frag.reglamento}"
     citation_art = _render_article(frag.articulo, frag.apartado)
 
-    # Asegurar que la cita aparece en la respuesta
-    if f"[{frag.reglamento}" not in answer_text and "[Reglamento" not in answer_text:
+    # Anti-alucinación estricta: si el LLM citó algún reglamento en el cuerpo que NO
+    # coincide con el del fragmento elegido, descartamos la respuesta y devolvemos la
+    # negativa canónica. Esto evita que body y badge muestren reglamentos distintos.
+    if not _citation_matches_fragment(answer_text, frag.reglamento):
+        _publish_metadata(None, message)
+        return _negative_result(fragments)
+
+    # Asegurar que la cita real aparece al final del cuerpo.
+    if f"[{frag.reglamento}" not in answer_text:
         answer_text += f" [{citation_reg}, {citation_art}]"
 
     result = ChatResult(
