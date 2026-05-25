@@ -198,11 +198,10 @@ function FieldRow({
       <span style={labelStyle}>
         <span>
           {field.id}
-          {field.required && (
-            <span style={{ marginLeft: 2, color: "var(--danger)" }}>*</span>
-          )}
+          {field.required && <span style={{ marginLeft: 2, color: "var(--danger)" }}>*</span>}
         </span>
         <span
+          role="img"
           title={citation}
           aria-label={`Cita: ${citation}`}
           style={{

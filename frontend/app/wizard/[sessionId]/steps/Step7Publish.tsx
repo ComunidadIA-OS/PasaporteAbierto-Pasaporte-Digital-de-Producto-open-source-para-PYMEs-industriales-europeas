@@ -8,12 +8,12 @@
 
 "use client";
 
+import Image from "next/image";
 import { useState, useTransition } from "react";
 
 import { ApiError, api, type DppResponse, type SessionState } from "@/app/lib/api";
 
-const API_BASE =
-  typeof process !== "undefined" ? (process.env.NEXT_PUBLIC_API_URL ?? "") : "";
+const API_BASE = typeof process !== "undefined" ? (process.env.NEXT_PUBLIC_API_URL ?? "") : "";
 
 export function Step7Publish({ session }: { session: SessionState }) {
   const [dpp, setDpp] = useState<DppResponse | null>(null);
@@ -46,8 +46,8 @@ export function Step7Publish({ session }: { session: SessionState }) {
             Listo para publicar
           </h2>
           <p className="muted" style={{ marginTop: 8, marginBottom: 0 }}>
-            El paso 6 ha verificado que el DPP está completo. Al publicar se firma con Ed25519,
-            se persiste en la BD y se genera el QR + URL pública.
+            El paso 6 ha verificado que el DPP está completo. Al publicar se firma con Ed25519, se
+            persiste en la BD y se genera el QR + URL pública.
           </p>
         </div>
 
@@ -100,8 +100,7 @@ export function Step7Publish({ session }: { session: SessionState }) {
         <div className="qr-card">
           <h3 className="eyebrow">QR del producto</h3>
           <div className="qr-frame" style={{ marginTop: 16 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={qrPngUrl} alt="QR del DPP" />
+            <Image src={qrPngUrl} alt="QR del DPP" width={192} height={192} unoptimized />
           </div>
           <div
             style={{

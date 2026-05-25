@@ -118,9 +118,21 @@ export function Step6Verify({
           <h3 className="h-3" style={{ margin: 0 }}>
             Advertencias ({verify.warnings.length})
           </h3>
-          <ul style={{ marginTop: 12, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
-            {verify.warnings.map((w, i) => (
-              <WarningRow key={i} warning={w} />
+          <ul
+            style={{
+              marginTop: 12,
+              padding: 0,
+              listStyle: "none",
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            {verify.warnings.map((w) => (
+              <WarningRow
+                key={`${w.rule_id ?? "warn"}-${w.field_id ?? "field"}-${w.message}`}
+                warning={w}
+              />
             ))}
           </ul>
         </section>
@@ -137,8 +149,8 @@ export function Step6Verify({
         </button>
         {!verify.can_publish && (
           <p style={{ marginTop: 8, fontSize: 12, color: "var(--danger)" }}>
-            No se puede publicar: rellena los campos faltantes en el paso 3 (o sube documentos en
-            el paso 4 para que el Recolector los verifique).
+            No se puede publicar: rellena los campos faltantes en el paso 3 (o sube documentos en el
+            paso 4 para que el Recolector los verifique).
           </p>
         )}
       </div>
@@ -147,8 +159,7 @@ export function Step6Verify({
 }
 
 function MissingRow({ miss }: { miss: MissingField }) {
-  const toneColor =
-    miss.reason === "validation_failed" ? "var(--warn)" : "var(--danger)";
+  const toneColor = miss.reason === "validation_failed" ? "var(--warn)" : "var(--danger)";
   return (
     <li
       style={{

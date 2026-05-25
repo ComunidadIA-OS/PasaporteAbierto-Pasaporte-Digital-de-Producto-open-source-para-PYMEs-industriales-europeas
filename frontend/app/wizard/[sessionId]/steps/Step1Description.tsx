@@ -49,8 +49,8 @@ export function Step1Description({
   return (
     <div className="col gap-4" style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       <p className="muted" style={{ margin: 0, fontSize: 15 }}>
-        Describe tu producto con suficiente detalle para que el Clasificador identifique el
-        sector ESPR aplicable. Cuanto más concreto (materiales, función, capacidad), mejor.
+        Describe tu producto con suficiente detalle para que el Clasificador identifique el sector
+        ESPR aplicable. Cuanto más concreto (materiales, función, capacidad), mejor.
       </p>
 
       <div className="framed-textarea">

@@ -19,11 +19,7 @@ async function loadSession(sessionId: string): Promise<SessionState | null> {
   }
 }
 
-export default async function WizardPage({
-  params,
-}: {
-  params: Promise<{ sessionId: string }>;
-}) {
+export default async function WizardPage({ params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = await params;
   const session = await loadSession(sessionId);
 

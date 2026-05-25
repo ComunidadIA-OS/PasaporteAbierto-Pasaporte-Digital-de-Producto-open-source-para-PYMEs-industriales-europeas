@@ -39,10 +39,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="es"
-      className={`${newsreader.variable} ${plexSans.variable} ${dmMono.variable}`}
-    >
+    <html lang="es" className={`${newsreader.variable} ${plexSans.variable} ${dmMono.variable}`}>
       <body>
         <div className="app-root">
           <div className="app-content">{children}</div>
