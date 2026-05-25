@@ -159,12 +159,14 @@ Próximos sectores (fases futuras):
 
 | Fase | Tema | Estado |
 |---|---|---|
-| **F1** | Fundación: scaffold, modelos, plugins, LLM router, Langfuse | ✅ cerrada |
-| F2 | Corpus normativo (RAG con ChromaDB + bge-m3) | ⏳ siguiente |
-| F3 | Wizard + Clasificador + BOM dinámico + Recolector | ⏳ |
-| F4 | Chat lateral con cita normativa obligatoria | ⏳ |
-| F5 | DPP público + QR + firma Ed25519 | ⏳ |
-| F6 | Comunidad, calidad, DPGA, plugin textil | ⏳ |
+| F1 | Fundación: scaffold, modelos, plugins, LLM router, Langfuse | ✅ cerrada |
+| F2 | Corpus normativo (RAG con ChromaDB + bge-m3) | ✅ cerrada |
+| F3 | Componentes IA: Clasificador, Recolector, Verificador, Chat | ✅ cerrada |
+| F4 | Wizard de 7 pasos + persistencia + SSE | ✅ cerrada |
+| F5 | Generación y publicación del DPP + firma + audit chain | ✅ cerrada |
+| F6 | Comunidad, calidad, DPGA, plugin textil | ⏳ pendiente |
+
+Trabajo restante en F6: `plugins/textile.yaml` como prueba de extensibilidad, `docs/plugins.md` (guía de contribución), badge DPGA, CI con GitHub Actions y test E2E del flujo completo.
 
 ## Decisiones técnicas explícitas
 
