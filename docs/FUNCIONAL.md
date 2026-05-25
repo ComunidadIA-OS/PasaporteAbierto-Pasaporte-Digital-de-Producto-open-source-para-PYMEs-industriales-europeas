@@ -141,8 +141,8 @@ Si hay campos críticos vacíos, el botón "Generar DPP" del paso 7 **está desh
 ### Paso 7 · Generación y publicación del DPP · _determinista_
 
 **Lo que ve el fabricante:** tras confirmar, el sistema muestra:
-- **Código QR** descargable (PNG y SVG).
-- **URL pública** del DPP, cuya forma sigue el esquema declarado por el plugin del sector (ISO/IEC 15459 para baterías, GS1 Digital Link como fallback genérico).
+- **Código QR** descargable (PNG y SVG) que codifica la URL pública navegable del DPP.
+- **URL pública** del DPP en la forma `GET /dpp/{slug}` (slug opaco derivado del `session_id`). El identificador canónico (`gs1_uri`) según el esquema declarado por el plugin (ISO/IEC 15459 para baterías, GS1 Digital Link como fallback genérico) aparece dentro del DPP, no en la URL — ver [ADR 0003](./adr/0003-url-publica-slug-opaco.md).
 - Confirmación de **firma Ed25519** (si se activó).
 
 **Qué hace el sistema:**
@@ -174,7 +174,7 @@ Endpoint **independiente** del pipeline. Disponible en cualquier paso del wizard
 
 ## 5. DPP público
 
-El DPP generado es accesible vía URL canónica cuya forma viene determinada por el esquema declarado por el plugin sectorial (ISO/IEC 15459 para baterías por Art. 77.3 de Reg. UE 2023/1542; GS1 Digital Link para sectores sin acto delegado específico). El endpoint `GET /dpp/{gs1_uri}` aplica **content negotiation**:
+El DPP generado es accesible vía URL canónica `GET /dpp/{slug}` que aplica **content negotiation**:
 
 | Header `Accept` | Respuesta |
 |---|---|
@@ -183,7 +183,7 @@ El DPP generado es accesible vía URL canónica cuya forma viene determinada por
 
 La respuesta incluye únicamente los campos con `access_level = public` (Sección 1 del Annex XIII del Reg. UE 2023/1542 para baterías; el resto de sectores hereda `public` por defecto hasta que su acto delegado fije otra cosa). La página HTML diferencia visualmente **verified vs self_declared** (ver §9.1) para que el consumidor entienda la calidad del dato.
 
-El segmento `{gs1_uri}` de la ruta es un nombre histórico que se mantiene por compatibilidad con la primera iteración del proyecto; su contenido es ya agnóstico al esquema y soporta cualquier URI emitido por la fábrica del plugin.
+`slug` es un identificador opaco derivado del `session_id` (primeros 8 caracteres del UUID). El `gs1_uri` canónico —ISO/IEC 15459 para baterías por Art. 77.3 de Reg. UE 2023/1542; GS1 Digital Link como fallback genérico— aparece en el campo `@id` del JSON-LD y se muestra explícitamente en la página HTML como "Identificador". El QR codifica la URL opaca completa para que sea navegable directamente sin depender de resolvers externos. Ver [ADR 0003](./adr/0003-url-publica-slug-opaco.md).
 
 ---
 
@@ -248,7 +248,7 @@ Todos los endpoints bajo prefijo `/api/v1`. Detalle de schemas en el código fue
 | 6 | GET | `/sessions/{id}/verify` | det | `{ score, faltantes[], advertencias[] }` |
 | 7 | POST | `/sessions/{id}/dpp` | det | `{ gs1_uri, qr_url, firma? }` |
 | chat | POST | `/sessions/{id}/chat` | IA | respuesta con cita |
-| público | GET | `/dpp/{gs1_uri}` | det | JSON-LD o HTML según `Accept` |
+| público | GET | `/dpp/{slug}` | det | JSON-LD o HTML según `Accept` (`slug` opaco derivado del `session_id`; el `gs1_uri` canónico va en el cuerpo — ver [ADR 0003](./adr/0003-url-publica-slug-opaco.md)) |
 | audit | GET | `/audit/verify` | det | `{ ok, broken_at? }` |
 | health | GET | `/health` | det | `{ version, model, backend }` |
 
@@ -279,7 +279,7 @@ Definición canónica de los cuatro niveles del Annex XIII del Reglamento UE 202
 | `authorities_only` | Organismos notificados + autoridades de vigilancia del mercado + Comisión | Annex XIII Sección 3. Ej. resultados de informes de ensayo de conformidad. |
 | `individual` | Personas con interés legítimo sobre **una batería concreta** (no el modelo) | Annex XIII Sección 4. Datos dinámicos de telemetría: SoH actual, ciclos consumidos, accidentes, temperatura operativa, SoC. Fuera del alcance del wizard. |
 
-**Regla dura:** el endpoint público `GET /dpp/{gs1_uri}` solo devuelve campos con `access_level = public`. Los demás quedan accesibles vía endpoints específicos planificados para fases posteriores del proyecto (no cubiertos por el hackathon).
+**Regla dura:** el endpoint público `GET /dpp/{slug}` solo devuelve campos con `access_level = public`. Los demás quedan accesibles vía endpoints específicos planificados para fases posteriores del proyecto (no cubiertos por el hackathon).
 
 La identidad del solicitante (operador notificado, MSA, interés legítimo) se resolverá a través de los actos de ejecución que la Comisión adoptará a más tardar el 18 de agosto de 2026 conforme al Art. 77.9 del Reglamento UE 2023/1542; hasta entonces el sistema solo expone el subconjunto `public`.
 
