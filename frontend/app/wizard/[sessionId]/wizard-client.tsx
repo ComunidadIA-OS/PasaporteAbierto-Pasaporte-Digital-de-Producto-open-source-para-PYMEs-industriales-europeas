@@ -1,4 +1,4 @@
-// Shell interactivo del wizard (F4-01) — diseño Quiet.
+// Shell interactivo del wizard (F4-01) — diseño Compliance OS.
 //
 // Carga inicial: el Server Component pasa `initialSession`.
 // A partir de ahí mantiene estado local y persiste cada cambio de step

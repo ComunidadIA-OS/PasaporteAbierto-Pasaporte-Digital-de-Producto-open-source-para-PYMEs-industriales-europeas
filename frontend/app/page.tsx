@@ -1,10 +1,15 @@
-// Landing page rediseñada (tema Quiet · D).
+// Landing — tema Compliance OS (tech SaaS · brutalist · referencias UE · acento eco).
 //
-// Estructura: appbar con pill de salud + hero centrado + sección "cómo
-// funciona" (lista de 7 pasos) + sección "plugins disponibles" + footer.
-// El fetch a /api/v1/health se hace SSR; el resultado alimenta el pill.
+// Estructura espejo del prototipo (design bundle): appbar con pill de salud, hero
+// 2-col (texto + dashboard oscuro), sección "por qué" con 3 features bordeadas
+// brutalist, lista de 7 pasos, plugins disponibles, CTA en card negra y footer 4-col.
 
 import Link from "next/link";
+
+import { Reveal } from "./components/Reveal";
+
+const REPO_URL =
+  "https://github.com/ComunidadIA-OS/PasaporteAbierto-Pasaporte-Digital-de-Producto-open-source-para-PYMEs-industriales-europeas";
 
 async function getHealth() {
   const url = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -16,6 +21,34 @@ async function getHealth() {
     return null;
   }
 }
+
+const HERO_STATS = [
+  { n: "7", l: "pasos guiados" },
+  { n: "≤15min", l: "por pasaporte" },
+  { n: "2", l: "sectores activos" },
+  { n: "100%", l: "on-premise" },
+];
+
+const REGULATION = [
+  {
+    num: "01",
+    glyph: "§",
+    title: "Conforme al Reg. UE 2024/1781",
+    body: "Cumplimiento de ESPR y de actos delegados sectoriales. Cada campo cita el artículo que lo justifica, en su idioma original.",
+  },
+  {
+    num: "02",
+    glyph: "⛨",
+    title: "Audit log con hash chain",
+    body: "Cada decisión queda registrada y encadenada por hash. Cualquier manipulación rompe la cadena de forma detectable.",
+  },
+  {
+    num: "03",
+    glyph: "⚿",
+    title: "Firma Ed25519 + JSON-LD CIRPASS-2",
+    body: "El DPP se firma criptográficamente y se publica en formato JSON-LD CIRPASS-2 Core. QR resoluble vía URN ISO/IEC 15459.",
+  },
+];
 
 const STEPS = [
   {
@@ -33,7 +66,7 @@ const STEPS = [
   {
     n: 3,
     kind: "det" as const,
-    label: "BOM dinámico",
+    label: "BOM (Bill of Materials) dinámico",
     desc: "Formulario adaptado al plugin del sector.",
   },
   {
@@ -46,7 +79,7 @@ const STEPS = [
     n: 5,
     kind: "ai" as const,
     label: "Extracción IA de campos",
-    desc: "pdfplumber + LLM. SSE en vivo.",
+    desc: "pdfplumber + LLM. SSE streaming en vivo.",
   },
   {
     n: 6,
@@ -69,7 +102,8 @@ const PLUGINS = [
     meta: "Reg. UE 2023/1542 · 48 campos",
     status: "estable",
     statusClass: "badge-success",
-    desc: "Cubre Anexo XIII secciones 1, 2 y 3. Identificador ISO/IEC 15459 por Art. 77.3.",
+    glyph: "▮",
+    desc: "Cubre Anexo XIII secciones 1, 2 y 3 (públicas, interés legítimo, autoridades). Identificador ISO/IEC 15459 por Art. 77.3.",
   },
   {
     name: "textile.yaml",
@@ -77,7 +111,8 @@ const PLUGINS = [
     meta: "Acto delegado ESPR · 22 campos",
     status: "beta",
     statusClass: "badge-warn",
-    desc: "Plugin de referencia para validar la arquitectura de extensibilidad. GS1 Digital Link.",
+    glyph: "✿",
+    desc: "Plugin de referencia para validar la arquitectura de extensibilidad. Identificador GS1 Digital Link por defecto.",
   },
   {
     name: "your-sector.yaml",
@@ -85,7 +120,8 @@ const PLUGINS = [
     meta: "Plugin YAML · — campos",
     status: "comunidad",
     statusClass: "badge-neutral",
-    desc: "Añade un sector con un YAML. El loader valida contra schema. Sin tocar el core.",
+    glyph: "</>",
+    desc: "Añade un sector nuevo con un YAML. El loader valida contra schema; si no cumple, no se carga. Sin tocar el core.",
   },
 ];
 
@@ -99,6 +135,18 @@ export default async function Home() {
           <div className="appbar-logo">P</div>
           <span>PasaporteAbierto</span>
         </div>
+        <nav className="appbar-nav" aria-label="Principal">
+          <Link href="/" className="is-active">
+            Inicio
+          </Link>
+          <Link href="/wizard">Wizard</Link>
+          <a href={`${REPO_URL}#plugins`} target="_blank" rel="noreferrer">
+            Plugins
+          </a>
+          <a href={REPO_URL} target="_blank" rel="noreferrer">
+            GitHub
+          </a>
+        </nav>
         <div className="appbar-spacer" />
         <span className={`appbar-pill${health ? "" : " is-down"}`}>
           <span className="dot" />
@@ -108,30 +156,102 @@ export default async function Home() {
 
       <main className="fade-in">
         <section className="hero">
-          <div className="container-narrow">
-            <span className="hero-tag">ESPR · Reg. UE 2024/1781 · Open Source</span>
-            <h1 className="h-display">
-              Pasaporte Digital de <em>Producto</em>,
-              <br />
-              sin prisa.
-            </h1>
-            <p className="hero-lede">
-              Aplicación auto-hospedable que ayuda a fabricantes PYME a generar el DPP exigido por
-              la normativa europea en menos de 15 minutos. Siete pasos, una pantalla por paso, cita
-              normativa en cada decisión.
-            </p>
-            <div className="hero-cta">
-              <Link href="/wizard" className="btn btn-primary btn-lg">
-                Generar pasaporte →
-              </Link>
-              <a
-                href="https://github.com/ComunidadIA-OS/PasaporteAbierto-Pasaporte-Digital-de-Producto-open-source-para-PYMEs-industriales-europeas"
-                target="_blank"
-                rel="noreferrer"
-                className="btn btn-ghost btn-lg"
-              >
-                Ver en GitHub
-              </a>
+          <div className="container">
+            <div className="hero-grid">
+              <div>
+                <Reveal>
+                  <div className="hero-tag">
+                    <span className="dot" />
+                    <span>ESPR · Reg. UE 2024/1781</span>
+                    <span aria-hidden style={{ opacity: 0.4 }}>
+                      ·
+                    </span>
+                    <span>Open Source</span>
+                  </div>
+                </Reveal>
+
+                <Reveal delay={120}>
+                  <h1 className="h-display">
+                    Compliance <em>auditable</em>
+                    <br />
+                    end-to-end.
+                  </h1>
+                </Reveal>
+
+                <Reveal delay={260}>
+                  <p className="hero-lede">
+                    Aplicación auto-hospedable que ayuda a fabricantes PYME a generar el DPP exigido
+                    por el Reglamento UE 2024/1781 en menos de 15 minutos. Trazabilidad inmutable,
+                    citas normativas en cada decisión, código abierto.
+                  </p>
+                </Reveal>
+
+                <Reveal delay={380}>
+                  <div className="hero-cta">
+                    <Link href="/wizard" className="btn btn-primary btn-lg">
+                      Crear mi primer DPP →
+                    </Link>
+                    <a
+                      href={REPO_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-secondary btn-lg"
+                    >
+                      Ver en GitHub
+                    </a>
+                  </div>
+                </Reveal>
+
+                <Reveal delay={500}>
+                  <div className="hero-strip">
+                    {HERO_STATS.map((s) => (
+                      <div key={s.l}>
+                        <div className="n">{s.n}</div>
+                        <div className="l">{s.l}</div>
+                      </div>
+                    ))}
+                  </div>
+                </Reveal>
+              </div>
+
+              <Reveal delay={200}>
+                <div className="hero-preview" aria-hidden>
+                  <div className="preview-head">
+                    <div className="dotrow">
+                      <span />
+                      <span />
+                      <span />
+                    </div>
+                    <div className="preview-url">pasaporte.industriasvolta.eu/dpp/9f3a7b2c1e</div>
+                  </div>
+                  <div className="preview-body">
+                    <div className="preview-product">
+                      <div className="preview-thumb">⚡</div>
+                      <div>
+                        <div className="name">VoltaCore HS-5000</div>
+                        <div className="meta">Batería Li-ion · 5 kWh · Industrias Volta</div>
+                      </div>
+                    </div>
+
+                    {[
+                      { l: "Química", v: "NMC-622" },
+                      { l: "Capacidad", v: "5,12 kWh @ 51,2 V" },
+                      { l: "CO₂e (LCA)", v: "82 kg / kWh" },
+                      { l: "Co reciclado", v: "16%", badge: "min Art. 8" },
+                      { l: "Vida útil", v: "6 000 ciclos · 15 a" },
+                      { l: "Firma", v: "Ed25519 ✓" },
+                    ].map((row) => (
+                      <div key={row.l} className="preview-row">
+                        <span className="lbl">{row.l}</span>
+                        <span className="val">
+                          {row.v}
+                          {row.badge && <span className="badge">{row.badge}</span>}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Reveal>
             </div>
           </div>
         </section>
@@ -139,30 +259,32 @@ export default async function Home() {
         <section className="section">
           <div className="container">
             <div className="section-head">
-              <span className="eyebrow">El wizard</span>
-              <h2 className="h-1">
-                Siete pasos. Dos son <em>IA</em>.
-                <br />
-                El resto, deterministas.
-              </h2>
-              <p className="muted">
-                Pipeline lineal. Los pasos de IA se acotan al Clasificador (paso 2) y al Recolector
-                (paso 5). Todo lo demás es código verificable paso a paso.
-              </p>
+              <div className="lead">
+                <Reveal>
+                  <span className="eyebrow">Por qué PasaporteAbierto</span>
+                </Reveal>
+                <Reveal delay={80}>
+                  <h2 className="h-1">Trazabilidad regulatoria, sin atajos.</h2>
+                </Reveal>
+              </div>
+              <Reveal delay={200}>
+                <p className="lede-aside">
+                  Diseñado con criterios institucionales: cada paso es verificable, cada campo cita
+                  norma, y nada se publica si falta un dato obligatorio.
+                </p>
+              </Reveal>
             </div>
 
-            <div className="steps-list">
-              {STEPS.map((s) => (
-                <div key={s.n} className="step-item">
-                  <div className="si-num">PASO {String(s.n).padStart(2, "0")}</div>
-                  <div>
-                    <div className="si-title">{s.label}</div>
-                    <div className="si-desc">{s.desc}</div>
+            <div className="feature-grid">
+              {REGULATION.map((it, i) => (
+                <Reveal key={it.num} delay={i * 100}>
+                  <div className="num">— {it.num}</div>
+                  <div className="glyph" aria-hidden>
+                    {it.glyph}
                   </div>
-                  <div className={`si-kind ${s.kind}`}>
-                    {s.kind === "ai" ? "IA" : "determinista"}
-                  </div>
-                </div>
+                  <h3>{it.title}</h3>
+                  <p>{it.body}</p>
+                </Reveal>
               ))}
             </div>
           </div>
@@ -171,27 +293,120 @@ export default async function Home() {
         <section className="section">
           <div className="container">
             <div className="section-head">
-              <span className="eyebrow">Cobertura sectorial</span>
-              <h2 className="h-1">
-                Un <em>YAML</em> por sector.
-                <br />
-                Cero código para extender.
-              </h2>
+              <div className="lead">
+                <Reveal>
+                  <span className="eyebrow">El wizard</span>
+                </Reveal>
+                <Reveal delay={80}>
+                  <h2 className="h-1">
+                    Siete pasos. Dos son <em>IA</em>.
+                    <br />
+                    El resto, deterministas.
+                  </h2>
+                </Reveal>
+              </div>
+              <Reveal delay={200}>
+                <p className="lede-aside">
+                  Pipeline lineal. Los pasos de IA están acotados a Clasificador (2) y Recolector
+                  (5); todo lo demás es código verificable paso a paso.
+                </p>
+              </Reveal>
             </div>
 
-            <div className="plugins-list">
-              {PLUGINS.map((p) => (
-                <div key={p.name} className="plugin-item">
-                  <div className="pi-head">
-                    <span className="pi-name">{p.name}</span>
+            <Reveal>
+              <div className="steps-list">
+                {STEPS.map((s) => (
+                  <div key={s.n} className="step-item">
+                    <div className="si-num">PASO {String(s.n).padStart(2, "0")}</div>
+                    <div>
+                      <div className="si-title">{s.label}</div>
+                      <div className="si-desc">{s.desc}</div>
+                    </div>
+                    <div className={`si-kind ${s.kind}`}>
+                      {s.kind === "ai" ? "AI · Recolector" : "determinista"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
+        <section className="section">
+          <div className="container">
+            <div className="section-head">
+              <div className="lead">
+                <Reveal>
+                  <span className="eyebrow">Cobertura sectorial</span>
+                </Reveal>
+                <Reveal delay={80}>
+                  <h2 className="h-1">
+                    Un <em>YAML</em> por sector.
+                    <br />
+                    Cero código para extender.
+                  </h2>
+                </Reveal>
+              </div>
+            </div>
+
+            <div className="feature-grid">
+              {PLUGINS.map((p, i) => (
+                <Reveal key={p.name} delay={i * 100}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    <div className="num">{p.name}</div>
                     <span className={`badge ${p.statusClass}`}>{p.status}</span>
                   </div>
-                  <h3 className="pi-title">{p.title}</h3>
-                  <p className="pi-meta">{p.meta}</p>
-                  <p className="pi-desc">{p.desc}</p>
-                </div>
+                  <div className="glyph" aria-hidden>
+                    {p.glyph}
+                  </div>
+                  <h3>{p.title}</h3>
+                  <div
+                    className="mono"
+                    style={{ fontSize: 11, color: "var(--text-muted)", margin: "4px 0 12px" }}
+                  >
+                    {p.meta}
+                  </div>
+                  <p>{p.desc}</p>
+                </Reveal>
               ))}
             </div>
+          </div>
+        </section>
+
+        <section className="section">
+          <div className="container">
+            <Reveal>
+              <div className="cta-card">
+                <span className="eyebrow">Empieza ahora</span>
+                <h2 className="h-1">Tu primer DPP en menos de 15 minutos.</h2>
+                <p>
+                  Sin login. Sin dependencias SaaS. Levanta toda la solución con{" "}
+                  <code className="mono" style={{ color: "var(--accent)" }}>
+                    docker compose up
+                  </code>{" "}
+                  y empieza a generar pasaportes.
+                </p>
+                <div className="hero-cta">
+                  <Link href="/wizard" className="btn btn-primary btn-lg">
+                    Crear mi primer DPP →
+                  </Link>
+                  <a
+                    href={REPO_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-secondary btn-lg"
+                  >
+                    Ver en GitHub
+                  </a>
+                </div>
+              </div>
+            </Reveal>
           </div>
         </section>
       </main>
@@ -200,23 +415,25 @@ export default async function Home() {
         <div className="container">
           <div className="footer-grid">
             <div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  marginBottom: 16,
-                }}
-              >
+              <div className="footer-brand">
                 <div className="appbar-logo">P</div>
-                <strong style={{ fontFamily: "var(--font-head)", fontSize: 16 }}>
-                  PasaporteAbierto
-                </strong>
+                <span>PasaporteAbierto</span>
               </div>
-              <p style={{ maxWidth: 360, margin: 0 }}>
+              <p>
                 Pasaporte Digital de Producto auto-hospedable para fabricantes PYME conforme al
                 Reglamento UE 2024/1781 (ESPR). Apache 2.0.
               </p>
+            </div>
+            <div>
+              <h4>Producto</h4>
+              <ul>
+                <li>
+                  <Link href="/wizard">Wizard</Link>
+                </li>
+                <li>Plugins</li>
+                <li>DPP público</li>
+                <li>Chat normativo</li>
+              </ul>
             </div>
             <div>
               <h4>Normativa</h4>
@@ -225,6 +442,19 @@ export default async function Home() {
                 <li>Reg. UE 2023/1542 (baterías)</li>
                 <li>CIRPASS-2 Core</li>
                 <li>ISO/IEC 15459</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Comunidad</h4>
+              <ul>
+                <li>
+                  <a href={REPO_URL} target="_blank" rel="noreferrer">
+                    GitHub
+                  </a>
+                </li>
+                <li>Contribuir un plugin</li>
+                <li>DPGA badge</li>
+                <li>Licencia Apache 2.0</li>
               </ul>
             </div>
           </div>
