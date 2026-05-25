@@ -187,6 +187,32 @@ Convenciones del repo:
 - **Sin `Co-Authored-By: Claude`** ni trailers de IA en los commits.
 - Documentación e UI en castellano; citas normativas conservan el idioma original del reglamento.
 
+## Pasaporte Abierto
+
+### Misión
+
+PasaporteAbierto es la primera implementación de referencia open source del Pasaporte Digital de Producto (DPP) exigido por el Reglamento UE 2024/1781. Su misión es que cualquier PYME industrial europea pueda cumplir ESPR sin depender de SaaS propietario, ejecutando una instancia bajo su propio control.
+
+### Métricas iniciales
+
+*Al cierre de la fase F6 del hackathon (2026-05-25):*
+
+- **Sectores cubiertos por plugins**: 2 (`batteries`, `textile`).
+- **Fuentes referenciadas en el corpus RAG**: 6 (ESPR — Reg. UE 2024/1781, baterías — Reg. UE 2023/1542, actos delegados ESPR, CIRPASS-2 Core, GS1 Digital Link 1.3.0, ISO/IEC 15459).
+- **Endpoints públicos del DPP**: 1 (`GET /dpp/{slug}` con content negotiation `application/ld+json` / `text/html`).
+- **Componentes IA acotados**: 2 (Clasificador, Recolector); el resto del pipeline es código determinista.
+
+### Proceso de adhesión
+
+Para postularse como instancia oficial del ecosistema Pasaporte Abierto:
+
+1. Desplegar la instancia siguiendo el [quickstart](#setup-en-30-minutos).
+2. Contribuir un plugin de tu sector si todavía no está cubierto. Ver [guía de plugins](./docs/plugins.md).
+3. Cumplir los criterios de [`docs/dpga.md`](./docs/dpga.md) (licencia, privacidad, no recopilación de PII).
+4. Abrir issue en el repositorio principal con la URL pública de tu instancia.
+
+> **Importante**: cada instancia es soberana. El proyecto no impone un registro central; las instancias se conectan opcionalmente vía el DPP federado (roadmap post-hackathon).
+
 ## Licencia
 
-[Apache 2.0](./LICENSE) (cuando exista el archivo formal; el repositorio se publica bajo esta licencia).
+Apache License 2.0. Ver [`LICENSE`](./LICENSE).
