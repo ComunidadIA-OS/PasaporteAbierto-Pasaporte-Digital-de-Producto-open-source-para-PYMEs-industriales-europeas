@@ -1,5 +1,9 @@
 # PasaporteAbierto
 
+<!-- RAG_QUALITY_BADGE:START -->
+![RAG quality](https://img.shields.io/badge/RAG_quality-activo-brightgreen)
+<!-- RAG_QUALITY_BADGE:END -->
+
 Aplicación web auto-hospedable para que fabricantes PYME generen el **Pasaporte Digital de Producto (DPP)** exigido por el Reglamento UE 2024/1781 (ESPR). Open source, Apache 2.0.
 
 ## Documentación
@@ -103,6 +107,31 @@ make health       # curl al health endpoint con json pretty
 make seed         # carga datos demo
 make reset        # borra DB y la recrea
 ```
+
+### Corpus normativo (RAG)
+
+El corpus regulatorio europeo se descarga y persiste con:
+
+```bash
+make ingest                                    # ingiere todo (es + en, todas las fuentes)
+make ingest INGEST_ARGS="--only iso-15459"     # solo una fuente
+# Alternativa sin make: cd backend && uv run python -m scripts.ingest_corpus
+```
+
+Sources:
+- Reg. UE 2024/1781 (ESPR) — EUR-Lex, es + en
+- Reg. UE 2023/1542 (baterías, incluye Art. 77 y Annex XIII) — EUR-Lex, es + en
+- Actos delegados ESPR publicados — EUR-Lex (lista declarativa)
+- CIRPASS-2 Core Ontology — JSON-LD, en
+- GS1 Digital Link 1.3.0 — HTML público, en
+- ISO/IEC 15459-1..6 — fragmentos-stub con abstract público + URL canónica (texto bajo licencia ISO no se redistribuye)
+
+Salida: `backend/data/corpus/{slug}.{lang}.jsonl`. F2-02 consume desde ese directorio.
+
+Exit codes:
+- `0` todo OK
+- `1` alguna source falló por red; el resto se completó
+- `2` regresión de parser (HTML cambió en EUR-Lex)
 
 ## Plugins regulatorios
 
