@@ -30,3 +30,6 @@ dev = [
 testpaths = ["tests"]
 asyncio_mode = "auto"
 pythonpath = ["src"]
+markers = [
+    "slow: tests que descargan el modelo bge-m3 (~2 GB) o tocan ChromaDB; omitir con -m 'not slow'",
+]
