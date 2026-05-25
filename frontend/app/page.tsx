@@ -222,9 +222,7 @@ export default async function Home() {
                       <span />
                       <span />
                     </div>
-                    <div className="preview-url">
-                      pasaporte.industriasvolta.eu/dpp/9f3a7b2c1e
-                    </div>
+                    <div className="preview-url">pasaporte.industriasvolta.eu/dpp/9f3a7b2c1e</div>
                   </div>
                   <div className="preview-body">
                     <div className="preview-product">

@@ -37,9 +37,7 @@ export function Reveal({ children, delay = 0, className }: Props) {
     };
   }, []);
 
-  const style: CSSProperties | undefined = delay
-    ? { transitionDelay: `${delay}ms` }
-    : undefined;
+  const style: CSSProperties | undefined = delay ? { transitionDelay: `${delay}ms` } : undefined;
 
   return (
     <div
