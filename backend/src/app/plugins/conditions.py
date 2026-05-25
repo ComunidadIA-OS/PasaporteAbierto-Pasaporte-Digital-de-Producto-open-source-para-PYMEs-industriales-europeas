@@ -44,16 +44,25 @@ def evaluate_when(condition: str | None, bom: dict[str, Any]) -> bool:
         return True
 
 
-def _eval_node(node: ast.expr, bom: dict[str, Any]) -> Any:
-    """Evalúa recursivamente un nodo AST con acceso al BOM."""
+def _eval_node(node: ast.expr, bom: dict[str, Any], *, literal_names: bool = False) -> Any:
+    """Evalúa recursivamente un nodo AST con acceso al BOM.
+
+    `literal_names=True` cambia el comportamiento de los `ast.Name` para
+    tratarlos como literales en lugar de resolverlos contra el BOM. Se activa
+    cuando descendemos en el lado derecho de un operador `In`/`NotIn`
+    (`x in [foo, bar]`): sin este flag, si el BOM contiene una clave `foo`
+    homónima a un literal del enum, el bareword se sustituye por su valor y
+    la condición `when` del plugin se evalúa contra valores equivocados.
+    """
     if isinstance(node, ast.Compare):
         left = _eval_node(node.left, bom)
         for op_node, comparator in zip(node.ops, node.comparators, strict=True):
-            right = _eval_node(comparator, bom)
-            if isinstance(op_node, ast.In):
-                return left in right
-            if isinstance(op_node, ast.NotIn):
+            if isinstance(op_node, ast.In | ast.NotIn):
+                right = _eval_node(comparator, bom, literal_names=True)
+                if isinstance(op_node, ast.In):
+                    return left in right
                 return left not in right
+            right = _eval_node(comparator, bom)
             op_func = _OPERATORS.get(type(op_node))
             if op_func is None:
                 raise ValueError(f"Operador no soportado: {type(op_node).__name__}")
@@ -80,9 +89,10 @@ def _eval_node(node: ast.expr, bom: dict[str, Any]) -> Any:
         return not _eval_node(node.operand, bom)
 
     if isinstance(node, ast.Name):
-        # Bareword inside a list like `[industrial, ev]` — treat as string
-        # Also handles BOM field lookups
-        if node.id == "null" or node.id == "None":
+        if literal_names:
+            # Bareword dentro de [foo, bar] → literal string sin resolver contra BOM.
+            return node.id
+        if node.id in ("null", "None"):
             return None
         return bom.get(node.id, node.id)
 
@@ -90,7 +100,7 @@ def _eval_node(node: ast.expr, bom: dict[str, Any]) -> Any:
         return node.value
 
     if isinstance(node, ast.List):
-        return [_eval_node(e, bom) for e in node.elts]
+        return [_eval_node(e, bom, literal_names=literal_names) for e in node.elts]
 
     if isinstance(node, ast.Subscript):
         value = _eval_node(node.value, bom)

@@ -23,12 +23,24 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 from dataclasses import dataclass
 from typing import Any
 
 from sqlmodel import Session, desc, select
 
 from app.models.audit_log import AuditLogEntry
+
+
+# Lock global del módulo para serializar SELECT-último + INSERT del audit log.
+# La invariante de hash chain exige que `prev_hash` de la entrada N apunte al
+# `content_hash` de N-1; si dos requests concurrentes leen el mismo "último"
+# antes de que ninguno haga flush, las dos persisten con el mismo `prev_hash`
+# y `verify_chain` reporta una cadena corrupta sobre datos generados por el
+# propio sistema. SQLite serializa transacciones pero no las dos operaciones
+# entre sí desde la perspectiva del caller. Single-process es suficiente:
+# alcance del hackathon (CLAUDE.md "una instancia = un fabricante PYME").
+_AUDIT_LOCK = threading.Lock()
 
 
 def _canonical(payload: dict[str, Any]) -> bytes:
@@ -60,20 +72,26 @@ def append_entry(
 
     No hace commit — el caller decide cuándo confirmar. Sí hace `flush()`
     para asignar el `id` autoincrement antes de devolver.
-    """
-    last = db.exec(select(AuditLogEntry).order_by(desc(AuditLogEntry.id)).limit(1)).first()
-    prev_hash = last.content_hash if last else None
-    content_hash = _compute_hash(prev_hash, operation, payload)
 
-    entry = AuditLogEntry(
-        prev_hash=prev_hash,
-        content_hash=content_hash,
-        operation=operation,
-        payload=payload,
-    )
-    db.add(entry)
-    db.flush()
-    return entry
+    El lock global `_AUDIT_LOCK` serializa SELECT-último + INSERT entre los
+    distintos workers del proceso para preservar la cadena (ver comentario
+    arriba). El flush ocurre dentro del lock para que el siguiente caller
+    vea esta entrada en su SELECT.
+    """
+    with _AUDIT_LOCK:
+        last = db.exec(select(AuditLogEntry).order_by(desc(AuditLogEntry.id)).limit(1)).first()
+        prev_hash = last.content_hash if last else None
+        content_hash = _compute_hash(prev_hash, operation, payload)
+
+        entry = AuditLogEntry(
+            prev_hash=prev_hash,
+            content_hash=content_hash,
+            operation=operation,
+            payload=payload,
+        )
+        db.add(entry)
+        db.flush()
+        return entry
 
 
 @dataclass(frozen=True)
