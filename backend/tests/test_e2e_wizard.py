@@ -60,9 +60,7 @@ def e2e_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Test
     fabricante real, no debería mutarse desde tests).
     """
     db_path = tmp_path / "e2e.db"
-    engine = create_engine(
-        f"sqlite:///{db_path}", connect_args={"check_same_thread": False}
-    )
+    engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(engine)
 
     def _override_get_session() -> Iterator[Session]:
@@ -117,9 +115,7 @@ def mock_classifier(monkeypatch: pytest.MonkeyPatch) -> None:
             "único conforme a la norma ISO/IEC 15459."
         ),
         score=0.9,
-        fuente_url=(
-            "https://eur-lex.europa.eu/legal-content/ES/TXT/?uri=CELEX%3A32023R1542"
-        ),
+        fuente_url=("https://eur-lex.europa.eu/legal-content/ES/TXT/?uri=CELEX%3A32023R1542"),
         reglamento="UE 2023/1542",
         articulo="77",
         apartado="3",
@@ -193,7 +189,7 @@ def _drain_sse(content: bytes) -> list[dict[str, Any]]:
 def test_full_wizard_flow_batteries(
     e2e_client: TestClient,
     batteries_plugin: Plugin,
-    mock_classifier: None,  # noqa: ARG001  (fixture aplicada por su efecto)
+    mock_classifier: None,
 ) -> None:
     """Recorre los 7 pasos del wizard + endpoint público + audit chain.
 
@@ -222,16 +218,14 @@ def test_full_wizard_flow_batteries(
     bom_payload = _bom_payload_for(batteries_plugin)
     # Sanidad mínima: el plugin de baterías declara ≥25 campos required.
     assert len(bom_payload) >= 25, (
-        f"el plugin batteries debe tener ≥25 required, se han generado "
-        f"{len(bom_payload)}"
+        f"el plugin batteries debe tener ≥25 required, se han generado " f"{len(bom_payload)}"
     )
     r = client.put(f"/api/v1/sessions/{sid}/bom", json={"fields": bom_payload})
     assert r.status_code == 200, r.text
     bom_body = r.json()
     assert bom_body["accepted"] is True, f"errores del PUT BOM: {bom_body['errors']}"
     assert bom_body["errors"] == [], (
-        f"PUT con todos los required no debería emitir errores: "
-        f"{bom_body['errors']}"
+        f"PUT con todos los required no debería emitir errores: " f"{bom_body['errors']}"
     )
 
     # ── Paso 4: documentos (skip) ───────────────────────────────────────────
@@ -252,9 +246,9 @@ def test_full_wizard_flow_batteries(
     # Sin PDFs, ningún campo puede ser `verified`; todos los que tenían BOM
     # caen a `self_declared` (caso 3 del agregador). Los `required` sin BOM
     # serían `required_pending`, pero hemos rellenado TODOS los required.
-    assert done["fields_verified"] == 0, (
-        f"sin PDFs no puede haber verified; got {done['fields_verified']}"
-    )
+    assert (
+        done["fields_verified"] == 0
+    ), f"sin PDFs no puede haber verified; got {done['fields_verified']}"
     assert done["fields_self_declared"] >= len(bom_payload), (
         f"todos los required del BOM deben quedar self_declared; "
         f"got {done['fields_self_declared']} self_declared con "
@@ -265,9 +259,9 @@ def test_full_wizard_flow_batteries(
     r = client.get(f"/api/v1/sessions/{sid}/verify")
     assert r.status_code == 200, r.text
     verify_body = r.json()
-    assert verify_body["can_publish"] is True, (
-        f"no se puede publicar: missing={verify_body['missing_fields']}"
-    )
+    assert (
+        verify_body["can_publish"] is True
+    ), f"no se puede publicar: missing={verify_body['missing_fields']}"
     assert verify_body["completeness"] == 1.0
     assert verify_body["missing_fields"] == []
 
@@ -276,9 +270,9 @@ def test_full_wizard_flow_batteries(
     assert r.status_code == 200, r.text
     dpp_body = r.json()
     gs1_uri: str = dpp_body["gs1_uri"]
-    assert gs1_uri.startswith("urn:iso15459:batteries:"), (
-        f"para baterías esperamos identifier_scheme=iso_iec_15459; got {gs1_uri}"
-    )
+    assert gs1_uri.startswith(
+        "urn:iso15459:batteries:"
+    ), f"para baterías esperamos identifier_scheme=iso_iec_15459; got {gs1_uri}"
     assert dpp_body["public_url"].startswith("http")
     assert dpp_body["qr_png_url"].endswith(".png")
     assert dpp_body["qr_svg_url"].endswith(".svg")
@@ -297,9 +291,9 @@ def test_full_wizard_flow_batteries(
     r = client.get(f"/dpp/{slug}", headers={"Accept": "text/html"})
     assert r.status_code == 200
     html_body = r.content.decode()
-    assert ("self_declared" in html_body) or ("verified" in html_body), (
-        "la página HTML debería mostrar al menos un badge de provenance"
-    )
+    assert ("self_declared" in html_body) or (
+        "verified" in html_body
+    ), "la página HTML debería mostrar al menos un badge de provenance"
 
     # ── Audit chain: verificable end-to-end ────────────────────────────────
     r = client.get("/api/v1/audit/verify")
@@ -307,9 +301,9 @@ def test_full_wizard_flow_batteries(
     audit_body = r.json()
     assert audit_body["ok"] is True
     # Publish escribe una entry; classify (sin override) no escribe audit.
-    assert audit_body["total_rows"] >= 1, (
-        f"se esperaba al menos la entry de publish; got {audit_body}"
-    )
+    assert (
+        audit_body["total_rows"] >= 1
+    ), f"se esperaba al menos la entry de publish; got {audit_body}"
 
     # ── QR endpoints ────────────────────────────────────────────────────────
     r_png = client.get(f"/api/v1/sessions/{sid}/dpp/qr.png")
@@ -331,7 +325,7 @@ def test_full_wizard_flow_batteries(
 def test_cannot_publish_with_incomplete_bom(
     e2e_client: TestClient,
     batteries_plugin: Plugin,
-    mock_classifier: None,  # noqa: ARG001
+    mock_classifier: None,
 ) -> None:
     """Si faltan required, verify bloquea y POST /dpp devuelve 409.
 
@@ -342,9 +336,7 @@ def test_cannot_publish_with_incomplete_bom(
     client = e2e_client
 
     # Crear + clasificar.
-    sid = client.post(
-        "/api/v1/sessions", json={"description": DESCRIPTION}
-    ).json()["session_id"]
+    sid = client.post("/api/v1/sessions", json={"description": DESCRIPTION}).json()["session_id"]
     r = client.post(f"/api/v1/sessions/{sid}/classify")
     assert r.status_code == 200, r.text
     assert r.json()["sector"] == "batteries"

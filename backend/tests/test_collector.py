@@ -29,11 +29,6 @@ from sqlmodel import Session, SQLModel, create_engine, select
 import app.collector.agent as agent_module
 from app.collector.agent import extract_fields
 from app.llm import LLMResponse
-from app.models.documents import Document
-from app.models.extracted_fields import ExtractedField
-from app.models.sessions import WizardSession
-from app.plugins.loader import Citation, Plugin, PluginField
-
 
 # Necesario para registrar las tablas usadas por la BD del test.
 from app.models import (  # noqa: F401  (registro de metadata)
@@ -44,15 +39,17 @@ from app.models import (  # noqa: F401  (registro de metadata)
     published_dpps,
     sessions,
 )
+from app.models.documents import Document
+from app.models.extracted_fields import ExtractedField
+from app.models.sessions import WizardSession
+from app.plugins.loader import Citation, Plugin, PluginField
 
 
 @pytest.fixture
 def db(tmp_path: Path) -> Iterator[Session]:
     """Sesión SQLite efímera por test (no usa el TestClient HTTP)."""
     db_path = tmp_path / "collector.db"
-    engine = create_engine(
-        f"sqlite:///{db_path}", connect_args={"check_same_thread": False}
-    )
+    engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         yield session
@@ -114,9 +111,7 @@ async def _drain(gen) -> list[dict]:
 # ════════════════════════════════════════════════════════════════════════════
 
 
-def test_collector_parallelizes_pdfs(
-    db: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_collector_parallelizes_pdfs(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     """Con 3 PDFs y 2 campos, el tiempo total debe escalar como
     `nº campos × delay` (PDFs en paralelo), no como `nº PDFs × nº campos × delay`.
 
@@ -157,8 +152,7 @@ def test_collector_parallelizes_pdfs(
 
     # 3 PDFs × 2 campos = 6 llamadas a complete en total.
     assert call_count == n_pdfs * len(plugin.fields), (
-        f"esperaba {n_pdfs * len(plugin.fields)} llamadas a complete, "
-        f"se hicieron {call_count}"
+        f"esperaba {n_pdfs * len(plugin.fields)} llamadas a complete, " f"se hicieron {call_count}"
     )
 
     # Con paralelismo entre PDFs y secuencial dentro de cada PDF:

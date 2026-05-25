@@ -108,9 +108,7 @@ def _to_session_state(row: WizardSession, db: Session | None = None) -> SessionS
 
     extracted: list[FieldValue] = []
     if db is not None:
-        rows = db.exec(
-            select(ExtractedField).where(ExtractedField.session_id == row.id)
-        ).all()
+        rows = db.exec(select(ExtractedField).where(ExtractedField.session_id == row.id)).all()
         for ef in rows:
             extracted.append(
                 FieldValue(
@@ -584,9 +582,7 @@ async def upload_document(
 _EXCERPT_CONTEXT_CHARS: int = 200
 
 
-def _find_excerpt_in_pdf(
-    blob_path: str, value: str
-) -> tuple[str, bool, int | None]:
+def _find_excerpt_in_pdf(blob_path: str, value: str) -> tuple[str, bool, int | None]:
     """Busca `value` (case-insensitive) en el texto del PDF y devuelve contexto.
 
     Retorna (excerpt, match_found, page_number_o_None). Si el valor no
@@ -666,14 +662,10 @@ def get_document_excerpt(
     try:
         excerpt, match_found, page = _find_excerpt_in_pdf(doc.blob_path, ef.value)
     except FileNotFoundError:
-        raise HTTPException(
-            status_code=404, detail="document_blob_missing"
-        ) from None
+        raise HTTPException(status_code=404, detail="document_blob_missing") from None
     except Exception as e:
         # pdfplumber fallando no debe tumbar el endpoint: devolvemos 422 con motivo.
-        raise HTTPException(
-            status_code=422, detail=f"pdf_read_error: {type(e).__name__}"
-        ) from e
+        raise HTTPException(status_code=422, detail=f"pdf_read_error: {type(e).__name__}") from e
 
     return DocumentExcerptResponse(
         document_id=doc_id,

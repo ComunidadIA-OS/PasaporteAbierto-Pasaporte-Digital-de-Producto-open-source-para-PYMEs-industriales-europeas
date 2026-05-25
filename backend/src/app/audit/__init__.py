@@ -31,7 +31,6 @@ from sqlmodel import Session, desc, select
 
 from app.models.audit_log import AuditLogEntry
 
-
 # Lock global del módulo para serializar SELECT-último + INSERT del audit log.
 # La invariante de hash chain exige que `prev_hash` de la entrada N apunte al
 # `content_hash` de N-1; si dos requests concurrentes leen el mismo "último"

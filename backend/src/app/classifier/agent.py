@@ -101,8 +101,7 @@ def _build_user_prompt(
     )
     if fragments:
         fragment_lines = "\n".join(
-            f"[{i}] {frag.cita} — {frag.texto[:300].strip()}…"
-            for i, frag in enumerate(fragments)
+            f"[{i}] {frag.cita} — {frag.texto[:300].strip()}…" for i, frag in enumerate(fragments)
         )
     else:
         fragment_lines = "(sin fragmentos relevantes)"

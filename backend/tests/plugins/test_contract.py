@@ -51,9 +51,7 @@ VALID_DOC_TYPES = set(get_args(DocType))
 
 def _discover_plugin_files() -> list[Path]:
     """Encuentra todos los YAMLs de plugin reales en ``plugins/``."""
-    return sorted(
-        p for p in PLUGINS_DIR.glob("*.yaml") if not p.name.startswith("_")
-    )
+    return sorted(p for p in PLUGINS_DIR.glob("*.yaml") if not p.name.startswith("_"))
 
 
 PLUGIN_FILES = _discover_plugin_files()
@@ -84,35 +82,29 @@ class TestPluginContract:
 
     def test_03_version_is_valid_semver(self, plugin: Plugin) -> None:
         """Check 3: version es ``major.minor.patch`` (sin pre-release ni metadata por ahora)."""
-        assert SEMVER_RE.match(plugin.version), (
-            f"version='{plugin.version}' no es semver válido (formato esperado: major.minor.patch)"
-        )
+        assert SEMVER_RE.match(
+            plugin.version
+        ), f"version='{plugin.version}' no es semver válido (formato esperado: major.minor.patch)"
 
     def test_04_every_field_has_non_empty_citation(self, plugin: Plugin) -> None:
         """Check 4: la cita normativa es la promesa central del proyecto. Sin cita, no hay campo."""
         for f in plugin.fields:
-            assert f.citation.regulation.strip(), (
-                f"campo '{f.id}' tiene citation.regulation vacía"
-            )
-            assert f.citation.article.strip(), (
-                f"campo '{f.id}' tiene citation.article vacía"
-            )
+            assert f.citation.regulation.strip(), f"campo '{f.id}' tiene citation.regulation vacía"
+            assert f.citation.article.strip(), f"campo '{f.id}' tiene citation.article vacía"
 
     def test_05_enum_fields_declare_enum_values(self, plugin: Plugin) -> None:
         """Check 5: un campo enum sin enum_values no puede renderizarse en el wizard."""
         for f in plugin.fields:
             if f.type == "enum":
-                assert f.enum_values, (
-                    f"campo '{f.id}' es enum pero no declara enum_values"
-                )
+                assert f.enum_values, f"campo '{f.id}' es enum pero no declara enum_values"
 
     def test_06_repeater_fields_have_no_enum_values(self, plugin: Plugin) -> None:
         """Check 6: enum_values no aplica a repeaters (que repiten subestructuras, no opciones)."""
         for f in plugin.fields:
             if f.type == "repeater":
-                assert f.enum_values is None, (
-                    f"campo '{f.id}' es repeater y declara enum_values; no aplica"
-                )
+                assert (
+                    f.enum_values is None
+                ), f"campo '{f.id}' es repeater y declara enum_values; no aplica"
 
     def test_07_access_level_is_in_enum(self, plugin: Plugin) -> None:
         """Check 7: redundante con Pydantic Literal, explícito para documentar el contrato."""
@@ -154,9 +146,7 @@ class TestPluginContract:
                     f"no parsea como expresión Python: {exc}"
                 )
 
-    def test_11_cross_validation_rules_parse_as_python_expressions(
-        self, plugin: Plugin
-    ) -> None:
+    def test_11_cross_validation_rules_parse_as_python_expressions(self, plugin: Plugin) -> None:
         """Check 11: cada ``rule`` de cross_validations debe ser una expresión Python parseable."""
         for cv in plugin.cross_validations:
             try:
@@ -190,6 +180,5 @@ class TestPluginContract:
 def test_at_least_two_plugins_discovered() -> None:
     """Sanidad: FUNCIONAL §10 #5 exige ≥2 plugins funcionales. Verifica el descubrimiento."""
     assert len(PLUGIN_FILES) >= 2, (
-        f"Se esperaban ≥2 plugins en plugins/, encontrados: "
-        f"{[p.name for p in PLUGIN_FILES]}"
+        f"Se esperaban ≥2 plugins en plugins/, encontrados: " f"{[p.name for p in PLUGIN_FILES]}"
     )

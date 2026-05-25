@@ -72,9 +72,7 @@ def test_put_bom_persists_self_declared_fields(client: TestClient) -> None:
     db_factory = client.app.dependency_overrides[get_session]  # type: ignore[arg-type]
     db = next(db_factory())
     try:
-        rows = db.exec(
-            select(ExtractedField).where(ExtractedField.session_id == sid)
-        ).all()
+        rows = db.exec(select(ExtractedField).where(ExtractedField.session_id == sid)).all()
         assert {r.field_id for r in rows} == {
             "battery_passport_unique_id",
             "battery_mass_kg",
@@ -167,9 +165,7 @@ def test_put_bom_reports_missing_required_but_accepts(client: TestClient) -> Non
 
 def test_put_bom_returns_400_without_plugin(client: TestClient) -> None:
     """Si la sesión no tiene plugin asignado, no se puede validar el BOM."""
-    sid = client.post("/api/v1/sessions", json={"description": DESCRIPTION}).json()[
-        "session_id"
-    ]
+    sid = client.post("/api/v1/sessions", json={"description": DESCRIPTION}).json()["session_id"]
     r = client.put(f"/api/v1/sessions/{sid}/bom", json={"fields": {}})
     assert r.status_code == 400
     assert r.json()["detail"] == "session_has_no_plugin"

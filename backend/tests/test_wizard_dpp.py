@@ -237,20 +237,15 @@ def test_prefers_html_unit_cases() -> None:
     # Header de navegador típico (Firefox/Chrome) → HTML.
     assert (
         _prefers_html(
-            "text/html,application/xhtml+xml,application/xml;q=0.9,"
-            "image/webp,*/*;q=0.8"
+            "text/html,application/xhtml+xml,application/xml;q=0.9," "image/webp,*/*;q=0.8"
         )
         is True
     )
     # Bug fix: HTML degradado a q=0.5 mientras JSON-LD pide q=1.0 → JSON-LD.
-    assert (
-        _prefers_html("text/html;q=0.5, application/ld+json;q=1.0") is False
-    )
+    assert _prefers_html("text/html;q=0.5, application/ld+json;q=1.0") is False
     # Empate explícito q=1.0/q=1.0 → gana JSON-LD (FUNCIONAL §5: canónico
     # para máquinas; auditores/agregadores son el caso de uso por defecto).
-    assert (
-        _prefers_html("application/ld+json;q=1.0, text/html;q=1.0") is False
-    )
+    assert _prefers_html("application/ld+json;q=1.0, text/html;q=1.0") is False
     # q=0 significa "no acepto este tipo" → JSON-LD aunque text/html aparezca.
     assert _prefers_html("text/html;q=0") is False
     # Header vacío → JSON-LD (default seguro para curl/máquinas).
@@ -291,8 +286,7 @@ def test_public_dpp_browser_accept_header_returns_html(client: TestClient) -> No
         f"/dpp/{slug}",
         headers={
             "Accept": (
-                "text/html,application/xhtml+xml,application/xml;q=0.9,"
-                "image/webp,*/*;q=0.8"
+                "text/html,application/xhtml+xml,application/xml;q=0.9," "image/webp,*/*;q=0.8"
             )
         },
     )
@@ -331,9 +325,7 @@ def test_public_dpp_wildcard_accept_returns_jsonld(client: TestClient) -> None:
 def _mark_one_field_verified(client: TestClient, session_id: str) -> str:
     """Mutar un campo del BOM a provenance=verified para tener mezcla."""
     plugin = load_plugin(BATTERIES)
-    public_required = next(
-        f for f in plugin.fields if f.required and f.access_level == "public"
-    )
+    public_required = next(f for f in plugin.fields if f.required and f.access_level == "public")
     db = next(client.app.dependency_overrides[get_session]())  # type: ignore[arg-type]
     try:
         row = db.exec(
@@ -408,9 +400,7 @@ def test_audit_log_records_signed_flag(client: TestClient) -> None:
 
     db = next(client.app.dependency_overrides[get_session]())  # type: ignore[arg-type]
     try:
-        entry = db.exec(
-            select(AuditLogEntry).where(AuditLogEntry.operation == "publish")
-        ).one()
+        entry = db.exec(select(AuditLogEntry).where(AuditLogEntry.operation == "publish")).one()
         assert (entry.payload or {}).get("signed") is False
     finally:
         db.close()

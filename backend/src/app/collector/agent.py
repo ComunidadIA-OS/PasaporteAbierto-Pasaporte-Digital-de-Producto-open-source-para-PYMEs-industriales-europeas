@@ -210,9 +210,7 @@ async def _extract_all_fields_from_one_pdf(
     """
     results: dict[str, tuple[Any, float]] = {}
     for field in fields:
-        value, confidence = await asyncio.to_thread(
-            _extract_field_from_pdf_text, field, pdf_text
-        )
+        value, confidence = await asyncio.to_thread(_extract_field_from_pdf_text, field, pdf_text)
         results[field.id] = (value, confidence)
     return results
 
@@ -251,9 +249,7 @@ def _aggregate_field_across_pdfs(
     # Caso 1: BOM presente + algún PDF confirma → verified.
     if has_bom and valid_hits:
         confirming = [
-            (doc, value, conf)
-            for doc, value, conf in valid_hits
-            if _values_match(value, bom_value)
+            (doc, value, conf) for doc, value, conf in valid_hits if _values_match(value, bom_value)
         ]
         if confirming:
             # Primer PDF (orden estable de docs) que confirmó.
@@ -368,10 +364,7 @@ async def extract_fields(
     if doc_texts:
         per_pdf_field_results = list(
             await asyncio.gather(
-                *(
-                    _extract_all_fields_from_one_pdf(fields, text)
-                    for _doc, text in doc_texts
-                )
+                *(_extract_all_fields_from_one_pdf(fields, text) for _doc, text in doc_texts)
             )
         )
     else:
