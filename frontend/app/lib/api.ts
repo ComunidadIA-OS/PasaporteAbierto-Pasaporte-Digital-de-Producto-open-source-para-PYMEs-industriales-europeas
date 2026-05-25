@@ -63,7 +63,7 @@ export interface ClassifyResponse {
   sector: string;
   plugin: string;
   confidence: number;
-  citation: Citation;
+  citation: Citation | null;
   requires_review: boolean;
 }
 

@@ -42,6 +42,7 @@ from app.api.v1.schemas import (
     VerifyResponse,
     VerifyWarning,
 )
+from app.classifier import classify as run_classifier
 from app.db.session import get_session
 from app.models.sessions import WizardSession
 from app.time_utils import utcnow
@@ -157,19 +158,46 @@ def update_progress(
 
 
 @router.post("/{session_id}/classify", response_model=ClassifyResponse)
-def classify_stub(session_id: str, response: Response) -> ClassifyResponse:
-    """STUB de F3-01. Devuelve baterías con confianza 0.85."""
-    _stub(response)
+def classify_session(
+    session_id: str,
+    db: DbSession,
+) -> ClassifyResponse:
+    """Clasifica la sesión usando el agente Clasificador (F3-01).
+
+    Persiste `sector`, `plugin` y `classification_confidence` en `sessions`.
+    Si el clasificador devuelve `unknown` o confianza baja, igualmente
+    persiste lo devuelto (`requires_review=True` lo indica al frontend).
+    """
+    row = _get_or_404(db, session_id)
+    progress: dict[str, Any] = row.progress or {}
+    description = progress.get("description")
+    if not description:
+        raise HTTPException(status_code=400, detail="session_has_no_description")
+
+    result = run_classifier(description)
+
+    row.sector = result.sector
+    row.plugin = result.plugin
+    row.classification_confidence = result.confidence
+    row.updated_at = utcnow()
+    db.add(row)
+    db.commit()
+
+    citation = (
+        Citation(
+            regulation=result.citation_regulation,
+            article=result.citation_article,
+            url=result.citation_url,
+        )
+        if result.sector != "unknown"
+        else None
+    )
     return ClassifyResponse(
-        sector="batteries",
-        plugin="batteries",
-        confidence=0.85,
-        citation=Citation(
-            regulation="Reglamento UE 2023/1542",
-            article="Art. 77",
-            url=None,
-        ),
-        requires_review=False,
+        sector=result.sector,
+        plugin=result.plugin,
+        confidence=result.confidence,
+        citation=citation,
+        requires_review=result.requires_review,
     )
 
 

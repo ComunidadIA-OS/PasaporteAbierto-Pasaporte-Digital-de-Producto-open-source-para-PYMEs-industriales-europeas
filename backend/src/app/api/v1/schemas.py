@@ -98,10 +98,13 @@ class SessionState(_Base):
 
 
 class ClassifyResponse(_Base):
-    sector: str
-    plugin: str
+    sector: str  # id del plugin o "unknown"
+    plugin: str  # = sector cuando es conocido, "unknown" si no
     confidence: float = Field(ge=0.0, le=1.0)
-    citation: Citation
+    citation: Citation | None = Field(
+        default=None,
+        description="None solo si sector='unknown' o el RAG no devolvió fragmentos. Cuando la clasificación es exitosa la cita es obligatoria (invariante de F3-01).",
+    )
     requires_review: bool = Field(
         description="True si confidence < 0.7 (umbral fijo del wizard)",
     )
