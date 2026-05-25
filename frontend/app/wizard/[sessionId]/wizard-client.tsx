@@ -105,9 +105,7 @@ export function WizardClient({ initialSession }: { initialSession: SessionState 
         </svg>
       </button>
 
-      {chatOpen && (
-        <ChatDrawer sessionId={session.session_id} onClose={() => setChatOpen(false)} />
-      )}
+      {chatOpen && <ChatDrawer sessionId={session.session_id} onClose={() => setChatOpen(false)} />}
     </>
   );
 }
@@ -282,15 +280,8 @@ function ChatDrawer({ sessionId, onClose }: { sessionId: string; onClose: () => 
 
   return (
     <>
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: overlay clic-fuera-cierra */}
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: el Escape global ya cierra */}
       <div className="chat-overlay" onClick={onClose} aria-hidden />
-      <aside
-        className="chat-drawer"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Chat normativo"
-      >
+      <aside className="chat-drawer" role="dialog" aria-modal="true" aria-label="Chat normativo">
         <div className="chat-head">
           <div>
             <h3>Chat normativo</h3>

@@ -120,7 +120,16 @@ export function Step4Documents({
           <h3 className="eyebrow" style={{ marginBottom: 8 }}>
             Documentos subidos
           </h3>
-          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+          <ul
+            style={{
+              listStyle: "none",
+              padding: 0,
+              margin: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+            }}
+          >
             {docs.uploaded.map((u) => (
               <li
                 key={u.id}
@@ -146,10 +155,7 @@ export function Step4Documents({
       )}
 
       {uploadMsg && (
-        <p
-          className="status-panel"
-          style={{ margin: 0, padding: 12, fontSize: 13 }}
-        >
+        <p className="status-panel" style={{ margin: 0, padding: 12, fontSize: 13 }}>
           {uploadMsg}
         </p>
       )}
@@ -228,7 +234,10 @@ function DocumentRow({
           {uploaded && <span className="badge badge-success">subido</span>}
         </div>
         {citation && (
-          <p className="mono" style={{ margin: "6px 0 0", fontSize: 11, color: "var(--text-muted)" }}>
+          <p
+            className="mono"
+            style={{ margin: "6px 0 0", fontSize: 11, color: "var(--text-muted)" }}
+          >
             {citation.regulation}, {citation.article}
           </p>
         )}

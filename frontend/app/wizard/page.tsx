@@ -65,8 +65,8 @@ export default function WizardEntryPage() {
           </h1>
           <p className="muted" style={{ marginTop: 16, fontSize: 16, maxWidth: 600 }}>
             En lenguaje natural: para qué sirve, de qué está hecho, a quién se vende. La IA
-            identifica el sector ESPR aplicable, te muestra la cita normativa que lo justifica,
-            y carga el plugin con sus campos obligatorios.
+            identifica el sector ESPR aplicable, te muestra la cita normativa que lo justifica, y
+            carga el plugin con sus campos obligatorios.
           </p>
 
           <form onSubmit={onSubmit} style={{ marginTop: 40 }}>

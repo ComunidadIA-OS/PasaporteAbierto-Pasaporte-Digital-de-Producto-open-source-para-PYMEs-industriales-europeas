@@ -18,13 +18,48 @@ async function getHealth() {
 }
 
 const STEPS = [
-  { n: 1, kind: "det" as const, label: "Descripción del producto", desc: "Texto libre. Alimenta la clasificación." },
-  { n: 2, kind: "ai" as const, label: "Clasificación de sector", desc: "IA con RAG sobre corpus normativo. Cita Art." },
-  { n: 3, kind: "det" as const, label: "BOM dinámico", desc: "Formulario adaptado al plugin del sector." },
-  { n: 4, kind: "det" as const, label: "Documentos requeridos", desc: "Datasheets, LCA, declaración CE, SDS…" },
-  { n: 5, kind: "ai" as const, label: "Extracción IA de campos", desc: "pdfplumber + LLM. SSE en vivo." },
-  { n: 6, kind: "det" as const, label: "Verificación de completitud", desc: "Score y advertencias contra el plugin." },
-  { n: 7, kind: "det" as const, label: "Publicación DPP + QR + firma", desc: "JSON-LD CIRPASS-2 + Ed25519 + ISO 15459." },
+  {
+    n: 1,
+    kind: "det" as const,
+    label: "Descripción del producto",
+    desc: "Texto libre. Alimenta la clasificación.",
+  },
+  {
+    n: 2,
+    kind: "ai" as const,
+    label: "Clasificación de sector",
+    desc: "IA con RAG sobre corpus normativo. Cita Art.",
+  },
+  {
+    n: 3,
+    kind: "det" as const,
+    label: "BOM dinámico",
+    desc: "Formulario adaptado al plugin del sector.",
+  },
+  {
+    n: 4,
+    kind: "det" as const,
+    label: "Documentos requeridos",
+    desc: "Datasheets, LCA, declaración CE, SDS…",
+  },
+  {
+    n: 5,
+    kind: "ai" as const,
+    label: "Extracción IA de campos",
+    desc: "pdfplumber + LLM. SSE en vivo.",
+  },
+  {
+    n: 6,
+    kind: "det" as const,
+    label: "Verificación de completitud",
+    desc: "Score y advertencias contra el plugin.",
+  },
+  {
+    n: 7,
+    kind: "det" as const,
+    label: "Publicación DPP + QR + firma",
+    desc: "JSON-LD CIRPASS-2 + Ed25519 + ISO 15459.",
+  },
 ];
 
 const PLUGINS = [
@@ -81,9 +116,9 @@ export default async function Home() {
               sin prisa.
             </h1>
             <p className="hero-lede">
-              Aplicación auto-hospedable que ayuda a fabricantes PYME a generar el DPP exigido
-              por la normativa europea en menos de 15 minutos. Siete pasos, una pantalla por
-              paso, cita normativa en cada decisión.
+              Aplicación auto-hospedable que ayuda a fabricantes PYME a generar el DPP exigido por
+              la normativa europea en menos de 15 minutos. Siete pasos, una pantalla por paso, cita
+              normativa en cada decisión.
             </p>
             <div className="hero-cta">
               <Link href="/wizard" className="btn btn-primary btn-lg">
@@ -111,8 +146,8 @@ export default async function Home() {
                 El resto, deterministas.
               </h2>
               <p className="muted">
-                Pipeline lineal. Los pasos de IA se acotan al Clasificador (paso 2) y al
-                Recolector (paso 5). Todo lo demás es código verificable paso a paso.
+                Pipeline lineal. Los pasos de IA se acotan al Clasificador (paso 2) y al Recolector
+                (paso 5). Todo lo demás es código verificable paso a paso.
               </p>
             </div>
 

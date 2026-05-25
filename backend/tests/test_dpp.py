@@ -46,9 +46,7 @@ def test_filter_public_fields_drops_non_public(plugin) -> None:
     """El JSON-LD público no debe contener campos de Sección 2/3/4."""
     # Buscar un campo public y uno no-public en el plugin para verificar.
     public_id = next(f.id for f in plugin.fields if f.access_level == "public")
-    non_public_id = next(
-        (f.id for f in plugin.fields if f.access_level != "public"), None
-    )
+    non_public_id = next((f.id for f in plugin.fields if f.access_level != "public"), None)
 
     bom = {public_id: "X", "made_up_field": "Y"}
     if non_public_id:
@@ -132,10 +130,7 @@ def test_generate_dpp_under_2s_for_50_materials_bom(plugin) -> None:
     """
     import time
 
-    materials = [
-        {"name": f"material_{i}", "share_pct": 0.5, "source": "EU"}
-        for i in range(50)
-    ]
+    materials = [{"name": f"material_{i}", "share_pct": 0.5, "source": "EU"} for i in range(50)]
     public_fields = {
         "battery_mass_kg": 25.5,
         "critical_raw_materials": materials,

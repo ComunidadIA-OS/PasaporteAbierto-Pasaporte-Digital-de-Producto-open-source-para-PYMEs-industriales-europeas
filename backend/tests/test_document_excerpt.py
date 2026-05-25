@@ -17,7 +17,6 @@ from contextlib import contextmanager
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.v1 import wizard as wizard_module
 from app.db.session import get_session
 from app.models.documents import Document
 from app.models.extracted_fields import ExtractedField
@@ -35,7 +34,7 @@ class _FakePdf:
     def __init__(self, pages_text: list[str]) -> None:
         self.pages = [_FakePage(t) for t in pages_text]
 
-    def __enter__(self) -> "_FakePdf":
+    def __enter__(self) -> _FakePdf:
         return self
 
     def __exit__(self, *args: object) -> None:
@@ -109,9 +108,7 @@ def test_excerpt_match_found_returns_context_and_page(
     )
     sid, doc_id = _session_with_doc_and_field(client, "100", _stub_pdfplumber, page_text)
 
-    r = client.get(
-        f"/api/v1/sessions/{sid}/documents/{doc_id}/excerpt?field_id=rated_capacity_ah"
-    )
+    r = client.get(f"/api/v1/sessions/{sid}/documents/{doc_id}/excerpt?field_id=rated_capacity_ah")
     assert r.status_code == 200
     body = r.json()
     assert body["match_found"] is True
@@ -129,9 +126,7 @@ def test_excerpt_match_not_found_returns_first_page_snippet(
         client, "valor_inventado_no_presente", _stub_pdfplumber, page_text
     )
 
-    r = client.get(
-        f"/api/v1/sessions/{sid}/documents/{doc_id}/excerpt?field_id=rated_capacity_ah"
-    )
+    r = client.get(f"/api/v1/sessions/{sid}/documents/{doc_id}/excerpt?field_id=rated_capacity_ah")
     assert r.status_code == 200
     body = r.json()
     assert body["match_found"] is False
@@ -148,9 +143,7 @@ def test_excerpt_404_on_unknown_document(
     )
     sid = r.json()["session_id"]
 
-    r = client.get(
-        f"/api/v1/sessions/{sid}/documents/99999/excerpt?field_id=anything"
-    )
+    r = client.get(f"/api/v1/sessions/{sid}/documents/99999/excerpt?field_id=anything")
     assert r.status_code == 404
     assert r.json()["detail"] == "document_not_found"
 

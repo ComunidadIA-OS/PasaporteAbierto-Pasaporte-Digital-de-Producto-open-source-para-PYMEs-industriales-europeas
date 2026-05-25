@@ -186,7 +186,11 @@ def test_override_writes_chained_audit_entry(client: TestClient) -> None:
     client.post(f"/api/v1/sessions/{sid}/classify/override", json=OVERRIDE_BODY)
     client.post(
         f"/api/v1/sessions/{sid}/classify/override",
-        json={"sector": "batteries", "plugin": "batteries", "reason": "vuelvo a baterías tras revisar"},
+        json={
+            "sector": "batteries",
+            "plugin": "batteries",
+            "reason": "vuelvo a baterías tras revisar",
+        },
     )
 
     # Lee directamente la DB de la fixture (la dependencia override expone el engine).

@@ -202,7 +202,7 @@ export function Step5Extract({
         >
           {running ? "Extrayendo…" : done ? "Re-extraer" : "Iniciar extracción"}
         </button>
-        {running && progress && progress.current_document && (
+        {running && progress?.current_document && (
           <span className="mono" style={{ fontSize: 11, color: "var(--text-muted)" }}>
             Procesando: {progress.current_document}
           </span>
@@ -245,13 +245,7 @@ export function Step5Extract({
                   <td className="mono" style={{ fontSize: 12 }}>
                     {f.field_id}
                   </td>
-                  <td>
-                    {f.value != null ? (
-                      String(f.value)
-                    ) : (
-                      <span className="faint">—</span>
-                    )}
-                  </td>
+                  <td>{f.value != null ? String(f.value) : <span className="faint">—</span>}</td>
                   <td>
                     <span className={badge.className}>{badge.label}</span>
                   </td>
@@ -315,10 +309,7 @@ export function Step5Extract({
                 <h3 id="excerpt-title" className="h-3" style={{ margin: 0 }}>
                   Fragmento fuente · <code className="mono">{excerpt.field_id}</code>
                 </h3>
-                <p
-                  className="muted"
-                  style={{ marginTop: 6, marginBottom: 0, fontSize: 12 }}
-                >
+                <p className="muted" style={{ marginTop: 6, marginBottom: 0, fontSize: 12 }}>
                   Valor extraído: <code className="mono">{excerpt.value}</code>
                   {excerpt.page_number != null && (
                     <span style={{ marginLeft: 8 }}>· página {excerpt.page_number}</span>
@@ -335,9 +326,12 @@ export function Step5Extract({
               </button>
             </div>
             {!excerpt.match_found && (
-              <p className="status-panel is-warn" style={{ marginTop: 16, padding: 10, fontSize: 12 }}>
-                El valor no aparece literal en el PDF (posiblemente formateado distinto o
-                inferido). Mostramos un pantallazo del inicio del documento como contexto.
+              <p
+                className="status-panel is-warn"
+                style={{ marginTop: 16, padding: 10, fontSize: 12 }}
+              >
+                El valor no aparece literal en el PDF (posiblemente formateado distinto o inferido).
+                Mostramos un pantallazo del inicio del documento como contexto.
               </p>
             )}
             <pre

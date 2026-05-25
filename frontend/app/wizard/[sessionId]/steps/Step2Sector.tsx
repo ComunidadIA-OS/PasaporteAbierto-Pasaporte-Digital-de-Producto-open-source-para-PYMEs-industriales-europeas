@@ -100,7 +100,7 @@ export function Step2Sector({
         <NoClassification onClassify={runClassify} pending={pending} />
       ) : (
         <ClassificationBadge
-          sector={session.sector!}
+          sector={session.sector ?? ""}
           confidence={session.classification_confidence ?? 0}
           citation={citation}
         />

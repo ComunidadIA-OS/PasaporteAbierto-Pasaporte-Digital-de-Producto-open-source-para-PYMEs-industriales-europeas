@@ -15,7 +15,7 @@ El alcance del hackathon (1 semana, 6 fases) cubre:
 - Wizard guiado de 7 pasos para registrar un producto y generar su DPP.
 - Pipeline IA con dos componentes acotados (Clasificador y Recolector) y todo lo demás determinista.
 - Chat lateral normativo con cita obligatoria.
-- Generación del DPP en JSON-LD CIRPASS-2 Core, QR resoluble vía identificador único declarado por el plugin sectorial (ISO/IEC 15459-1/2/3/4/5/6 para baterías por Art. 77.3 del Reglamento UE 2023/1542; GS1 Digital Link como esquema por defecto), endpoint público con content negotiation.
+- Generación del DPP en JSON-LD con vocabulario local alineado con el modelo conceptual CIRPASS-2 Core (ver [ADR 0002](./adr/0002-jsonld-vocabulario-local.md)), QR resoluble vía identificador único declarado por el plugin sectorial (ISO/IEC 15459-1/2/3/4/5/6 para baterías por Art. 77.3 del Reglamento UE 2023/1542; GS1 Digital Link como esquema por defecto), endpoint público con content negotiation.
 - Plugins YAML para cubrir actos delegados sectoriales por configuración (no por código).
 - Observabilidad (Langfuse) y trazabilidad inmutable (audit log con hash chain).
 
@@ -141,12 +141,12 @@ Si hay campos críticos vacíos, el botón "Generar DPP" del paso 7 **está desh
 ### Paso 7 · Generación y publicación del DPP · _determinista_
 
 **Lo que ve el fabricante:** tras confirmar, el sistema muestra:
-- **Código QR** descargable (PNG y SVG).
-- **URL pública** del DPP, cuya forma sigue el esquema declarado por el plugin del sector (ISO/IEC 15459 para baterías, GS1 Digital Link como fallback genérico).
+- **Código QR** descargable (PNG y SVG) que codifica la URL pública navegable del DPP.
+- **URL pública** del DPP en la forma `GET /dpp/{slug}` (slug opaco derivado del `session_id`). El identificador canónico (`gs1_uri`) según el esquema declarado por el plugin (ISO/IEC 15459 para baterías, GS1 Digital Link como fallback genérico) aparece dentro del DPP, no en la URL — ver [ADR 0003](./adr/0003-url-publica-slug-opaco.md).
 - Confirmación de **firma Ed25519** (si se activó).
 
 **Qué hace el sistema:**
-1. Ensambla el DPP en **JSON-LD CIRPASS-2 Core** (marzo 2025) filtrando los campos por su `access_level` (ver §9.2).
+1. Ensambla el DPP en **JSON-LD** con vocabulario local bajo el namespace URN `urn:pasaporte-abierto:dpp:v1#`, filtrando los campos por su `access_level` (ver §9.2) y emitiendo cada campo como `{value, provenance}` para mantener trazabilidad por dato. La estructura queda alineada con el modelo conceptual de CIRPASS-2 Core (marzo 2025) pero usa namespace propio hasta que el consorcio publique un `@context` HTTP-resolvable estable — ver [ADR 0002](./adr/0002-jsonld-vocabulario-local.md).
 2. Genera el identificador único canónico delegando en la fábrica del esquema declarado por el plugin (`identifier_scheme`).
 3. Genera el QR con `segno`.
 4. Opcionalmente firma con Ed25519 (PyNaCl), persistiendo la clave pública.
@@ -174,16 +174,16 @@ Endpoint **independiente** del pipeline. Disponible en cualquier paso del wizard
 
 ## 5. DPP público
 
-El DPP generado es accesible vía URL canónica cuya forma viene determinada por el esquema declarado por el plugin sectorial (ISO/IEC 15459 para baterías por Art. 77.3 de Reg. UE 2023/1542; GS1 Digital Link para sectores sin acto delegado específico). El endpoint `GET /dpp/{gs1_uri}` aplica **content negotiation**:
+El DPP generado es accesible vía URL canónica `GET /dpp/{slug}` que aplica **content negotiation**:
 
 | Header `Accept` | Respuesta |
 |---|---|
-| `application/ld+json` | JSON-LD CIRPASS-2 Core válido (consumido por máquinas, auditores, agregadores). |
+| `application/ld+json` | JSON-LD válido con vocabulario local `urn:pasaporte-abierto:dpp:v1#` (consumido por máquinas, auditores, agregadores). Alineado con el modelo conceptual CIRPASS-2 Core; ver [ADR 0002](./adr/0002-jsonld-vocabulario-local.md). |
 | `text/html` (default navegador) | Página HTML legible en móvil, con campos verificados destacados visualmente. |
 
 La respuesta incluye únicamente los campos con `access_level = public` (Sección 1 del Annex XIII del Reg. UE 2023/1542 para baterías; el resto de sectores hereda `public` por defecto hasta que su acto delegado fije otra cosa). La página HTML diferencia visualmente **verified vs self_declared** (ver §9.1) para que el consumidor entienda la calidad del dato.
 
-El segmento `{gs1_uri}` de la ruta es un nombre histórico que se mantiene por compatibilidad con la primera iteración del proyecto; su contenido es ya agnóstico al esquema y soporta cualquier URI emitido por la fábrica del plugin.
+`slug` es un identificador opaco derivado del `session_id` (primeros 8 caracteres del UUID). El `gs1_uri` canónico —ISO/IEC 15459 para baterías por Art. 77.3 de Reg. UE 2023/1542; GS1 Digital Link como fallback genérico— aparece en el campo `@id` del JSON-LD y se muestra explícitamente en la página HTML como "Identificador". El QR codifica la URL opaca completa para que sea navegable directamente sin depender de resolvers externos. Ver [ADR 0003](./adr/0003-url-publica-slug-opaco.md).
 
 ---
 
@@ -248,7 +248,7 @@ Todos los endpoints bajo prefijo `/api/v1`. Detalle de schemas en el código fue
 | 6 | GET | `/sessions/{id}/verify` | det | `{ score, faltantes[], advertencias[] }` |
 | 7 | POST | `/sessions/{id}/dpp` | det | `{ gs1_uri, qr_url, firma? }` |
 | chat | POST | `/sessions/{id}/chat` | IA | respuesta con cita |
-| público | GET | `/dpp/{gs1_uri}` | det | JSON-LD o HTML según `Accept` |
+| público | GET | `/dpp/{slug}` | det | JSON-LD o HTML según `Accept` (`slug` opaco derivado del `session_id`; el `gs1_uri` canónico va en el cuerpo — ver [ADR 0003](./adr/0003-url-publica-slug-opaco.md)) |
 | audit | GET | `/audit/verify` | det | `{ ok, broken_at? }` |
 | health | GET | `/health` | det | `{ version, model, backend }` |
 
@@ -279,7 +279,7 @@ Definición canónica de los cuatro niveles del Annex XIII del Reglamento UE 202
 | `authorities_only` | Organismos notificados + autoridades de vigilancia del mercado + Comisión | Annex XIII Sección 3. Ej. resultados de informes de ensayo de conformidad. |
 | `individual` | Personas con interés legítimo sobre **una batería concreta** (no el modelo) | Annex XIII Sección 4. Datos dinámicos de telemetría: SoH actual, ciclos consumidos, accidentes, temperatura operativa, SoC. Fuera del alcance del wizard. |
 
-**Regla dura:** el endpoint público `GET /dpp/{gs1_uri}` solo devuelve campos con `access_level = public`. Los demás quedan accesibles vía endpoints específicos planificados para fases posteriores del proyecto (no cubiertos por el hackathon).
+**Regla dura:** el endpoint público `GET /dpp/{slug}` solo devuelve campos con `access_level = public`. Los demás quedan accesibles vía endpoints específicos planificados para fases posteriores del proyecto (no cubiertos por el hackathon).
 
 La identidad del solicitante (operador notificado, MSA, interés legítimo) se resolverá a través de los actos de ejecución que la Comisión adoptará a más tardar el 18 de agosto de 2026 conforme al Art. 77.9 del Reglamento UE 2023/1542; hasta entonces el sistema solo expone el subconjunto `public`.
 
@@ -291,7 +291,7 @@ Al cierre del hackathon, el sistema debe cumplir simultáneamente:
 
 1. `docker compose up` levanta toda la solución en una máquina nueva en ≤30 minutos siguiendo solo el README.
 2. Un fabricante PYME completa el wizard de 7 pasos con datos demo de un producto del sector baterías y obtiene su DPP publicado en ≤15 minutos.
-3. El DPP resultante es accesible vía URL pública y vía QR, y pasa la validación de schema CIRPASS-2 Core.
+3. El DPP resultante es accesible vía URL pública y vía QR, valida su estructura interna y emite `provenance` por campo. La alineación formal con CIRPASS-2 Core queda pendiente de que el consorcio publique un `@context` HTTP-resolvable estable — ver [ADR 0002](./adr/0002-jsonld-vocabulario-local.md).
 4. El chat responde con cita normativa al 100 % de las preguntas del set de referencia, y se niega correctamente fuera de dominio.
 5. Existen al menos dos plugins funcionales (`batteries.yaml`, `textile.yaml`) cargados desde YAML sin tocar el núcleo.
 6. La integridad del audit log es verificable end-to-end.
@@ -323,7 +323,7 @@ Los siguientes elementos **no** están cubiertos por este documento ni por los t
 - Reglamentos de referencia:
   - Reglamento UE 2024/1781 (ESPR)
   - Reglamento UE 2023/1542 (baterías) — **Art. 77** establece el pasaporte de batería; **Annex XIII** define las 4 secciones de información con sus niveles de acceso.
-  - CIRPASS-2 Core Ontology (marzo 2025)
+  - CIRPASS-2 Core Ontology (marzo 2025) — modelo conceptual de referencia. El sistema usa un vocabulario local interno (`urn:pasaporte-abierto:dpp:v1#`) hasta que el consorcio publique su `@context` HTTP-resolvable; ver [ADR 0002](./adr/0002-jsonld-vocabulario-local.md).
   - GS1 Digital Link specification (esquema de identificador por defecto para sectores sin acto delegado específico)
   - ISO/IEC 15459-1/2/3/4/5/6 (esquema obligatorio para el identificador único de baterías por Art. 77.3 de Reg. UE 2023/1542)
   - Battery Pass Consortium Data Attribute Longlist v1.3 (referencia industrial de implementación; ver `docs/research/battery-pass-v1.3-mandatory-attrs.md`)

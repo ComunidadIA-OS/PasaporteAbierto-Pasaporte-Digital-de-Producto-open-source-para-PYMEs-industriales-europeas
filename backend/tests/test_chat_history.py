@@ -87,9 +87,7 @@ def test_chat_history_orders_by_created_at(client: TestClient, _stub_chat_answer
     assert user_msgs == ["primera pregunta", "segunda pregunta", "tercera pregunta"]
 
 
-def test_chat_does_not_write_wizard_state(
-    client: TestClient, _stub_chat_answer: None
-) -> None:
+def test_chat_does_not_write_wizard_state(client: TestClient, _stub_chat_answer: None) -> None:
     """El chat NUNCA escribe en sessions.progress ni extracted_fields (CLAUDE.md)."""
     sid = _create_session(client)
 
@@ -108,9 +106,7 @@ def test_chat_does_not_write_wizard_state(
 
 def test_chat_404_on_unknown_session(client: TestClient, _stub_chat_answer: None) -> None:
     # POST /chat con sesión inexistente
-    r = client.post(
-        "/api/v1/chat", json={"session_id": "no-existe-123", "message": "hola"}
-    )
+    r = client.post("/api/v1/chat", json={"session_id": "no-existe-123", "message": "hola"})
     assert r.status_code == 404
 
     # GET /sessions/{id}/chat con sesión inexistente
