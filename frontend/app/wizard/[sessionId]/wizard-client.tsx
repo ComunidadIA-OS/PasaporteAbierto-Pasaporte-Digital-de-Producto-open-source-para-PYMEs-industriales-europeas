@@ -17,6 +17,8 @@ import { api, type SessionState } from "@/app/lib/api";
 import { Step1Description } from "./steps/Step1Description";
 import { Step2Sector } from "./steps/Step2Sector";
 import { Step3Bom } from "./steps/Step3Bom";
+import { Step6Verify } from "./steps/Step6Verify";
+import { Step7Publish } from "./steps/Step7Publish";
 
 const STEPS = [
   { n: 1, label: "Descripción" },
@@ -156,18 +158,23 @@ function StepSlot({
         <Step3Bom session={session} onSessionChange={onSessionChange} />
       )}
 
-      {session.current_step >= 4 && (
+      {(session.current_step === 4 || session.current_step === 5) && (
         <div className="rounded-lg border-2 border-dashed border-gray-300 bg-white p-8">
           <p className="text-sm text-gray-600">
-            Paso {session.current_step} pendiente de implementación.
+            Paso {session.current_step} pendiente — los implementa Persona B.
           </p>
           <ul className="mt-4 list-disc pl-6 text-sm text-gray-500">
-            <li>Paso 4 documentos → F4-04 (Persona B)</li>
-            <li>Paso 5 SSE extracción → F4-05 (Persona B)</li>
-            <li>Pasos 6-7 verificación + DPP → F4-06 (Persona A)</li>
+            <li>Paso 4 documentos → F4-04</li>
+            <li>Paso 5 SSE extracción → F4-05 (Recolector F3-02)</li>
           </ul>
         </div>
       )}
+
+      {session.current_step === 6 && (
+        <Step6Verify session={session} onSessionChange={onSessionChange} />
+      )}
+
+      {session.current_step === 7 && <Step7Publish session={session} />}
     </section>
   );
 }

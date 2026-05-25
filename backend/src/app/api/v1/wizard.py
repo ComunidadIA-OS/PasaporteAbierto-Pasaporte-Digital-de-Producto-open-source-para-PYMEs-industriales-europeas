@@ -13,6 +13,7 @@ stub por la implementación real **no debe** cambiar el schema de salida
 """
 
 import asyncio
+import hashlib
 import json
 import uuid
 from pathlib import Path
@@ -46,7 +47,18 @@ from app.api.v1.schemas import (
 from app.audit import append_entry as append_audit
 from app.classifier import classify as run_classifier
 from app.db.session import get_session
+from app.dpp import (
+    build_gs1_uri,
+    build_jsonld,
+    canonical_payload,
+    filter_public_fields,
+    generate_qr_png,
+    generate_qr_svg,
+    get_or_create_keypair,
+    sign_payload,
+)
 from app.models.extracted_fields import ExtractedField
+from app.models.published_dpps import PublishedDPP
 from app.models.sessions import WizardSession
 from app.plugins.loader import Plugin, PluginField, load_all_plugins
 from app.time_utils import utcnow
@@ -442,19 +454,130 @@ def verify(session_id: str, db: DbSession) -> VerifyResponse:
     )
 
 
+def _bom_from_extracted(db: Session, session_id: str, plugin: Plugin) -> dict[str, Any]:
+    """Recupera todos los `extracted_fields` de la sesión deserializados."""
+    rows = db.exec(
+        select(ExtractedField).where(ExtractedField.session_id == session_id)
+    ).all()
+    field_map = {f.id: f for f in plugin.fields}
+    bom: dict[str, Any] = {}
+    for r in rows:
+        f = field_map.get(r.field_id)
+        if f is None or r.provenance == "required_pending":
+            continue
+        v: Any = r.value
+        if f.type == "boolean":
+            v = r.value.lower() in ("true", "1", "yes")
+        elif f.type == "integer":
+            try:
+                v = int(r.value)
+            except ValueError:
+                continue
+        elif f.type == "number":
+            try:
+                v = float(r.value)
+            except ValueError:
+                continue
+        elif f.type == "repeater":
+            try:
+                v = json.loads(r.value)
+                if not isinstance(v, list):
+                    continue
+            except json.JSONDecodeError:
+                continue
+        bom[r.field_id] = v
+    return bom
+
+
 @router.post("/{session_id}/dpp", response_model=DppResponse)
-def generate_dpp_stub(session_id: str, response: Response) -> DppResponse:
-    """STUB de F5 / paso 7. Devuelve URLs fake del DPP publicado."""
-    _stub(response)
-    gs1_uri = f"https://id.gs1.org/01/09506000134352/21/{session_id[:8]}"
+def generate_dpp(session_id: str, db: DbSession) -> DppResponse:
+    """Genera, firma y publica el DPP (paso 7).
+
+    - 409 si `verify` indica que no se puede publicar (required pendientes).
+    - 409 si la sesión ya tiene un DPP publicado (idempotencia: no re-publicamos).
+    - Persiste JSON-LD firmado en `published_dpps`.
+    - Escribe entry en `audit_log` con `operation='publish'` y hash del JSON-LD.
+    """
+    row = _get_or_404(db, session_id)
+    plugin = _resolve_plugin(row.plugin)
+
+    verify_result = run_verifier(db, row, plugin)
+    if not verify_result.can_publish:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "cannot_publish",
+                "completeness": verify_result.completeness,
+                "missing_count": len(verify_result.missing_fields),
+            },
+        )
+
+    existing = db.exec(
+        select(PublishedDPP).where(PublishedDPP.session_id == session_id)
+    ).first()
+    if existing is not None:
+        raise HTTPException(status_code=409, detail="dpp_already_published")
+
+    bom = _bom_from_extracted(db, session_id, plugin)
+    public_fields = filter_public_fields(plugin, bom)
+
+    gs1_uri = build_gs1_uri(plugin, session_id)
+    jsonld = build_jsonld(plugin, gs1_uri, public_fields)
+
+    key = get_or_create_keypair()
+    signed = sign_payload(key, canonical_payload(jsonld))
+
+    db.add(
+        PublishedDPP(
+            gs1_uri=gs1_uri,
+            session_id=session_id,
+            jsonld=jsonld,
+            signature=signed.signature_b64,
+            public_key=signed.public_key_b64,
+        )
+    )
+    append_audit(
+        db,
+        operation="publish",
+        payload={
+            "session_id": session_id,
+            "gs1_uri": gs1_uri,
+            "jsonld_sha256": hashlib.sha256(canonical_payload(jsonld)).hexdigest(),
+            "public_fields_count": len(public_fields),
+        },
+    )
+    db.commit()
+
+    slug = session_id.split("-", 1)[0]
     return DppResponse(
         gs1_uri=gs1_uri,
-        public_url=f"http://localhost:3000/dpp/{session_id[:8]}",
+        public_url=f"/dpp/{slug}",
         qr_png_url=f"/api/v1/sessions/{session_id}/dpp/qr.png",
         qr_svg_url=f"/api/v1/sessions/{session_id}/dpp/qr.svg",
-        signed=False,
-        jsonld_url=f"/api/v1/sessions/{session_id}/dpp/jsonld",
+        signed=True,
+        jsonld_url=f"/dpp/{slug}",
     )
+
+
+def _published_or_404(db: Session, session_id: str) -> PublishedDPP:
+    pdpp = db.exec(
+        select(PublishedDPP).where(PublishedDPP.session_id == session_id)
+    ).first()
+    if pdpp is None:
+        raise HTTPException(status_code=404, detail="dpp_not_published")
+    return pdpp
+
+
+@router.get("/{session_id}/dpp/qr.png")
+def dpp_qr_png(session_id: str, db: DbSession) -> Response:
+    pdpp = _published_or_404(db, session_id)
+    return Response(content=generate_qr_png(pdpp.gs1_uri), media_type="image/png")
+
+
+@router.get("/{session_id}/dpp/qr.svg")
+def dpp_qr_svg(session_id: str, db: DbSession) -> Response:
+    pdpp = _published_or_404(db, session_id)
+    return Response(content=generate_qr_svg(pdpp.gs1_uri), media_type="image/svg+xml")
 
 
 # ---------------------------------------------------------------------------
