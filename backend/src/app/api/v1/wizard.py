@@ -78,9 +78,11 @@ from app.plugins.loader import Plugin, PluginField, load_all_plugins
 from app.time_utils import utcnow
 from app.verifier import verify_session as run_verifier
 
-# Resolver del directorio de plugins. Duplicado con api/v1/plugins.py por
-# simplicidad; si crece se mueve a app/plugins/registry.
-_PLUGINS_DIR: Path = Path(__file__).resolve().parents[5] / "plugins"
+# Resolver del directorio de plugins. Centralizado en config.py para soportar
+# tanto el layout del host como el del contenedor.
+from app.config import settings  # noqa: E402
+
+_PLUGINS_DIR: Path = settings.plugins_dir
 
 DbSession = Annotated[Session, Depends(get_session)]
 
