@@ -16,6 +16,8 @@ RUN uv sync --frozen --no-dev
 COPY src ./src
 COPY alembic ./alembic
 COPY alembic.ini ./
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
 
 # Crea el directorio de datos antes de exponer el puerto. El volume
 # `backend_data:/app/data` de docker-compose lo monta encima en runtime,
@@ -25,7 +27,9 @@ RUN mkdir -p /app/data
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+# start-period generoso: la primera vez aplica migraciones e inicializa
+# el cliente de Chroma antes de que uvicorn empiece a responder.
+HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=6 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health').read()" || exit 1
 
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
