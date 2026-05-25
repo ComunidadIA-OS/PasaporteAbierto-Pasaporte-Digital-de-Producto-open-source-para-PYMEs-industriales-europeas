@@ -12,7 +12,6 @@ stub por la implementación real **no debe** cambiar el schema de salida
 (ver `schemas.py`).
 """
 
-import asyncio
 import hashlib
 import json
 import uuid
@@ -33,10 +32,6 @@ from app.api.v1.schemas import (
     CreateSessionResponse,
     DocumentsListResponse,
     DppResponse,
-    ExtractDone,
-    ExtractFieldExtracted,
-    ExtractProgress,
-    FieldValue,
     MissingField,
     RequiredDocumentSpec,
     SessionState,
@@ -676,66 +671,22 @@ def dpp_qr_svg(session_id: str, db: DbSession) -> Response:
 # ---------------------------------------------------------------------------
 
 
-async def _fake_recolector_stream(session_id: str):
-    """Emula la secuencia de eventos que emitirá el Recolector real."""
-    fake_fields = [
-        FieldValue(
-            field_id="capacity_nominal",
-            value="5000",
-            provenance="verified",
-            confidence=0.95,
-            source_document_id=1,
-        ),
-        FieldValue(
-            field_id="cycle_life",
-            value="1000",
-            provenance="verified",
-            confidence=0.90,
-            source_document_id=1,
-        ),
-        FieldValue(
-            field_id="cobalt_content",
-            value="12%",
-            provenance="self_declared",
-            confidence=0.60,
-            source_document_id=None,
-        ),
-        FieldValue(
-            field_id="state_of_health",
-            value="",
-            provenance="required_pending",
-            confidence=0.0,
-            source_document_id=None,
-        ),
-    ]
-
-    total = len(fake_fields)
-    yield _sse(ExtractProgress(processed=0, total=total, current_document="datasheet.pdf"))
-    await asyncio.sleep(0.2)
-    for i, field in enumerate(fake_fields, start=1):
-        yield _sse(ExtractFieldExtracted(field=field))
-        await asyncio.sleep(0.3)
-        yield _sse(ExtractProgress(processed=i, total=total, current_document="datasheet.pdf"))
-    yield _sse(
-        ExtractDone(
-            fields_total=total,
-            fields_verified=sum(1 for f in fake_fields if f.provenance == "verified"),
-            fields_self_declared=sum(1 for f in fake_fields if f.provenance == "self_declared"),
-            fields_pending=sum(1 for f in fake_fields if f.provenance == "required_pending"),
-        )
-    )
-
-
-def _sse(event: ExtractProgress | ExtractFieldExtracted | ExtractDone) -> str:
-    payload = event.model_dump(mode="json")
-    return f"event: {payload['event']}\ndata: {json.dumps(payload)}\n\n"
-
-
 @router.post("/{session_id}/extract")
-async def extract_stub(session_id: str) -> StreamingResponse:
-    """STUB de F3-02. SSE con 4 campos fake (verified/self_declared/required_pending)."""
+async def extract(session_id: str, db: DbSession) -> StreamingResponse:
+    """Ejecuta el Recolector de PDFs (F3-02).
+
+    Pipeline híbrido: pdfplumber + LLM. Emite eventos SSE campo a campo
+    para que el frontend muestre progreso en tiempo real. No dialoga con
+    el usuario: escribe en extracted_fields y devuelve control al wizard.
+    """
+    from app.collector import extract_fields as run_collector
+
+    row = _get_or_404(db, session_id)
+    plugin = _resolve_plugin(row.plugin)
+    bom = _bom_from_extracted(db, session_id, plugin)
+
     return StreamingResponse(
-        _fake_recolector_stream(session_id),
+        run_collector(session_id, db, plugin, bom),
         media_type="text/event-stream",
-        headers={"X-Stub": "true", "Cache-Control": "no-cache"},
+        headers={"Cache-Control": "no-cache"},
     )
