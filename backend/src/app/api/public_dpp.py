@@ -47,17 +47,45 @@ def _resolve_by_slug(db: Session, slug: str) -> PublishedDPP:
     return pdpp
 
 
+_BADGE_LABELS = {
+    "verified": ("✓ verificado", "verified"),
+    "self_declared": ("autodeclarado", "self_declared"),
+}
+
+
+def _field_value_and_provenance(raw: Any) -> tuple[str, str]:
+    """Extrae (valor_renderizable, provenance) de un campo del JSON-LD.
+
+    Soporta los dos shapes:
+      - nuevo (F5-01 #2): `{"value": v, "provenance": "verified"|"self_declared"}`
+      - legacy (pre-provenance): valor escalar plano
+
+    Para DPPs legacy persistidos antes de la migración, asumimos
+    `self_declared` (la opción más conservadora).
+    """
+    if isinstance(raw, dict) and "value" in raw:
+        return str(raw["value"]), str(raw.get("provenance", "self_declared"))
+    return str(raw), "self_declared"
+
+
 def _render_html(pdpp: PublishedDPP) -> str:
     jsonld: dict[str, Any] = pdpp.jsonld or {}
     fields = jsonld.get("fields", {}) or {}
-    rows_html = "".join(
-        f'<tr><td class="k">{_h(k)}</td><td>{_h(str(v))}</td></tr>'
-        for k, v in sorted(fields.items())
-    )
+    rows: list[str] = []
+    for k, raw in sorted(fields.items()):
+        value, prov = _field_value_and_provenance(raw)
+        label, css_class = _BADGE_LABELS.get(prov, ("?", "self_declared"))
+        rows.append(
+            f'<tr><td class="k">{_h(k)}</td>'
+            f"<td>{_h(value)}</td>"
+            f'<td class="p"><span class="badge {_h(css_class)}">{_h(label)}</span></td></tr>'
+        )
+    rows_html = "".join(rows)
     return f"""<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DPP · {_h(jsonld.get("sector", ""))}</title>
 <meta name="description" content="Pasaporte Digital de Producto conforme a {_h(jsonld.get("regulation", ""))}.">
 <style>
@@ -66,8 +94,13 @@ def _render_html(pdpp: PublishedDPP) -> str:
   h1 {{ font-size: 1.4rem; margin: 0; }}
   .meta {{ color: #666; font-size: 0.85rem; margin-top: 0.25rem; }}
   table {{ width: 100%; border-collapse: collapse; margin-top: 1.5rem; }}
-  td {{ padding: 0.4rem 0.6rem; border-bottom: 1px solid #eee; font-size: 0.9rem; }}
-  td.k {{ color: #555; font-family: ui-monospace, monospace; width: 40%; }}
+  td {{ padding: 0.4rem 0.6rem; border-bottom: 1px solid #eee; font-size: 0.9rem; vertical-align: top; }}
+  td.k {{ color: #555; font-family: ui-monospace, monospace; width: 35%; }}
+  td.p {{ width: 25%; text-align: right; }}
+  .badge {{ display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }}
+  .badge.verified {{ background: #dcfce7; color: #166534; }}
+  .badge.self_declared {{ background: #ffedd5; color: #9a3412; }}
+  .legend {{ display: flex; gap: 0.75rem; margin-top: 1rem; font-size: 0.75rem; color: #555; }}
   footer {{ margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ddd; color: #888; font-size: 0.75rem; }}
   code {{ font-size: 0.75rem; word-break: break-all; }}
 </style>
@@ -76,12 +109,16 @@ def _render_html(pdpp: PublishedDPP) -> str:
 <header>
   <h1>Pasaporte Digital de Producto · {_h(jsonld.get("sector", ""))}</h1>
   <p class="meta">{_h(jsonld.get("regulation", ""))} · sólo campos de acceso público (Annex XIII §1).</p>
+  <p class="legend">
+    <span class="badge verified">✓ verificado</span><span>respaldado por documento subido</span>
+    <span class="badge self_declared">autodeclarado</span><span>declaración del fabricante</span>
+  </p>
 </header>
 <table>{rows_html}</table>
 <footer>
   <p><strong>Identificador:</strong> <code>{_h(pdpp.gs1_uri)}</code></p>
-  <p><strong>Firma Ed25519 (base64):</strong> <code>{_h(pdpp.signature or "")}</code></p>
-  <p><strong>Clave pública (base64):</strong> <code>{_h(pdpp.public_key or "")}</code></p>
+  <p><strong>Firma Ed25519 (base64):</strong> <code>{_h(pdpp.signature or "—")}</code></p>
+  <p><strong>Clave pública (base64):</strong> <code>{_h(pdpp.public_key or "—")}</code></p>
 </footer>
 </body>
 </html>"""
@@ -109,12 +146,15 @@ def get_public_dpp(
     accepted_types = [t.split(";")[0].strip() for t in accept.split(",")]
     if "text/html" in accepted_types:
         return HTMLResponse(_render_html(pdpp))
-    # Default: JSON-LD CIRPASS-2 Core con firma adjunta como header extra.
+    # Default: JSON-LD CIRPASS-2 Core. Headers de firma solo si el DPP está
+    # firmado — un DPP `sign=false` (F5-04 CA #3) no debe sembrar headers
+    # vacíos que un verificador podría confundir con una firma nula.
+    headers: dict[str, str] = {}
+    if pdpp.signature and pdpp.public_key:
+        headers["X-Signature"] = pdpp.signature
+        headers["X-Public-Key"] = pdpp.public_key
     return JSONResponse(
         content=pdpp.jsonld,
         media_type="application/ld+json",
-        headers={
-            "X-Signature": pdpp.signature or "",
-            "X-Public-Key": pdpp.public_key or "",
-        },
+        headers=headers,
     )

@@ -33,6 +33,7 @@ from app.api.v1.schemas import (
     DocType,
     DocumentExcerptResponse,
     DocumentsListResponse,
+    DppPublishRequest,
     DppResponse,
     FieldValue,
     MissingField,
@@ -723,9 +724,24 @@ def verify(session_id: str, db: DbSession) -> VerifyResponse:
 
 def _bom_from_extracted(db: Session, session_id: str, plugin: Plugin) -> dict[str, Any]:
     """Recupera todos los `extracted_fields` de la sesión deserializados."""
+    bom, _ = _bom_and_provenance_from_extracted(db, session_id, plugin)
+    return bom
+
+
+def _bom_and_provenance_from_extracted(
+    db: Session, session_id: str, plugin: Plugin
+) -> tuple[dict[str, Any], dict[str, str]]:
+    """Como `_bom_from_extracted` pero también devuelve provenance por campo.
+
+    Provenance refleja el origen del valor en `extracted_fields.provenance`
+    (`verified` si lo extrajo el Recolector contra un PDF, `self_declared`
+    si lo escribió el fabricante a mano). `required_pending` se filtra:
+    no hay valor que mostrar todavía.
+    """
     rows = db.exec(select(ExtractedField).where(ExtractedField.session_id == session_id)).all()
     field_map = {f.id: f for f in plugin.fields}
     bom: dict[str, Any] = {}
+    prov: dict[str, str] = {}
     for r in rows:
         f = field_map.get(r.field_id)
         if f is None or r.provenance == "required_pending":
@@ -751,16 +767,23 @@ def _bom_from_extracted(db: Session, session_id: str, plugin: Plugin) -> dict[st
             except json.JSONDecodeError:
                 continue
         bom[r.field_id] = v
-    return bom
+        prov[r.field_id] = r.provenance
+    return bom, prov
 
 
 @router.post("/{session_id}/dpp", response_model=DppResponse)
-def generate_dpp(session_id: str, db: DbSession) -> DppResponse:
-    """Genera, firma y publica el DPP (paso 7).
+def generate_dpp(
+    session_id: str,
+    db: DbSession,
+    body: DppPublishRequest | None = None,
+) -> DppResponse:
+    """Genera y publica el DPP (paso 7). Firma Ed25519 opcional (F5-04 CA #3).
 
     - 409 si `verify` indica que no se puede publicar (required pendientes).
     - 409 si la sesión ya tiene un DPP publicado (idempotencia: no re-publicamos).
-    - Persiste JSON-LD firmado en `published_dpps`.
+    - Persiste JSON-LD en `published_dpps`. Si `sign=True` (default), adjunta
+      firma Ed25519 + clave pública en la misma fila; si `sign=False`, ambas
+      quedan NULL y la respuesta indica `signed=false`.
     - Escribe entry en `audit_log` con `operation='publish'` y hash del JSON-LD.
     """
     row = _get_or_404(db, session_id)
@@ -781,22 +804,29 @@ def generate_dpp(session_id: str, db: DbSession) -> DppResponse:
     if existing is not None:
         raise HTTPException(status_code=409, detail="dpp_already_published")
 
-    bom = _bom_from_extracted(db, session_id, plugin)
+    bom, provenance = _bom_and_provenance_from_extracted(db, session_id, plugin)
     public_fields = filter_public_fields(plugin, bom)
+    public_provenance = filter_public_fields(plugin, provenance)
 
     gs1_uri = build_gs1_uri(plugin, session_id)
-    jsonld = build_jsonld(plugin, gs1_uri, public_fields)
+    jsonld = build_jsonld(plugin, gs1_uri, public_fields, public_provenance)
 
-    key = get_or_create_keypair()
-    signed = sign_payload(key, canonical_payload(jsonld))
+    sign_dpp = body.sign if body is not None else True
+    signature_b64: str | None = None
+    public_key_b64: str | None = None
+    if sign_dpp:
+        key = get_or_create_keypair()
+        signed = sign_payload(key, canonical_payload(jsonld))
+        signature_b64 = signed.signature_b64
+        public_key_b64 = signed.public_key_b64
 
     db.add(
         PublishedDPP(
             gs1_uri=gs1_uri,
             session_id=session_id,
             jsonld=jsonld,
-            signature=signed.signature_b64,
-            public_key=signed.public_key_b64,
+            signature=signature_b64,
+            public_key=public_key_b64,
         )
     )
     append_audit(
@@ -807,6 +837,7 @@ def generate_dpp(session_id: str, db: DbSession) -> DppResponse:
             "gs1_uri": gs1_uri,
             "jsonld_sha256": hashlib.sha256(canonical_payload(jsonld)).hexdigest(),
             "public_fields_count": len(public_fields),
+            "signed": sign_dpp,
         },
     )
     db.commit()
@@ -818,7 +849,7 @@ def generate_dpp(session_id: str, db: DbSession) -> DppResponse:
         public_url=public_url,
         qr_png_url=f"/api/v1/sessions/{session_id}/dpp/qr.png",
         qr_svg_url=f"/api/v1/sessions/{session_id}/dpp/qr.svg",
-        signed=True,
+        signed=sign_dpp,
         jsonld_url=public_url,
     )
 
