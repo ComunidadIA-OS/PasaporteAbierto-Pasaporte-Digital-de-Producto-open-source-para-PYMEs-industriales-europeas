@@ -3,9 +3,13 @@
 // El fabricante describe su producto en lenguaje libre. Al enviar:
 //   POST /api/v1/sessions → redirige a /wizard/{session_id}
 // donde se sirve el shell con persistencia y reanudación por URL.
+//
+// Diseño Quiet: columna única centrada, sin aside derecha, textarea con
+// borde generoso, contador en mono, CTA terracota.
 
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -20,6 +24,7 @@ export default function WizardEntryPage() {
   const [error, setError] = useState<string | null>(null);
 
   const tooShort = description.trim().length < MIN_LENGTH;
+  const remaining = Math.max(MIN_LENGTH - description.trim().length, 0);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,51 +45,104 @@ export default function WizardEntryPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl p-12">
-      <h1 className="text-3xl font-bold">Nuevo Pasaporte Digital de Producto</h1>
-      <p className="mt-2 text-sm text-gray-600">
-        Describe tu producto en lenguaje natural. El sistema identificará el sector ESPR
-        aplicable y te guiará por los 7 pasos del wizard. El borrador se guarda
-        automáticamente y puedes retomarlo desde cualquier dispositivo con la URL de la
-        sesión.
-      </p>
+    <>
+      <header className="appbar">
+        <Link href="/" className="appbar-brand">
+          <div className="appbar-logo">P</div>
+          <span>PasaporteAbierto</span>
+        </Link>
+        <div className="appbar-spacer" />
+      </header>
 
-      <form onSubmit={onSubmit} className="mt-8 space-y-4">
-        <label htmlFor="description" className="block">
-          <span className="text-sm font-semibold">Descripción del producto</span>
-          <textarea
-            id="description"
-            name="description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={6}
-            minLength={MIN_LENGTH}
-            placeholder="Ej.: Batería industrial recargable de Li-ion 5 kWh para almacenamiento residencial fotovoltaico…"
-            className="mt-2 w-full rounded-md border border-gray-300 p-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            disabled={submitting}
-            required
-          />
-          <span
-            className={`mt-1 block text-xs ${tooShort ? "text-gray-500" : "text-green-700"}`}
-          >
-            {description.trim().length} / mínimo {MIN_LENGTH} caracteres
-          </span>
-        </label>
-
-        {error && (
-          <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">
-            {error}
+      <main className="wizard-entry">
+        <div className="wizard-entry-main fade-in">
+          <Link href="/" className="btn btn-ghost" style={{ marginLeft: -12, marginBottom: 16 }}>
+            ← Volver
+          </Link>
+          <div className="eyebrow">Paso 01 · Descripción</div>
+          <h1 className="h-1" style={{ marginTop: 12 }}>
+            Cuéntanos qué <em>fabricas</em>.
+          </h1>
+          <p className="muted" style={{ marginTop: 16, fontSize: 16, maxWidth: 600 }}>
+            En lenguaje natural: para qué sirve, de qué está hecho, a quién se vende. La IA
+            identifica el sector ESPR aplicable, te muestra la cita normativa que lo justifica,
+            y carga el plugin con sus campos obligatorios.
           </p>
-        )}
 
-        <button
-          type="submit"
-          disabled={tooShort || submitting}
-          className="rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-gray-300"
-        >
-          {submitting ? "Creando sesión…" : "Empezar wizard"}
-        </button>
-      </form>
-    </main>
+          <form onSubmit={onSubmit} style={{ marginTop: 40 }}>
+            <div className="framed-textarea">
+              <label htmlFor="description" className="sr-only">
+                Descripción del producto
+              </label>
+              <textarea
+                id="description"
+                name="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={7}
+                minLength={MIN_LENGTH}
+                placeholder="Ej.: Batería industrial recargable de Li-ion 5 kWh para almacenamiento residencial fotovoltaico…"
+                className="textarea"
+                disabled={submitting}
+                required
+              />
+              <div className="meta">
+                <span>
+                  {tooShort ? (
+                    <>
+                      Mínimo {MIN_LENGTH} caracteres · faltan{" "}
+                      <strong style={{ color: "var(--warn)" }}>{remaining}</strong>
+                    </>
+                  ) : (
+                    <span style={{ color: "var(--success)" }}>
+                      ✓ longitud OK · {description.trim().length} caracteres
+                    </span>
+                  )}
+                </span>
+                <span>auto-guardado activado</span>
+              </div>
+            </div>
+
+            {error && (
+              <p
+                role="alert"
+                className="status-panel is-danger"
+                style={{ marginTop: 24, padding: 14 }}
+              >
+                {error}
+              </p>
+            )}
+
+            <div
+              style={{
+                marginTop: 32,
+                display: "flex",
+                gap: 12,
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                type="submit"
+                disabled={tooShort || submitting}
+                className="btn btn-primary btn-lg"
+              >
+                {submitting ? (
+                  <>
+                    <span className="spinner" />
+                    Creando sesión…
+                  </>
+                ) : (
+                  <>Continuar al paso 2 →</>
+                )}
+              </button>
+              <span className="mono" style={{ fontSize: 11, color: "var(--text-faint)" }}>
+                ⌘ + Enter
+              </span>
+            </div>
+          </form>
+        </div>
+      </main>
+    </>
   );
 }

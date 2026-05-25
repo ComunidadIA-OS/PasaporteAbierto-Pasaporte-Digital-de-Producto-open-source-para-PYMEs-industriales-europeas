@@ -64,40 +64,48 @@ export function Step6Verify({
   }
 
   if (error) {
-    return <p className="rounded-md bg-red-50 p-4 text-sm text-red-700">{error}</p>;
+    return <p className="status-panel is-danger">{error}</p>;
   }
   if (!verify) {
-    return <p className="text-sm text-gray-500">Verificando contra el plugin…</p>;
+    return <p className="muted">Verificando contra el plugin…</p>;
   }
 
   const pct = Math.round(verify.completeness * 100);
-  const barTone = pct >= 100 ? "bg-green-500" : pct >= 70 ? "bg-amber-500" : "bg-red-500";
+  const barClass = pct >= 100 ? "bar is-success" : pct >= 70 ? "bar is-warn" : "bar is-danger";
 
   return (
-    <div className="space-y-6">
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500">
-          Completitud
-        </h2>
-        <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-gray-200">
-          <div className={`h-full ${barTone} transition-all`} style={{ width: `${pct}%` }} />
+        <h2 className="eyebrow">Completitud</h2>
+        <div className={barClass} style={{ marginTop: 12 }}>
+          <span style={{ width: `${pct}%` }} />
         </div>
-        <p className="mt-2 text-sm">
+        <p style={{ marginTop: 12, marginBottom: 0 }}>
           {pct}% de campos obligatorios completados ·{" "}
           {verify.can_publish ? (
-            <span className="font-semibold text-green-700">listo para publicar</span>
+            <strong style={{ color: "var(--success)" }}>listo para publicar</strong>
           ) : (
-            <span className="font-semibold text-red-700">faltan campos críticos</span>
+            <strong style={{ color: "var(--danger)" }}>faltan campos críticos</strong>
           )}
         </p>
       </section>
 
       {verify.missing_fields.length > 0 && (
         <section>
-          <h3 className="text-sm font-semibold">
+          <h3 className="h-3" style={{ margin: 0 }}>
             Campos faltantes ({verify.missing_fields.length})
           </h3>
-          <ul className="mt-2 divide-y divide-gray-200 rounded-md border border-gray-200">
+          <ul
+            style={{
+              marginTop: 12,
+              padding: 0,
+              listStyle: "none",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-lg)",
+              background: "var(--panel)",
+              overflow: "hidden",
+            }}
+          >
             {verify.missing_fields.map((m) => (
               <MissingRow key={m.field_id} miss={m} />
             ))}
@@ -107,8 +115,10 @@ export function Step6Verify({
 
       {verify.warnings.length > 0 && (
         <section>
-          <h3 className="text-sm font-semibold">Advertencias ({verify.warnings.length})</h3>
-          <ul className="mt-2 space-y-1">
+          <h3 className="h-3" style={{ margin: 0 }}>
+            Advertencias ({verify.warnings.length})
+          </h3>
+          <ul style={{ marginTop: 12, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
             {verify.warnings.map((w, i) => (
               <WarningRow key={i} warning={w} />
             ))}
@@ -116,19 +126,19 @@ export function Step6Verify({
         </section>
       )}
 
-      <div className="border-t border-gray-200 pt-4">
+      <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
         <button
           type="button"
           onClick={continueToPublish}
           disabled={!verify.can_publish || pending}
-          className="rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-gray-300"
+          className="btn btn-primary btn-lg"
         >
           {pending ? "Avanzando…" : "Continuar a publicar →"}
         </button>
         {!verify.can_publish && (
-          <p className="mt-2 text-xs text-red-700">
-            No se puede publicar: rellena los campos faltantes en el paso 3 (o sube documentos en el
-            paso 4 para que el Recolector los verifique).
+          <p style={{ marginTop: 8, fontSize: 12, color: "var(--danger)" }}>
+            No se puede publicar: rellena los campos faltantes en el paso 3 (o sube documentos en
+            el paso 4 para que el Recolector los verifique).
           </p>
         )}
       </div>
@@ -137,15 +147,30 @@ export function Step6Verify({
 }
 
 function MissingRow({ miss }: { miss: MissingField }) {
-  const tone = miss.reason === "validation_failed" ? "text-amber-700" : "text-red-700";
+  const toneColor =
+    miss.reason === "validation_failed" ? "var(--warn)" : "var(--danger)";
   return (
-    <li className="flex items-center justify-between gap-3 p-3 text-sm">
-      <span className="font-mono text-xs">{miss.field_id}</span>
-      <span className={`text-xs ${tone}`}>
+    <li
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        gap: 12,
+        padding: "12px 16px",
+        borderTop: "1px solid var(--border)",
+        fontSize: 13,
+      }}
+    >
+      <span className="mono" style={{ fontSize: 12 }}>
+        {miss.field_id}
+      </span>
+      <span className="mono" style={{ fontSize: 11, color: toneColor }}>
         {miss.reason === "validation_failed" ? "Tipo inválido" : "Pendiente"}
       </span>
       {miss.citation && (
-        <span className="text-right text-xs text-gray-500">
+        <span
+          className="mono"
+          style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "right" }}
+        >
           {miss.citation.regulation}
           <br />
           {miss.citation.article}
@@ -157,8 +182,21 @@ function MissingRow({ miss }: { miss: MissingField }) {
 
 function WarningRow({ warning }: { warning: VerifyWarning }) {
   return (
-    <li className="rounded-md border-l-4 border-amber-400 bg-amber-50 p-2 text-xs text-amber-900">
-      {warning.rule_id && <span className="font-mono">[{warning.rule_id}] </span>}
+    <li
+      style={{
+        background: "var(--warn-soft)",
+        borderLeft: "3px solid var(--warn)",
+        borderRadius: "var(--radius-sm)",
+        padding: "10px 12px",
+        fontSize: 12,
+        color: "var(--text)",
+      }}
+    >
+      {warning.rule_id && (
+        <span className="mono" style={{ color: "var(--warn)" }}>
+          [{warning.rule_id}]{" "}
+        </span>
+      )}
       {warning.message}
     </li>
   );

@@ -24,6 +24,7 @@ export function Step1Description({
   const [error, setError] = useState<string | null>(null);
 
   const tooShort = description.trim().length < MIN_LENGTH;
+  const remaining = Math.max(MIN_LENGTH - description.trim().length, 0);
 
   function onContinue() {
     if (tooShort || pending) return;
@@ -46,43 +47,57 @@ export function Step1Description({
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-gray-600">
+    <div className="col gap-4" style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <p className="muted" style={{ margin: 0, fontSize: 15 }}>
         Describe tu producto con suficiente detalle para que el Clasificador identifique el
         sector ESPR aplicable. Cuanto más concreto (materiales, función, capacidad), mejor.
       </p>
 
-      <label htmlFor="description" className="block">
-        <span className="text-sm font-semibold">Descripción del producto</span>
+      <div className="framed-textarea">
+        <label htmlFor="description" className="sr-only">
+          Descripción del producto
+        </label>
         <textarea
           id="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          rows={6}
-          className="mt-2 w-full rounded-md border border-gray-300 p-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          rows={7}
+          className="textarea"
           disabled={pending}
         />
-        <span
-          className={`mt-1 block text-xs ${tooShort ? "text-gray-500" : "text-green-700"}`}
-        >
-          {description.trim().length} / mínimo {MIN_LENGTH} caracteres
-        </span>
-      </label>
+        <div className="meta">
+          <span>
+            {tooShort ? (
+              <>
+                Mínimo {MIN_LENGTH} caracteres · faltan{" "}
+                <strong style={{ color: "var(--warn)" }}>{remaining}</strong>
+              </>
+            ) : (
+              <span style={{ color: "var(--success)" }}>
+                ✓ longitud OK · {description.trim().length} caracteres
+              </span>
+            )}
+          </span>
+          <span>auto-guardado activado</span>
+        </div>
+      </div>
 
       {error && (
-        <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+        <p role="alert" className="status-panel is-danger" style={{ margin: 0, padding: 14 }}>
           {error}
         </p>
       )}
 
-      <button
-        type="button"
-        onClick={onContinue}
-        disabled={tooShort || pending}
-        className="rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-gray-300"
-      >
-        {pending ? "Guardando…" : "Continuar al paso 2 →"}
-      </button>
+      <div>
+        <button
+          type="button"
+          onClick={onContinue}
+          disabled={tooShort || pending}
+          className="btn btn-primary btn-lg"
+        >
+          {pending ? "Guardando…" : "Continuar al paso 2 →"}
+        </button>
+      </div>
     </div>
   );
 }
