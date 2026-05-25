@@ -30,8 +30,10 @@ from app.api.v1.schemas import (
     ClassifyResponse,
     CreateSessionRequest,
     CreateSessionResponse,
+    DocType,
     DocumentsListResponse,
     DppResponse,
+    FieldValue,
     MissingField,
     RequiredDocumentSpec,
     SessionState,
@@ -52,6 +54,7 @@ from app.dpp import (
     generate_qr_png,
     generate_qr_svg,
     get_or_create_keypair,
+    public_dpp_url,
     sign_payload,
 )
 from app.models.documents import Document
@@ -82,8 +85,41 @@ def _stub(response: Response) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _to_session_state(row: WizardSession) -> SessionState:
+def _to_session_state(row: WizardSession, db: Session | None = None) -> SessionState:
+    """Construye el `SessionState` completo desde BD.
+
+    Pasar `db` permite rellenar `extracted_fields` con lo realmente persistido y
+    construir la `classification_citation` desde `progress["classification_citation"]`
+    (persistido por `classify_session`). Si `db` es None, ambos vienen vacíos —
+    sólo conviene en pruebas o cuando el caller ya tiene los datos.
+    """
     progress: dict[str, Any] = row.progress or {}
+
+    citation: Citation | None = None
+    raw_citation = progress.get("classification_citation")
+    if isinstance(raw_citation, dict) and raw_citation.get("regulation"):
+        citation = Citation(
+            regulation=str(raw_citation.get("regulation", "")),
+            article=str(raw_citation.get("article", "")),
+            url=raw_citation.get("url"),
+        )
+
+    extracted: list[FieldValue] = []
+    if db is not None:
+        rows = db.exec(
+            select(ExtractedField).where(ExtractedField.session_id == row.id)
+        ).all()
+        for ef in rows:
+            extracted.append(
+                FieldValue(
+                    field_id=ef.field_id,
+                    value=ef.value,
+                    provenance=ef.provenance,  # type: ignore[arg-type]
+                    confidence=ef.confidence,
+                    source_document_id=ef.source_document_id,
+                )
+            )
+
     return SessionState(
         session_id=row.id,
         current_step=progress.get("step", 1),
@@ -91,9 +127,9 @@ def _to_session_state(row: WizardSession) -> SessionState:
         sector=row.sector,
         plugin=row.plugin,
         classification_confidence=row.classification_confidence,
-        classification_citation=None,
+        classification_citation=citation,
         bom=progress.get("bom", {}),
-        extracted_fields=[],
+        extracted_fields=extracted,
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
@@ -129,7 +165,7 @@ def get_session_state(
     db: DbSession,
 ) -> SessionState:
     """Reanuda una sesión existente."""
-    return _to_session_state(_get_or_404(db, session_id))
+    return _to_session_state(_get_or_404(db, session_id), db)
 
 
 @router.patch("/{session_id}", response_model=SessionState)
@@ -169,7 +205,7 @@ def update_progress(
     db.add(row)
     db.commit()
     db.refresh(row)
-    return _to_session_state(row)
+    return _to_session_state(row, db)
 
 
 # ---------------------------------------------------------------------------
@@ -189,7 +225,7 @@ def classify_session(
     persiste lo devuelto (`requires_review=True` lo indica al frontend).
     """
     row = _get_or_404(db, session_id)
-    progress: dict[str, Any] = row.progress or {}
+    progress: dict[str, Any] = dict(row.progress or {})
     description = progress.get("description")
     if not description:
         raise HTTPException(status_code=400, detail="session_has_no_description")
@@ -199,6 +235,19 @@ def classify_session(
     row.sector = result.sector
     row.plugin = result.plugin
     row.classification_confidence = result.confidence
+
+    # Persistir la cita en `progress` para que _to_session_state pueda
+    # reconstruirla en futuros GET /sessions/{id} (no hay columna dedicada).
+    if result.sector != "unknown":
+        progress["classification_citation"] = {
+            "regulation": result.citation_regulation,
+            "article": result.citation_article,
+            "url": result.citation_url,
+        }
+    else:
+        progress.pop("classification_citation", None)
+    row.progress = progress
+
     row.updated_at = utcnow()
     db.add(row)
     db.commit()
@@ -243,6 +292,12 @@ def classify_override(
     row.updated_at = utcnow()
     db.add(row)
 
+    # Borrar la cita persistida: el override es decisión humana, no del clasificador
+    # automático con cita normativa del RAG.
+    progress_override: dict[str, Any] = dict(row.progress or {})
+    if progress_override.pop("classification_citation", None) is not None:
+        row.progress = progress_override
+
     append_audit(
         db,
         operation="classify_override",
@@ -255,7 +310,7 @@ def classify_override(
     )
     db.commit()
     db.refresh(row)
-    return _to_session_state(row)
+    return _to_session_state(row, db)
 
 
 def _validate_field_value(field: PluginField, value: Any) -> str | None:
@@ -409,19 +464,25 @@ def list_documents(session_id: str, db: DbSession) -> DocumentsListResponse:
     uploaded_rows = db.exec(select(Document).where(Document.session_id == session_id)).all()
     uploaded_types = {d.doc_type for d in uploaded_rows}
 
-    # Documentos requeridos según plugin + condiciones when
+    # Documentos requeridos según plugin + condiciones when. La cita normativa
+    # del documento viene del propio plugin YAML (campo opcional `citation` en
+    # required_documents). Si el plugin no la declara, la API devuelve
+    # `citation=null` antes que inventar una referencia regulatoria genérica.
     required: list[RequiredDocumentSpec] = []
     for rd in plugin.required_documents:
         if not evaluate_when(rd.when, bom):
             continue
+        doc_citation: Citation | None = None
+        if rd.citation is not None:
+            doc_citation = Citation(
+                regulation=f"Reglamento {rd.citation.regulation}",
+                article=rd.citation.article,
+            )
         required.append(
             RequiredDocumentSpec(
                 doc_type=rd.type,
                 mandatory=rd.mandatory,
-                citation=Citation(
-                    regulation=f"Reglamento {plugin.regulation}",
-                    article="Annex XIII",
-                ),
+                citation=doc_citation,
                 uploaded=rd.type in uploaded_types,
             )
         )
@@ -445,14 +506,17 @@ async def upload_document(
     session_id: str,
     file: UploadFile,
     db: DbSession,
-    doc_type: str = Query(
+    doc_type: DocType = Query(
         ..., description="Tipo de documento: datasheet, certificate, lca, sds, ce_declaration"
     ),
 ) -> UploadDocumentResponse:
-    """Subida de documentos con deduplicación por SHA-256 (F4-04).
+    """Subida de documentos con deduplicación por (sesión, sha256, doc_type) (F4-04).
 
     - Límite de 10 MB por fichero.
-    - Si el hash ya existe para esta sesión, devuelve el documento existente.
+    - `doc_type` validado contra el Literal `DocType` (422 antes de tocar disco).
+    - Dedupe incluye `doc_type`: el mismo PDF puede subirse como tipos distintos
+      (p. ej. el fabricante quiere clasificar el mismo informe como `datasheet`
+      y `certificate`) sin que la segunda subida devuelva el primero.
     - Guarda el blob en `backend/data/uploads/{session_id}/`.
     """
     _get_or_404(db, session_id)
@@ -468,11 +532,14 @@ async def upload_document(
     # Calcular SHA-256
     file_hash = hashlib.sha256(content).hexdigest()
 
-    # Deduplicar por hash dentro de la sesión
+    # Deduplicar por (session, sha256, doc_type) — incluir doc_type evita que el
+    # mismo PDF subido como "datasheet" devuelva la fila al subirlo después como
+    # "certificate", bloqueando el segundo doc_type silenciosamente.
     existing = db.exec(
         select(Document).where(
             Document.session_id == session_id,
             Document.sha256 == file_hash,
+            Document.doc_type == doc_type,
         )
     ).first()
     if existing:
@@ -637,13 +704,14 @@ def generate_dpp(session_id: str, db: DbSession) -> DppResponse:
     db.commit()
 
     slug = session_id.split("-", 1)[0]
+    public_url = public_dpp_url(slug)
     return DppResponse(
         gs1_uri=gs1_uri,
-        public_url=f"/dpp/{slug}",
+        public_url=public_url,
         qr_png_url=f"/api/v1/sessions/{session_id}/dpp/qr.png",
         qr_svg_url=f"/api/v1/sessions/{session_id}/dpp/qr.svg",
         signed=True,
-        jsonld_url=f"/dpp/{slug}",
+        jsonld_url=public_url,
     )
 
 
@@ -654,16 +722,22 @@ def _published_or_404(db: Session, session_id: str) -> PublishedDPP:
     return pdpp
 
 
+def _public_url_for(pdpp: PublishedDPP) -> str:
+    """Reconstruye la URL pública absoluta del DPP para impresión en QR."""
+    slug = pdpp.session_id.split("-", 1)[0]
+    return public_dpp_url(slug)
+
+
 @router.get("/{session_id}/dpp/qr.png")
 def dpp_qr_png(session_id: str, db: DbSession) -> Response:
     pdpp = _published_or_404(db, session_id)
-    return Response(content=generate_qr_png(pdpp.gs1_uri), media_type="image/png")
+    return Response(content=generate_qr_png(_public_url_for(pdpp)), media_type="image/png")
 
 
 @router.get("/{session_id}/dpp/qr.svg")
 def dpp_qr_svg(session_id: str, db: DbSession) -> Response:
     pdpp = _published_or_404(db, session_id)
-    return Response(content=generate_qr_svg(pdpp.gs1_uri), media_type="image/svg+xml")
+    return Response(content=generate_qr_svg(_public_url_for(pdpp)), media_type="image/svg+xml")
 
 
 # ---------------------------------------------------------------------------
