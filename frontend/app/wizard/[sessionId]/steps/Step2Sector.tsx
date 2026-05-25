@@ -95,7 +95,7 @@ export function Step2Sector({
   }
 
   return (
-    <div className="space-y-6">
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       {!hasSector ? (
         <NoClassification onClassify={runClassify} pending={pending} />
       ) : (
@@ -117,12 +117,12 @@ export function Step2Sector({
           pending={pending}
         />
       ) : (
-        <div className="flex gap-3">
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <button
             type="button"
             onClick={() => setOverrideOpen(true)}
             disabled={pending}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="btn btn-secondary"
           >
             Cambiar manualmente
           </button>
@@ -131,7 +131,7 @@ export function Step2Sector({
               type="button"
               onClick={continueToStep3}
               disabled={pending}
-              className="rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white disabled:bg-gray-300"
+              className="btn btn-primary btn-lg"
             >
               Continuar al paso 3 →
             </button>
@@ -140,7 +140,7 @@ export function Step2Sector({
       )}
 
       {error && (
-        <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+        <p role="alert" className="status-panel is-danger" style={{ margin: 0, padding: 14 }}>
           {error}
         </p>
       )}
@@ -150,9 +150,11 @@ export function Step2Sector({
 
 function NoClassification({ onClassify, pending }: { onClassify: () => void; pending: boolean }) {
   return (
-    <div className="rounded-lg border border-blue-200 bg-blue-50 p-6">
-      <h2 className="text-lg font-semibold text-blue-900">Clasificar el producto</h2>
-      <p className="mt-1 text-sm text-blue-800">
+    <div className="status-panel">
+      <h2 className="h-2" style={{ margin: 0 }}>
+        Clasificar el <em>producto</em>
+      </h2>
+      <p className="muted" style={{ marginTop: 8, marginBottom: 0 }}>
         El sistema identificará el sector ESPR aplicable a partir de la descripción del paso 1 y
         citará el reglamento que lo justifica.
       </p>
@@ -160,7 +162,8 @@ function NoClassification({ onClassify, pending }: { onClassify: () => void; pen
         type="button"
         onClick={onClassify}
         disabled={pending}
-        className="mt-4 rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white disabled:bg-gray-300"
+        className="btn btn-primary"
+        style={{ marginTop: 16 }}
       >
         {pending ? "Clasificando…" : "Clasificar ahora"}
       </button>
@@ -178,35 +181,47 @@ function ClassificationBadge({
   citation: Citation | null;
 }) {
   const pct = Math.round(confidence * 100);
-  const tone =
+  const toneClass =
     confidence >= 0.85
-      ? "border-green-300 bg-green-50 text-green-900"
+      ? "is-success"
       : confidence >= CONFIDENCE_THRESHOLD
-        ? "border-amber-300 bg-amber-50 text-amber-900"
-        : "border-red-300 bg-red-50 text-red-900";
+        ? "is-warn"
+        : "is-danger";
 
   return (
-    <div className={`rounded-lg border p-6 ${tone}`}>
-      <p className="text-xs uppercase tracking-wider opacity-70">Sector clasificado</p>
-      <h2 className="mt-1 text-2xl font-bold capitalize">{sector}</h2>
-      <p className="mt-1 text-sm">Confianza · {pct}%</p>
+    <div className={`status-panel ${toneClass}`}>
+      <span className="eyebrow">Sector clasificado</span>
+      <h2
+        className="h-1"
+        style={{
+          marginTop: 8,
+          marginBottom: 0,
+          textTransform: "capitalize",
+          fontStyle: "italic",
+        }}
+      >
+        {sector}
+      </h2>
+      <p style={{ marginTop: 8, marginBottom: 0 }}>
+        Confianza · <strong className="mono">{pct}%</strong>
+      </p>
 
       {citation && (
-        <p className="mt-3 text-sm">
+        <p style={{ marginTop: 16, marginBottom: 0, fontSize: 13 }}>
           Justificado por{" "}
           {citation.url ? (
             <a
               href={citation.url}
               target="_blank"
               rel="noreferrer"
-              className="font-semibold underline"
+              style={{ color: "var(--accent)", textDecoration: "underline" }}
             >
               {citation.regulation}, {citation.article}
             </a>
           ) : (
-            <span className="font-semibold">
+            <strong>
               {citation.regulation}, {citation.article}
-            </span>
+            </strong>
           )}
         </p>
       )}
@@ -216,12 +231,9 @@ function ClassificationBadge({
 
 function ReviewWarning() {
   return (
-    <div
-      role="alert"
-      className="rounded-md border-l-4 border-amber-500 bg-amber-50 p-4 text-sm text-amber-900"
-    >
-      <strong className="font-semibold">Revisa la clasificación.</strong> La confianza es inferior
-      al 70%. Confirma manualmente que el sector es correcto antes de continuar.
+    <div role="alert" className="status-panel is-warn">
+      <strong>Revisa la clasificación.</strong> La confianza es inferior al 70%. Confirma
+      manualmente que el sector es correcto antes de continuar.
     </div>
   );
 }
@@ -246,22 +258,27 @@ function OverrideForm({
 
   return (
     <form
-      className="space-y-3 rounded-lg border border-gray-300 bg-white p-5"
+      className="card"
+      style={{ display: "flex", flexDirection: "column", gap: 16 }}
       onSubmit={(e) => {
         e.preventDefault();
         if (!isValid || pending) return;
         onSubmit(sector, sector, reason.trim());
       }}
     >
-      <h3 className="text-sm font-semibold">Override manual del sector</h3>
+      <h3 className="h-3" style={{ margin: 0 }}>
+        Override manual del sector
+      </h3>
 
-      <label htmlFor="override-sector" className="block">
-        <span className="text-xs text-gray-600">Sector correcto</span>
+      <label htmlFor="override-sector">
+        <span className="eyebrow" style={{ display: "block", marginBottom: 6 }}>
+          Sector correcto
+        </span>
         <select
           id="override-sector"
           value={sector}
           onChange={(e) => setSector(e.target.value)}
-          className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm"
+          className="select"
           disabled={pending}
         >
           {plugins.length === 0 && <option value="">— sin plugins instalados —</option>}
@@ -272,39 +289,35 @@ function OverrideForm({
           ))}
         </select>
         {currentSector && (
-          <span className="mt-1 block text-xs text-gray-500">
-            Actual: <code className="font-mono">{currentSector}</code>
+          <span
+            className="mono"
+            style={{ marginTop: 6, display: "block", fontSize: 11, color: "var(--text-muted)" }}
+          >
+            Actual: <code>{currentSector}</code>
           </span>
         )}
       </label>
 
-      <label htmlFor="override-reason" className="block">
-        <span className="text-xs text-gray-600">Motivo (mínimo 10 caracteres)</span>
+      <label htmlFor="override-reason">
+        <span className="eyebrow" style={{ display: "block", marginBottom: 6 }}>
+          Motivo (mínimo 10 caracteres)
+        </span>
         <textarea
           id="override-reason"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           rows={3}
-          className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm"
+          className="textarea"
           placeholder="Ej.: el clasificador confundió mi tejido técnico con una batería."
           disabled={pending}
         />
       </label>
 
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={!isValid || pending}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:bg-gray-300"
-        >
+      <div style={{ display: "flex", gap: 12 }}>
+        <button type="submit" disabled={!isValid || pending} className="btn btn-primary">
           {pending ? "Guardando…" : "Guardar override"}
         </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={pending}
-          className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-        >
+        <button type="button" onClick={onCancel} disabled={pending} className="btn btn-secondary">
           Cancelar
         </button>
       </div>

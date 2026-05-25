@@ -107,32 +107,44 @@ export function Step3Bom({
 
   if (!session.plugin) {
     return (
-      <p className="rounded-md bg-amber-50 p-4 text-sm text-amber-900">
+      <p className="status-panel is-warn">
         Necesitas clasificar el sector en el paso 2 antes de rellenar el BOM.
       </p>
     );
   }
   if (loadError) {
-    return <p className="rounded-md bg-red-50 p-4 text-sm text-red-700">{loadError}</p>;
+    return <p className="status-panel is-danger">{loadError}</p>;
   }
   if (!plugin) {
-    return <p className="text-sm text-gray-500">Cargando definición del plugin…</p>;
+    return <p className="muted">Cargando definición del plugin…</p>;
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      style={{ display: "flex", flexDirection: "column", gap: 24 }}
+    >
       <header>
-        <h2 className="text-lg font-semibold">
+        <h2 className="h-3" style={{ margin: 0 }}>
           BOM · {plugin.name}{" "}
-          <span className="font-normal text-gray-500">({plugin.regulation})</span>
+          <span className="muted" style={{ fontWeight: 400 }}>
+            ({plugin.regulation})
+          </span>
         </h2>
-        <p className="text-xs text-gray-500">
-          {plugin.fields.length} campos · marcados con <span className="text-red-600">*</span> son
-          obligatorios. Los datos se guardan con <code>provenance=self_declared</code>.
+        <p className="muted" style={{ margin: "6px 0 0", fontSize: 12 }}>
+          {plugin.fields.length} campos · marcados con{" "}
+          <span style={{ color: "var(--danger)" }}>*</span> son obligatorios. Los datos se guardan
+          con <code className="mono">provenance=self_declared</code>.
         </p>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div
+        style={{
+          display: "grid",
+          gap: 16,
+          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+        }}
+      >
         {plugin.fields.map((field) => (
           <FieldRow
             key={field.id}
@@ -144,19 +156,17 @@ export function Step3Bom({
       </div>
 
       {serverErrors.length > 0 && (
-        <div className="rounded-md bg-amber-50 p-3 text-xs text-amber-900">
+        <div className="status-panel is-warn" style={{ padding: 12, fontSize: 12 }}>
           {serverErrors.length} aviso{serverErrors.length === 1 ? "" : "s"} del backend. Los campos
           marcados en rojo necesitan revisión.
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white disabled:bg-gray-300"
-      >
-        {pending ? "Guardando…" : "Guardar y continuar al paso 4 →"}
-      </button>
+      <div>
+        <button type="submit" disabled={pending} className="btn btn-primary btn-lg">
+          {pending ? "Guardando…" : "Guardar y continuar al paso 4 →"}
+        </button>
+      </div>
     </form>
   );
 }
@@ -171,33 +181,53 @@ function FieldRow({
   error: string | undefined;
 }) {
   const citation = `${field.citation.regulation}, ${field.citation.article}`;
-  const labelClass = `flex items-center gap-1 text-xs font-semibold ${
-    error ? "text-red-700" : "text-gray-700"
-  }`;
-  const inputClass = `mt-1 w-full rounded-md border p-2 text-sm ${
-    error ? "border-red-400" : "border-gray-300"
-  }`;
+  const labelStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    fontSize: 12,
+    fontWeight: 500,
+    color: error ? "var(--danger)" : "var(--text)",
+    marginBottom: 6,
+  };
+  const inputClass = `input${error ? " input-error" : ""}`;
+  const inputStyle: React.CSSProperties = error ? { borderColor: "var(--danger)" } : {};
 
   return (
-    <label htmlFor={field.id} className="block">
-      <span className={labelClass}>
+    <label htmlFor={field.id} style={{ display: "block" }}>
+      <span style={labelStyle}>
         <span>
           {field.id}
-          {field.required && <span className="ml-0.5 text-red-600">*</span>}
+          {field.required && (
+            <span style={{ marginLeft: 2, color: "var(--danger)" }}>*</span>
+          )}
         </span>
         <span
           title={citation}
-          className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-gray-300 text-[10px] text-gray-500"
           aria-label={`Cita: ${citation}`}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 18,
+            height: 18,
+            borderRadius: "50%",
+            border: "1px solid var(--border-strong)",
+            fontSize: 10,
+            color: "var(--accent)",
+            cursor: "help",
+            fontFamily: "var(--font-head)",
+            fontStyle: "italic",
+          }}
         >
           i
         </span>
       </span>
 
       {field.type === "boolean" ? (
-        <input id={field.id} type="checkbox" {...register(field.id)} className="mt-1" />
+        <input id={field.id} type="checkbox" {...register(field.id)} />
       ) : field.type === "enum" ? (
-        <select id={field.id} {...register(field.id)} className={inputClass}>
+        <select id={field.id} {...register(field.id)} className="select" style={inputStyle}>
           <option value="">— seleccionar —</option>
           {(field.enum_values ?? []).map((v) => (
             <option key={v} value={v}>
@@ -211,7 +241,8 @@ function FieldRow({
           {...register(field.id)}
           rows={2}
           placeholder='["item1", "item2"]'
-          className={`${inputClass} font-mono text-xs`}
+          className="textarea mono"
+          style={{ ...inputStyle, fontSize: 12, minHeight: 64 }}
         />
       ) : (
         <input
@@ -220,10 +251,15 @@ function FieldRow({
           step={field.type === "integer" ? 1 : "any"}
           {...register(field.id)}
           className={inputClass}
+          style={inputStyle}
         />
       )}
 
-      {error && <span className="mt-1 block text-xs text-red-700">{error}</span>}
+      {error && (
+        <span style={{ display: "block", marginTop: 4, fontSize: 11, color: "var(--danger)" }}>
+          {error}
+        </span>
+      )}
     </label>
   );
 }

@@ -2,8 +2,9 @@
 //
 // Server Component: hace el fetch inicial de la sesión en SSR. Si no
 // existe, muestra 404. Si existe, delega toda la interactividad a
-// `WizardClient` para que la navegación entre pasos sea client-side
-// (sin recargar y sin desmontar el chat lateral).
+// `WizardClient` para que la navegación entre pasos sea client-side.
+
+import Link from "next/link";
 
 import { ApiError, api, type SessionState } from "@/app/lib/api";
 
@@ -28,16 +29,27 @@ export default async function WizardPage({
 
   if (!session) {
     return (
-      <main className="min-h-screen p-12">
-        <h1 className="text-2xl font-bold">Sesión no encontrada</h1>
-        <p className="mt-2 text-sm text-gray-600">
-          La sesión <code className="font-mono">{sessionId}</code> no existe. Vuelve a{" "}
-          <a href="/wizard" className="text-blue-600 underline">
-            crear una nueva
-          </a>
-          .
-        </p>
-      </main>
+      <>
+        <header className="appbar">
+          <Link href="/" className="appbar-brand">
+            <div className="appbar-logo">P</div>
+            <span>PasaporteAbierto</span>
+          </Link>
+        </header>
+        <main className="wizard-entry-main fade-in">
+          <div className="eyebrow">404</div>
+          <h1 className="h-1" style={{ marginTop: 12 }}>
+            Sesión no <em>encontrada</em>.
+          </h1>
+          <p className="muted" style={{ marginTop: 16, maxWidth: 540 }}>
+            La sesión <code className="mono">{sessionId}</code> no existe. Vuelve a{" "}
+            <Link href="/wizard" style={{ color: "var(--accent)", textDecoration: "underline" }}>
+              crear una nueva
+            </Link>
+            .
+          </p>
+        </main>
+      </>
     );
   }
 

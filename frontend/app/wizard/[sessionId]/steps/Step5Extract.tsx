@@ -36,10 +36,10 @@ interface DoneSummary {
   fields_pending: number;
 }
 
-const PROVENANCE_BADGE: Record<Provenance, { bg: string; text: string; label: string }> = {
-  verified: { bg: "bg-green-100", text: "text-green-700", label: "verificado" },
-  self_declared: { bg: "bg-orange-100", text: "text-orange-700", label: "autodeclarado" },
-  required_pending: { bg: "bg-red-100", text: "text-red-700", label: "pendiente" },
+const PROVENANCE_BADGE: Record<Provenance, { className: string; label: string }> = {
+  verified: { className: "badge badge-success", label: "verificado" },
+  self_declared: { className: "badge badge-warn", label: "autodeclarado" },
+  required_pending: { className: "badge badge-danger", label: "pendiente" },
 };
 
 export function Step5Extract({
@@ -186,25 +186,25 @@ export function Step5Extract({
     progress && progress.total > 0 ? Math.round((progress.processed / progress.total) * 100) : 0;
 
   return (
-    <div className="space-y-6">
-      <p className="text-sm text-gray-600">
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <p className="muted" style={{ margin: 0 }}>
         Extrae automáticamente los campos del DPP a partir de los documentos subidos. El sistema
         cruza la información de los PDFs con el BOM para determinar la procedencia de cada dato.
       </p>
 
       {/* Botón de inicio / re-extracción */}
-      <div className="flex items-center gap-3">
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <button
           type="button"
           onClick={startExtraction}
           disabled={running}
-          className="rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-gray-300"
+          className="btn btn-primary btn-lg"
         >
-          {running ? "Extrayendo..." : done ? "Re-extraer" : "Iniciar extracción"}
+          {running ? "Extrayendo…" : done ? "Re-extraer" : "Iniciar extracción"}
         </button>
-        {running && progress && (
-          <span className="text-xs text-gray-500">
-            {progress.current_document && `Procesando: ${progress.current_document}`}
+        {running && progress && progress.current_document && (
+          <span className="mono" style={{ fontSize: 11, color: "var(--text-muted)" }}>
+            Procesando: {progress.current_document}
           </span>
         )}
       </div>
@@ -212,10 +212,10 @@ export function Step5Extract({
       {/* Barra de progreso */}
       {running && progress && (
         <div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
-            <div className="h-full bg-blue-600 transition-all" style={{ width: `${pct}%` }} />
+          <div className="bar">
+            <span style={{ width: `${pct}%` }} />
           </div>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mono" style={{ marginTop: 6, fontSize: 11, color: "var(--text-muted)" }}>
             {progress.processed} / {progress.total} documentos · {pct}%
           </p>
         </div>
@@ -223,99 +223,137 @@ export function Step5Extract({
 
       {/* Tabla de campos extraídos */}
       {fields.length > 0 && (
-        <div className="overflow-hidden rounded-lg border border-gray-200">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">Campo</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">Valor</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">Procedencia</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">Confianza</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">Fuente</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {fields.map((f) => {
-                const badge = PROVENANCE_BADGE[f.provenance];
-                // F4-05 criterio 2: cada fila verified/self_declared enlaza al
-                // fragmento del PDF fuente. required_pending no tiene fuente.
-                const canShowSource =
-                  f.source_document_id != null && f.provenance !== "required_pending";
-                return (
-                  <tr key={f.field_id}>
-                    <td className="px-4 py-2 font-mono text-xs">{f.field_id}</td>
-                    <td className="px-4 py-2">
-                      {f.value != null ? String(f.value) : <span className="text-gray-400">—</span>}
-                    </td>
-                    <td className="px-4 py-2">
-                      <span
-                        className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium ${badge.bg} ${badge.text}`}
+        <table className="tbl">
+          <thead>
+            <tr>
+              <th>Campo</th>
+              <th>Valor</th>
+              <th>Procedencia</th>
+              <th>Confianza</th>
+              <th>Fuente</th>
+            </tr>
+          </thead>
+          <tbody>
+            {fields.map((f) => {
+              const badge = PROVENANCE_BADGE[f.provenance];
+              // F4-05 criterio 2: cada fila verified/self_declared enlaza al
+              // fragmento del PDF fuente. required_pending no tiene fuente.
+              const canShowSource =
+                f.source_document_id != null && f.provenance !== "required_pending";
+              return (
+                <tr key={f.field_id}>
+                  <td className="mono" style={{ fontSize: 12 }}>
+                    {f.field_id}
+                  </td>
+                  <td>
+                    {f.value != null ? (
+                      String(f.value)
+                    ) : (
+                      <span className="faint">—</span>
+                    )}
+                  </td>
+                  <td>
+                    <span className={badge.className}>{badge.label}</span>
+                  </td>
+                  <td className="mono" style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                    {Math.round(f.confidence * 100)}%
+                  </td>
+                  <td>
+                    {canShowSource ? (
+                      <button
+                        type="button"
+                        onClick={() => showExcerpt(f)}
+                        disabled={excerptLoading === f.field_id}
+                        style={{
+                          color: "var(--accent)",
+                          textDecoration: "underline",
+                          fontSize: 12,
+                        }}
                       >
-                        {badge.label}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-xs text-gray-500">
-                      {Math.round(f.confidence * 100)}%
-                    </td>
-                    <td className="px-4 py-2 text-xs">
-                      {canShowSource ? (
-                        <button
-                          type="button"
-                          onClick={() => showExcerpt(f)}
-                          disabled={excerptLoading === f.field_id}
-                          className="text-blue-600 underline hover:text-blue-800 disabled:opacity-50"
-                        >
-                          {excerptLoading === f.field_id ? "Cargando…" : "Ver fuente"}
-                        </button>
-                      ) : (
-                        <span className="text-gray-300">—</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                        {excerptLoading === f.field_id ? "Cargando…" : "Ver fuente"}
+                      </button>
+                    ) : (
+                      <span className="faint">—</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       )}
 
       {/* Modal del fragmento del PDF fuente (F4-05 criterio 2) */}
       {excerpt && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="excerpt-title"
+          style={{
+            position: "fixed",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(42, 36, 24, 0.32)",
+            padding: 24,
+            zIndex: 80,
+          }}
         >
-          <div className="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
-            <div className="flex items-start justify-between gap-4">
+          <div
+            className="card"
+            style={{
+              maxHeight: "80vh",
+              width: "100%",
+              maxWidth: 720,
+              overflowY: "auto",
+              boxShadow: "var(--shadow)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
               <div>
-                <h3 id="excerpt-title" className="text-sm font-semibold">
-                  Fragmento fuente · <code className="font-mono">{excerpt.field_id}</code>
+                <h3 id="excerpt-title" className="h-3" style={{ margin: 0 }}>
+                  Fragmento fuente · <code className="mono">{excerpt.field_id}</code>
                 </h3>
-                <p className="mt-1 text-xs text-gray-500">
-                  Valor extraído: <code className="font-mono">{excerpt.value}</code>
+                <p
+                  className="muted"
+                  style={{ marginTop: 6, marginBottom: 0, fontSize: 12 }}
+                >
+                  Valor extraído: <code className="mono">{excerpt.value}</code>
                   {excerpt.page_number != null && (
-                    <span className="ml-2">· página {excerpt.page_number}</span>
+                    <span style={{ marginLeft: 8 }}>· página {excerpt.page_number}</span>
                   )}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setExcerpt(null)}
-                className="rounded-md px-2 py-1 text-sm text-gray-500 hover:bg-gray-100"
+                className="btn btn-ghost"
                 aria-label="Cerrar"
               >
                 ✕
               </button>
             </div>
             {!excerpt.match_found && (
-              <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
-                El valor no aparece literal en el PDF (posiblemente formateado distinto o inferido).
-                Mostramos un pantallazo del inicio del documento como contexto.
+              <p className="status-panel is-warn" style={{ marginTop: 16, padding: 10, fontSize: 12 }}>
+                El valor no aparece literal en el PDF (posiblemente formateado distinto o
+                inferido). Mostramos un pantallazo del inicio del documento como contexto.
               </p>
             )}
-            <pre className="mt-3 whitespace-pre-wrap break-words rounded-md border border-gray-200 bg-gray-50 p-3 text-xs leading-relaxed text-gray-800">
+            <pre
+              className="mono"
+              style={{
+                marginTop: 16,
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+                background: "var(--panel-2)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius)",
+                padding: 14,
+                fontSize: 12,
+                lineHeight: 1.5,
+              }}
+            >
               {excerpt.excerpt}
             </pre>
           </div>
@@ -324,34 +362,46 @@ export function Step5Extract({
 
       {/* Resumen final */}
       {done && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-          <h3 className="text-sm font-semibold text-green-800">Extracción completada</h3>
-          <div className="mt-2 flex gap-4 text-sm">
-            <span className="text-green-700">✓ {done.fields_verified} verificados</span>
-            <span className="text-orange-600">◐ {done.fields_self_declared} autodeclarados</span>
-            <span className="text-red-600">✗ {done.fields_pending} pendientes</span>
+        <div className="status-panel is-success">
+          <h3 className="h-3" style={{ margin: 0 }}>
+            Extracción completada
+          </h3>
+          <div
+            style={{
+              marginTop: 12,
+              display: "flex",
+              gap: 16,
+              flexWrap: "wrap",
+              fontSize: 13,
+            }}
+          >
+            <span className="provenance-verified">✓ {done.fields_verified} verificados</span>
+            <span className="provenance-self">◐ {done.fields_self_declared} autodeclarados</span>
+            <span className="provenance-pending">✗ {done.fields_pending} pendientes</span>
           </div>
           {done.fields_pending > 0 && (
-            <p className="mt-2 text-xs text-gray-600">
-              Puedes rellenar los campos pendientes a mano, subir otro PDF o consultar al chat
-              lateral.
+            <p className="muted" style={{ marginTop: 8, marginBottom: 0, fontSize: 12 }}>
+              Puedes rellenar los campos pendientes a mano, subir otro PDF o consultar el chat
+              (botón flotante).
             </p>
           )}
         </div>
       )}
 
       {/* Error */}
-      {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {error && (
+        <p className="status-panel is-danger" style={{ margin: 0, padding: 14 }}>
+          {error}
+        </p>
+      )}
 
       {/* Continuar */}
       {done && (
-        <button
-          type="button"
-          onClick={onContinue}
-          className="rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white"
-        >
-          Continuar al paso 6 →
-        </button>
+        <div>
+          <button type="button" onClick={onContinue} className="btn btn-primary btn-lg">
+            Continuar al paso 6 →
+          </button>
+        </div>
       )}
     </div>
   );

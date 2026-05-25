@@ -86,21 +86,21 @@ export function Step4Documents({
   }
 
   if (loadError) {
-    return <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{loadError}</p>;
+    return <p className="status-panel is-danger">{loadError}</p>;
   }
 
   if (!docs) {
-    return <p className="text-sm text-gray-500">Cargando documentos requeridos...</p>;
+    return <p className="muted">Cargando documentos requeridos…</p>;
   }
 
   return (
-    <div className="space-y-6">
-      <p className="text-sm text-gray-600">
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <p className="muted" style={{ margin: 0 }}>
         Sube los documentos requeridos para tu producto. La lista se genera a partir del plugin y
         del BOM que has introducido.
       </p>
 
-      <div className="space-y-3">
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {docs.required.map((req) => (
           <DocumentRow
             key={req.doc_type}
@@ -117,32 +117,56 @@ export function Step4Documents({
 
       {docs.uploaded.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-gray-700">Documentos subidos</h3>
-          <ul className="mt-2 space-y-1">
+          <h3 className="eyebrow" style={{ marginBottom: 8 }}>
+            Documentos subidos
+          </h3>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
             {docs.uploaded.map((u) => (
-              <li key={u.id} className="flex items-center gap-2 text-sm text-gray-600">
-                <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
+              <li
+                key={u.id}
+                style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}
+              >
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: "var(--success)",
+                  }}
+                />
                 {DOC_LABELS[u.doc_type] ?? u.doc_type} —{" "}
-                <code className="text-xs">{u.sha256.slice(0, 12)}...</code>
+                <code className="mono" style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                  {u.sha256.slice(0, 12)}…
+                </code>
               </li>
             ))}
           </ul>
         </div>
       )}
 
-      {uploadMsg && <p className="rounded-md bg-blue-50 p-3 text-sm text-blue-700">{uploadMsg}</p>}
+      {uploadMsg && (
+        <p
+          className="status-panel"
+          style={{ margin: 0, padding: 12, fontSize: 13 }}
+        >
+          {uploadMsg}
+        </p>
+      )}
 
-      <button
-        type="button"
-        onClick={onContinue}
-        disabled={!allMandatoryUploaded || pending}
-        className="rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-gray-300"
-      >
-        {pending ? "Avanzando..." : "Continuar al paso 5 →"}
-      </button>
+      <div>
+        <button
+          type="button"
+          onClick={onContinue}
+          disabled={!allMandatoryUploaded || pending}
+          className="btn btn-primary btn-lg"
+        >
+          {pending ? "Avanzando…" : "Continuar al paso 5 →"}
+        </button>
+      </div>
 
       {!allMandatoryUploaded && (
-        <p className="text-xs text-gray-500">
+        <p className="muted" style={{ fontSize: 12, margin: 0 }}>
           Sube todos los documentos obligatorios para continuar.
         </p>
       )}
@@ -183,16 +207,13 @@ function DocumentRow({
     if (inputRef.current) inputRef.current.value = "";
   }
 
+  const className = `doc-card${uploaded ? " is-uploaded" : ""}${dragOver ? " is-drag" : ""}`;
+
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: drag-and-drop drop zone
     <section
-      className={`flex items-center justify-between rounded-lg border p-4 ${
-        dragOver
-          ? "border-blue-400 bg-blue-50"
-          : uploaded
-            ? "border-green-300 bg-green-50"
-            : "border-gray-200"
-      }`}
+      className={className}
+      style={{ justifyContent: "space-between" }}
       onDragOver={(e) => {
         e.preventDefault();
         setDragOver(true);
@@ -200,22 +221,14 @@ function DocumentRow({
       onDragLeave={() => setDragOver(false)}
       onDrop={handleDrop}
     >
-      <div className="flex-1">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{label}</span>
-          {mandatory && (
-            <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">
-              obligatorio
-            </span>
-          )}
-          {uploaded && (
-            <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">
-              subido
-            </span>
-          )}
+      <div style={{ flex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontWeight: 500 }}>{label}</span>
+          {mandatory && <span className="badge badge-warn">obligatorio</span>}
+          {uploaded && <span className="badge badge-success">subido</span>}
         </div>
         {citation && (
-          <p className="mt-0.5 text-xs text-gray-500">
+          <p className="mono" style={{ margin: "6px 0 0", fontSize: 11, color: "var(--text-muted)" }}>
             {citation.regulation}, {citation.article}
           </p>
         )}
@@ -227,16 +240,17 @@ function DocumentRow({
             ref={inputRef}
             type="file"
             accept=".pdf"
-            className="hidden"
+            style={{ display: "none" }}
             onChange={handleFileChange}
           />
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={uploading}
-            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="btn btn-secondary"
+            style={{ fontSize: 12, padding: "8px 14px" }}
           >
-            {uploading ? "Subiendo..." : "Seleccionar PDF"}
+            {uploading ? "Subiendo…" : "Seleccionar PDF"}
           </button>
         </div>
       )}
