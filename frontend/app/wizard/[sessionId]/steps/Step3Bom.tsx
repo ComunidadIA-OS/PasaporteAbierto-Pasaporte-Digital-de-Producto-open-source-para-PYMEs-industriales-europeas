@@ -12,7 +12,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 
 import {
@@ -42,27 +42,39 @@ export function Step3Bom({
     defaultValues: session.bom as FormValues,
   });
 
+  // Mantener el último BOM visto en una ref evita meter `session.bom` en las
+  // deps del useEffect: cada PATCH cambia la referencia del objeto y haría
+  // `reset(defaults)` cada vez, sobreescribiendo los edits no guardados del
+  // usuario. Sólo re-sembramos al montar o cuando cambia el plugin.
+  const bomRef = useRef(session.bom);
+  bomRef.current = session.bom;
+
   useEffect(() => {
     if (!session.plugin) return;
+    let cancelled = false;
     api
       .getPluginDetail(session.plugin)
       .then((detail) => {
+        if (cancelled) return;
         setPlugin(detail);
-        // Re-sembrar defaults con los nombres de campos del plugin.
         const defaults: FormValues = {};
         for (const f of detail.fields) {
-          defaults[f.id] = (session.bom as FormValues)[f.id] ?? defaultFor(f);
+          defaults[f.id] = (bomRef.current as FormValues)[f.id] ?? defaultFor(f);
         }
         reset(defaults);
       })
-      .catch((err) =>
+      .catch((err) => {
+        if (cancelled) return;
         setLoadError(
           err instanceof ApiError
             ? `Error ${err.status} cargando plugin ${session.plugin}`
             : "No se pudo cargar la definición del plugin",
-        ),
-      );
-  }, [session.plugin, session.bom, reset]);
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session.plugin, reset]);
 
   const errorByField = useMemo(() => {
     const m = new Map<string, string>();
@@ -111,7 +123,8 @@ export function Step3Bom({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <header>
         <h2 className="text-lg font-semibold">
-          BOM · {plugin.name} <span className="font-normal text-gray-500">({plugin.regulation})</span>
+          BOM · {plugin.name}{" "}
+          <span className="font-normal text-gray-500">({plugin.regulation})</span>
         </h2>
         <p className="text-xs text-gray-500">
           {plugin.fields.length} campos · marcados con <span className="text-red-600">*</span> son
@@ -132,8 +145,8 @@ export function Step3Bom({
 
       {serverErrors.length > 0 && (
         <div className="rounded-md bg-amber-50 p-3 text-xs text-amber-900">
-          {serverErrors.length} aviso{serverErrors.length === 1 ? "" : "s"} del backend. Los
-          campos marcados en rojo necesitan revisión.
+          {serverErrors.length} aviso{serverErrors.length === 1 ? "" : "s"} del backend. Los campos
+          marcados en rojo necesitan revisión.
         </div>
       )}
 

@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api, type SessionState } from "@/app/lib/api";
 
@@ -55,6 +55,15 @@ export function Step5Extract({
   const [done, setDone] = useState<DoneSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Aborta el stream SSE al desmontar para no dejar fetch huérfanos ni
+  // disparar setState sobre componente desmontado.
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      abortRef.current = null;
+    };
+  }, []);
 
   const startExtraction = useCallback(async () => {
     setRunning(true);

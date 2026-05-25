@@ -252,31 +252,33 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+// `sessionId` viene de la URL pública; pasamos siempre por encodeURIComponent
+// para evitar que un id raro (caracteres reservados, slashes) salga del path
+// previsto y aterrice en otra ruta del API.
+const sid = (sessionId: string): string => encodeURIComponent(sessionId);
+
 export const api = {
   createSession(body: CreateSessionRequest): Promise<CreateSessionResponse> {
     return request("/sessions", { method: "POST", body: JSON.stringify(body) });
   },
 
   getSession(sessionId: string): Promise<SessionState> {
-    return request(`/sessions/${sessionId}`);
+    return request(`/sessions/${sid(sessionId)}`);
   },
 
   updateProgress(sessionId: string, body: UpdateProgressRequest): Promise<SessionState> {
-    return request(`/sessions/${sessionId}`, {
+    return request(`/sessions/${sid(sessionId)}`, {
       method: "PATCH",
       body: JSON.stringify(body),
     });
   },
 
   classify(sessionId: string): Promise<ClassifyResponse> {
-    return request(`/sessions/${sessionId}/classify`, { method: "POST" });
+    return request(`/sessions/${sid(sessionId)}/classify`, { method: "POST" });
   },
 
-  overrideClassification(
-    sessionId: string,
-    body: ClassifyOverrideRequest,
-  ): Promise<SessionState> {
-    return request(`/sessions/${sessionId}/classify/override`, {
+  overrideClassification(sessionId: string, body: ClassifyOverrideRequest): Promise<SessionState> {
+    return request(`/sessions/${sid(sessionId)}/classify/override`, {
       method: "POST",
       body: JSON.stringify(body),
     });
@@ -291,14 +293,14 @@ export const api = {
   },
 
   putBom(sessionId: string, body: BomRequest): Promise<BomResponse> {
-    return request(`/sessions/${sessionId}/bom`, {
+    return request(`/sessions/${sid(sessionId)}/bom`, {
       method: "PUT",
       body: JSON.stringify(body),
     });
   },
 
   listDocuments(sessionId: string): Promise<DocumentsListResponse> {
-    return request(`/sessions/${sessionId}/documents`);
+    return request(`/sessions/${sid(sessionId)}/documents`);
   },
 
   async uploadDocument(
@@ -309,7 +311,7 @@ export const api = {
     const form = new FormData();
     form.append("file", file);
     const res = await fetch(
-      `${API_V1}/sessions/${sessionId}/documents?doc_type=${encodeURIComponent(docType)}`,
+      `${API_V1}/sessions/${sid(sessionId)}/documents?doc_type=${encodeURIComponent(docType)}`,
       { method: "POST", body: form },
     );
     if (!res.ok) {
@@ -324,11 +326,11 @@ export const api = {
   },
 
   verify(sessionId: string): Promise<VerifyResponse> {
-    return request(`/sessions/${sessionId}/verify`);
+    return request(`/sessions/${sid(sessionId)}/verify`);
   },
 
   generateDpp(sessionId: string): Promise<DppResponse> {
-    return request(`/sessions/${sessionId}/dpp`, { method: "POST" });
+    return request(`/sessions/${sid(sessionId)}/dpp`, { method: "POST" });
   },
 
   chat(body: ChatRequest): Promise<ChatResponse> {
@@ -339,7 +341,7 @@ export const api = {
   // /extract un POST, el caller debe usar fetch streaming con ReadableStream
   // o el endpoint cambiará a GET en F3-02. Esta helper queda como referencia.
   extractStreamUrl(sessionId: string): string {
-    return `${API_V1}/sessions/${sessionId}/extract`;
+    return `${API_V1}/sessions/${sid(sessionId)}/extract`;
   },
 };
 

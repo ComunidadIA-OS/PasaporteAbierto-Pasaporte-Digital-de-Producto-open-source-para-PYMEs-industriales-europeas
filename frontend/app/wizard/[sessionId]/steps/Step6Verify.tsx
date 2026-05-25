@@ -32,17 +32,28 @@ export function Step6Verify({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  // Re-verifica cuando cambia session_id O updated_at: si el usuario vuelve al
+  // paso 3 y modifica el BOM, el wizard actualiza updated_at y al regresar
+  // aquí queremos refrescar el resultado (no mostrar el cacheado). updated_at
+  // funciona como cache-buster intencional aunque no se referencie dentro.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: cache-buster intencional
   useEffect(() => {
+    let cancelled = false;
     setError(null);
+    setVerify(null);
     api
       .verify(session.session_id)
-      .then(setVerify)
-      .catch((err) =>
-        setError(
-          err instanceof ApiError ? `Error ${err.status} verificando` : "Verify falló",
-        ),
-      );
-  }, [session.session_id]);
+      .then((v) => {
+        if (!cancelled) setVerify(v);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof ApiError ? `Error ${err.status} verificando` : "Verify falló");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session.session_id, session.updated_at]);
 
   function continueToPublish() {
     if (!verify?.can_publish) return;
@@ -60,8 +71,7 @@ export function Step6Verify({
   }
 
   const pct = Math.round(verify.completeness * 100);
-  const barTone =
-    pct >= 100 ? "bg-green-500" : pct >= 70 ? "bg-amber-500" : "bg-red-500";
+  const barTone = pct >= 100 ? "bg-green-500" : pct >= 70 ? "bg-amber-500" : "bg-red-500";
 
   return (
     <div className="space-y-6">
@@ -117,8 +127,8 @@ export function Step6Verify({
         </button>
         {!verify.can_publish && (
           <p className="mt-2 text-xs text-red-700">
-            No se puede publicar: rellena los campos faltantes en el paso 3 (o sube
-            documentos en el paso 4 para que el Recolector los verifique).
+            No se puede publicar: rellena los campos faltantes en el paso 3 (o sube documentos en el
+            paso 4 para que el Recolector los verifique).
           </p>
         )}
       </div>
@@ -127,10 +137,7 @@ export function Step6Verify({
 }
 
 function MissingRow({ miss }: { miss: MissingField }) {
-  const tone =
-    miss.reason === "validation_failed"
-      ? "text-amber-700"
-      : "text-red-700";
+  const tone = miss.reason === "validation_failed" ? "text-amber-700" : "text-red-700";
   return (
     <li className="flex items-center justify-between gap-3 p-3 text-sm">
       <span className="font-mono text-xs">{miss.field_id}</span>
