@@ -86,7 +86,7 @@ export function Step4Documents({
   }
 
   if (loadError) {
-    return <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{loadError}</p>;
+    return <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 shadow">{loadError}</p>;
   }
 
   if (!docs) {
@@ -94,7 +94,7 @@ export function Step4Documents({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="animate-fade-in space-y-6">
       <p className="text-sm text-gray-600">
         Sube los documentos requeridos para tu producto. La lista se genera a partir del plugin y
         del BOM que has introducido.
@@ -130,13 +130,15 @@ export function Step4Documents({
         </div>
       )}
 
-      {uploadMsg && <p className="rounded-md bg-blue-50 p-3 text-sm text-blue-700">{uploadMsg}</p>}
+      {uploadMsg && (
+        <p className="rounded-xl bg-teal-50 p-3 text-sm text-teal-700 shadow">{uploadMsg}</p>
+      )}
 
       <button
         type="button"
         onClick={onContinue}
         disabled={!allMandatoryUploaded || pending}
-        className="rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-gray-300"
+        className="rounded-xl bg-gradient-to-r from-teal-600 to-teal-500 px-6 py-2 text-sm font-semibold text-white shadow disabled:cursor-not-allowed disabled:bg-none disabled:bg-gray-300"
       >
         {pending ? "Avanzando..." : "Continuar al paso 5 →"}
       </button>
@@ -186,9 +188,9 @@ function DocumentRow({
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: drag-and-drop drop zone
     <section
-      className={`flex items-center justify-between rounded-lg border p-4 ${
+      className={`flex items-center justify-between rounded-xl border p-4 shadow-sm ${
         dragOver
-          ? "border-blue-400 bg-blue-50"
+          ? "border-teal-400 bg-teal-50"
           : uploaded
             ? "border-green-300 bg-green-50"
             : "border-gray-200"
@@ -204,12 +206,12 @@ function DocumentRow({
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">{label}</span>
           {mandatory && (
-            <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">
+            <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
               obligatorio
             </span>
           )}
           {uploaded && (
-            <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">
+            <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
               subido
             </span>
           )}
@@ -234,7 +236,7 @@ function DocumentRow({
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={uploading}
-            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="rounded-xl border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
           >
             {uploading ? "Subiendo..." : "Seleccionar PDF"}
           </button>

@@ -46,10 +46,10 @@ export function Step1Description({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="animate-fade-in space-y-4">
       <p className="text-sm text-gray-600">
-        Describe tu producto con suficiente detalle para que el Clasificador identifique el
-        sector ESPR aplicable. Cuanto más concreto (materiales, función, capacidad), mejor.
+        Describe tu producto con suficiente detalle para que el Clasificador identifique el sector
+        ESPR aplicable. Cuanto más concreto (materiales, función, capacidad), mejor.
       </p>
 
       <label htmlFor="description" className="block">
@@ -59,18 +59,16 @@ export function Step1Description({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={6}
-          className="mt-2 w-full rounded-md border border-gray-300 p-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-2 w-full rounded-xl border border-gray-300 p-3 text-sm shadow focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
           disabled={pending}
         />
-        <span
-          className={`mt-1 block text-xs ${tooShort ? "text-gray-500" : "text-green-700"}`}
-        >
+        <span className={`mt-1 block text-xs ${tooShort ? "text-gray-500" : "text-green-700"}`}>
           {description.trim().length} / mínimo {MIN_LENGTH} caracteres
         </span>
       </label>
 
       {error && (
-        <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+        <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700 shadow">
           {error}
         </p>
       )}
@@ -79,7 +77,7 @@ export function Step1Description({
         type="button"
         onClick={onContinue}
         disabled={tooShort || pending}
-        className="rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-gray-300"
+        className="rounded-xl bg-gradient-to-r from-teal-600 to-teal-500 px-6 py-2 text-sm font-semibold text-white shadow disabled:cursor-not-allowed disabled:bg-none disabled:bg-gray-300"
       >
         {pending ? "Guardando…" : "Continuar al paso 2 →"}
       </button>

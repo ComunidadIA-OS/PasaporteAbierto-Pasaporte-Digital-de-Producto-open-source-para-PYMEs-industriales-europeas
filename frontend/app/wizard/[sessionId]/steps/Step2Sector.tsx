@@ -84,9 +84,7 @@ export function Step2Sector({
         onSessionChange(updated);
       } catch (err) {
         setError(
-          err instanceof ApiError
-            ? `Error ${err.status} al guardar override.`
-            : "Override falló.",
+          err instanceof ApiError ? `Error ${err.status} al guardar override.` : "Override falló.",
         );
       }
     });
@@ -100,7 +98,7 @@ export function Step2Sector({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="animate-fade-in space-y-6">
       {!hasSector ? (
         <NoClassification onClassify={runClassify} pending={pending} />
       ) : (
@@ -127,7 +125,7 @@ export function Step2Sector({
             type="button"
             onClick={() => setOverrideOpen(true)}
             disabled={pending}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 shadow hover:bg-gray-50"
           >
             Cambiar manualmente
           </button>
@@ -136,7 +134,7 @@ export function Step2Sector({
               type="button"
               onClick={continueToStep3}
               disabled={pending}
-              className="rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white disabled:bg-gray-300"
+              className="rounded-xl bg-gradient-to-r from-teal-600 to-teal-500 px-6 py-2 text-sm font-semibold text-white shadow disabled:bg-none disabled:bg-gray-300"
             >
               Continuar al paso 3 →
             </button>
@@ -145,7 +143,7 @@ export function Step2Sector({
       )}
 
       {error && (
-        <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+        <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700 shadow">
           {error}
         </p>
       )}
@@ -153,25 +151,19 @@ export function Step2Sector({
   );
 }
 
-function NoClassification({
-  onClassify,
-  pending,
-}: {
-  onClassify: () => void;
-  pending: boolean;
-}) {
+function NoClassification({ onClassify, pending }: { onClassify: () => void; pending: boolean }) {
   return (
-    <div className="rounded-lg border border-blue-200 bg-blue-50 p-6">
-      <h2 className="text-lg font-semibold text-blue-900">Clasificar el producto</h2>
-      <p className="mt-1 text-sm text-blue-800">
-        El sistema identificará el sector ESPR aplicable a partir de la descripción
-        del paso 1 y citará el reglamento que lo justifica.
+    <div className="rounded-xl border border-teal-200 bg-teal-50 p-6 shadow">
+      <h2 className="text-lg font-semibold text-teal-900">Clasificar el producto</h2>
+      <p className="mt-1 text-sm text-teal-800">
+        El sistema identificará el sector ESPR aplicable a partir de la descripción del paso 1 y
+        citará el reglamento que lo justifica.
       </p>
       <button
         type="button"
         onClick={onClassify}
         disabled={pending}
-        className="mt-4 rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white disabled:bg-gray-300"
+        className="mt-4 rounded-xl bg-gradient-to-r from-teal-600 to-teal-500 px-5 py-2 text-sm font-semibold text-white shadow disabled:bg-none disabled:bg-gray-300"
       >
         {pending ? "Clasificando…" : "Clasificar ahora"}
       </button>
@@ -197,7 +189,7 @@ function ClassificationBadge({
         : "border-red-300 bg-red-50 text-red-900";
 
   return (
-    <div className={`rounded-lg border p-6 ${tone}`}>
+    <div className={`rounded-xl border p-6 shadow ${tone}`}>
       <p className="text-xs uppercase tracking-wider opacity-70">Sector clasificado</p>
       <h2 className="mt-1 text-2xl font-bold capitalize">{sector}</h2>
       <p className="mt-1 text-sm">Confianza · {pct}%</p>
@@ -229,10 +221,10 @@ function ReviewWarning() {
   return (
     <div
       role="alert"
-      className="rounded-md border-l-4 border-amber-500 bg-amber-50 p-4 text-sm text-amber-900"
+      className="rounded-xl border-l-4 border-amber-500 bg-amber-50 p-4 text-sm text-amber-900 shadow"
     >
-      <strong className="font-semibold">Revisa la clasificación.</strong> La confianza es
-      inferior al 70%. Confirma manualmente que el sector es correcto antes de continuar.
+      <strong className="font-semibold">Revisa la clasificación.</strong> La confianza es inferior
+      al 70%. Confirma manualmente que el sector es correcto antes de continuar.
     </div>
   );
 }
@@ -257,7 +249,7 @@ function OverrideForm({
 
   return (
     <form
-      className="space-y-3 rounded-lg border border-gray-300 bg-white p-5"
+      className="space-y-3 rounded-xl border border-gray-300 bg-white p-5 shadow"
       onSubmit={(e) => {
         e.preventDefault();
         if (!isValid || pending) return;
@@ -272,7 +264,7 @@ function OverrideForm({
           id="override-sector"
           value={sector}
           onChange={(e) => setSector(e.target.value)}
-          className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm"
+          className="mt-1 w-full rounded-xl border border-gray-300 p-2 text-sm shadow-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
           disabled={pending}
         >
           {plugins.length === 0 && <option value="">— sin plugins instalados —</option>}
@@ -296,7 +288,7 @@ function OverrideForm({
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           rows={3}
-          className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm"
+          className="mt-1 w-full rounded-xl border border-gray-300 p-2 text-sm shadow-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
           placeholder="Ej.: el clasificador confundió mi tejido técnico con una batería."
           disabled={pending}
         />
@@ -306,7 +298,7 @@ function OverrideForm({
         <button
           type="submit"
           disabled={!isValid || pending}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:bg-gray-300"
+          className="rounded-xl bg-gradient-to-r from-teal-600 to-teal-500 px-4 py-2 text-sm font-semibold text-white shadow disabled:bg-none disabled:bg-gray-300"
         >
           {pending ? "Guardando…" : "Guardar override"}
         </button>
@@ -314,7 +306,7 @@ function OverrideForm({
           type="button"
           onClick={onCancel}
           disabled={pending}
-          className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          className="rounded-xl border border-gray-300 px-4 py-2 text-sm text-gray-700 shadow hover:bg-gray-50"
         >
           Cancelar
         </button>

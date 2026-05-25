@@ -155,7 +155,7 @@ export function Step5Extract({
     progress && progress.total > 0 ? Math.round((progress.processed / progress.total) * 100) : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="animate-fade-in space-y-6">
       <p className="text-sm text-gray-600">
         Extrae automáticamente los campos del DPP a partir de los documentos subidos. El sistema
         cruza la información de los PDFs con el BOM para determinar la procedencia de cada dato.
@@ -167,7 +167,7 @@ export function Step5Extract({
           type="button"
           onClick={startExtraction}
           disabled={running}
-          className="rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-gray-300"
+          className="rounded-xl bg-gradient-to-r from-teal-600 to-teal-500 px-6 py-2 text-sm font-semibold text-white shadow disabled:cursor-not-allowed disabled:bg-none disabled:bg-gray-300"
         >
           {running ? "Extrayendo..." : done ? "Re-extraer" : "Iniciar extracción"}
         </button>
@@ -182,7 +182,10 @@ export function Step5Extract({
       {running && progress && (
         <div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
-            <div className="h-full bg-blue-600 transition-all" style={{ width: `${pct}%` }} />
+            <div
+              className="h-full bg-gradient-to-r from-teal-600 to-teal-500 transition-all"
+              style={{ width: `${pct}%` }}
+            />
           </div>
           <p className="mt-1 text-xs text-gray-500">
             {progress.processed} / {progress.total} documentos · {pct}%
@@ -192,28 +195,28 @@ export function Step5Extract({
 
       {/* Tabla de campos extraídos */}
       {fields.length > 0 && (
-        <div className="overflow-hidden rounded-lg border border-gray-200">
+        <div className="overflow-hidden rounded-xl border border-gray-200 shadow">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50">
+            <thead className="bg-slate-800 text-white">
               <tr>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">Campo</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">Valor</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">Procedencia</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">Confianza</th>
+                <th className="px-4 py-2 text-left font-medium">Campo</th>
+                <th className="px-4 py-2 text-left font-medium">Valor</th>
+                <th className="px-4 py-2 text-left font-medium">Procedencia</th>
+                <th className="px-4 py-2 text-left font-medium">Confianza</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {fields.map((f) => {
+              {fields.map((f, idx) => {
                 const badge = PROVENANCE_BADGE[f.provenance];
                 return (
-                  <tr key={f.field_id}>
+                  <tr key={f.field_id} className={idx % 2 === 1 ? "bg-gray-50" : ""}>
                     <td className="px-4 py-2 font-mono text-xs">{f.field_id}</td>
                     <td className="px-4 py-2">
                       {f.value != null ? String(f.value) : <span className="text-gray-400">—</span>}
                     </td>
                     <td className="px-4 py-2">
                       <span
-                        className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium ${badge.bg} ${badge.text}`}
+                        className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${badge.bg} ${badge.text}`}
                       >
                         {badge.label}
                       </span>
@@ -231,7 +234,7 @@ export function Step5Extract({
 
       {/* Resumen final */}
       {done && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+        <div className="rounded-xl border border-green-200 bg-green-50 p-4 shadow">
           <h3 className="text-sm font-semibold text-green-800">Extracción completada</h3>
           <div className="mt-2 flex gap-4 text-sm">
             <span className="text-green-700">✓ {done.fields_verified} verificados</span>
@@ -248,14 +251,14 @@ export function Step5Extract({
       )}
 
       {/* Error */}
-      {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700 shadow">{error}</p>}
 
       {/* Continuar */}
       {done && (
         <button
           type="button"
           onClick={onContinue}
-          className="rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white"
+          className="rounded-xl bg-gradient-to-r from-teal-600 to-teal-500 px-6 py-2 text-sm font-semibold text-white shadow"
         >
           Continuar al paso 6 →
         </button>

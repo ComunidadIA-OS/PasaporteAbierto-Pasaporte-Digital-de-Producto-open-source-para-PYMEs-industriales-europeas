@@ -38,9 +38,7 @@ export function Step6Verify({
       .verify(session.session_id)
       .then(setVerify)
       .catch((err) =>
-        setError(
-          err instanceof ApiError ? `Error ${err.status} verificando` : "Verify falló",
-        ),
+        setError(err instanceof ApiError ? `Error ${err.status} verificando` : "Verify falló"),
       );
   }, [session.session_id]);
 
@@ -53,19 +51,18 @@ export function Step6Verify({
   }
 
   if (error) {
-    return <p className="rounded-md bg-red-50 p-4 text-sm text-red-700">{error}</p>;
+    return <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700 shadow">{error}</p>;
   }
   if (!verify) {
     return <p className="text-sm text-gray-500">Verificando contra el plugin…</p>;
   }
 
   const pct = Math.round(verify.completeness * 100);
-  const barTone =
-    pct >= 100 ? "bg-green-500" : pct >= 70 ? "bg-amber-500" : "bg-red-500";
+  const barTone = pct >= 100 ? "bg-green-500" : pct >= 70 ? "bg-amber-500" : "bg-red-500";
 
   return (
-    <div className="space-y-6">
-      <section>
+    <div className="animate-fade-in space-y-6">
+      <section className="rounded-xl border border-gray-200 bg-white p-5 shadow">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500">
           Completitud
         </h2>
@@ -87,7 +84,7 @@ export function Step6Verify({
           <h3 className="text-sm font-semibold">
             Campos faltantes ({verify.missing_fields.length})
           </h3>
-          <ul className="mt-2 divide-y divide-gray-200 rounded-md border border-gray-200">
+          <ul className="mt-2 divide-y divide-gray-200 rounded-xl border border-gray-200 shadow">
             {verify.missing_fields.map((m) => (
               <MissingRow key={m.field_id} miss={m} />
             ))}
@@ -99,8 +96,8 @@ export function Step6Verify({
         <section>
           <h3 className="text-sm font-semibold">Advertencias ({verify.warnings.length})</h3>
           <ul className="mt-2 space-y-1">
-            {verify.warnings.map((w, i) => (
-              <WarningRow key={i} warning={w} />
+            {verify.warnings.map((w) => (
+              <WarningRow key={w.field_id ?? w.message} warning={w} />
             ))}
           </ul>
         </section>
@@ -111,14 +108,14 @@ export function Step6Verify({
           type="button"
           onClick={continueToPublish}
           disabled={!verify.can_publish || pending}
-          className="rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-gray-300"
+          className="rounded-xl bg-gradient-to-r from-teal-600 to-teal-500 px-6 py-2 text-sm font-semibold text-white shadow disabled:cursor-not-allowed disabled:bg-none disabled:bg-gray-300"
         >
           {pending ? "Avanzando…" : "Continuar a publicar →"}
         </button>
         {!verify.can_publish && (
           <p className="mt-2 text-xs text-red-700">
-            No se puede publicar: rellena los campos faltantes en el paso 3 (o sube
-            documentos en el paso 4 para que el Recolector los verifique).
+            No se puede publicar: rellena los campos faltantes en el paso 3 (o sube documentos en el
+            paso 4 para que el Recolector los verifique).
           </p>
         )}
       </div>
@@ -127,10 +124,7 @@ export function Step6Verify({
 }
 
 function MissingRow({ miss }: { miss: MissingField }) {
-  const tone =
-    miss.reason === "validation_failed"
-      ? "text-amber-700"
-      : "text-red-700";
+  const tone = miss.reason === "validation_failed" ? "text-amber-700" : "text-red-700";
   return (
     <li className="flex items-center justify-between gap-3 p-3 text-sm">
       <span className="font-mono text-xs">{miss.field_id}</span>
@@ -150,7 +144,7 @@ function MissingRow({ miss }: { miss: MissingField }) {
 
 function WarningRow({ warning }: { warning: VerifyWarning }) {
   return (
-    <li className="rounded-md border-l-4 border-amber-400 bg-amber-50 p-2 text-xs text-amber-900">
+    <li className="rounded-xl border-l-4 border-amber-400 bg-amber-50 p-2 text-xs text-amber-900 shadow-sm">
       {warning.rule_id && <span className="font-mono">[{warning.rule_id}] </span>}
       {warning.message}
     </li>

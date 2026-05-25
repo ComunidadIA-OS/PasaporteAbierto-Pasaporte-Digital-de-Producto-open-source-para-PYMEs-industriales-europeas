@@ -95,23 +95,24 @@ export function Step3Bom({
 
   if (!session.plugin) {
     return (
-      <p className="rounded-md bg-amber-50 p-4 text-sm text-amber-900">
+      <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900 shadow">
         Necesitas clasificar el sector en el paso 2 antes de rellenar el BOM.
       </p>
     );
   }
   if (loadError) {
-    return <p className="rounded-md bg-red-50 p-4 text-sm text-red-700">{loadError}</p>;
+    return <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700 shadow">{loadError}</p>;
   }
   if (!plugin) {
     return <p className="text-sm text-gray-500">Cargando definición del plugin…</p>;
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="animate-fade-in space-y-6">
       <header>
         <h2 className="text-lg font-semibold">
-          BOM · {plugin.name} <span className="font-normal text-gray-500">({plugin.regulation})</span>
+          BOM · {plugin.name}{" "}
+          <span className="font-normal text-gray-500">({plugin.regulation})</span>
         </h2>
         <p className="text-xs text-gray-500">
           {plugin.fields.length} campos · marcados con <span className="text-red-600">*</span> son
@@ -131,16 +132,16 @@ export function Step3Bom({
       </div>
 
       {serverErrors.length > 0 && (
-        <div className="rounded-md bg-amber-50 p-3 text-xs text-amber-900">
-          {serverErrors.length} aviso{serverErrors.length === 1 ? "" : "s"} del backend. Los
-          campos marcados en rojo necesitan revisión.
+        <div className="rounded-xl bg-amber-50 p-3 text-xs text-amber-900 shadow">
+          {serverErrors.length} aviso{serverErrors.length === 1 ? "" : "s"} del backend. Los campos
+          marcados en rojo necesitan revisión.
         </div>
       )}
 
       <button
         type="submit"
         disabled={pending}
-        className="rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white disabled:bg-gray-300"
+        className="rounded-xl bg-gradient-to-r from-teal-600 to-teal-500 px-6 py-2 text-sm font-semibold text-white shadow disabled:bg-none disabled:bg-gray-300"
       >
         {pending ? "Guardando…" : "Guardar y continuar al paso 4 →"}
       </button>
@@ -161,7 +162,7 @@ function FieldRow({
   const labelClass = `flex items-center gap-1 text-xs font-semibold ${
     error ? "text-red-700" : "text-gray-700"
   }`;
-  const inputClass = `mt-1 w-full rounded-md border p-2 text-sm ${
+  const inputClass = `mt-1 w-full rounded-xl border p-2 text-sm shadow-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 ${
     error ? "border-red-400" : "border-gray-300"
   }`;
 
@@ -172,6 +173,7 @@ function FieldRow({
           {field.id}
           {field.required && <span className="ml-0.5 text-red-600">*</span>}
         </span>
+        {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: decorative tooltip */}
         <span
           title={citation}
           className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-gray-300 text-[10px] text-gray-500"
