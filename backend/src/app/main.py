@@ -1,10 +1,14 @@
 from fastapi import FastAPI
 
+from app.api.public_dpp import router as public_dpp_router
 from app.api.v1.router import api_router
 from app.observability.langfuse_client import init_observability
 
 app = FastAPI(title="PasaporteAbierto", version="0.1.0")
 app.include_router(api_router)
+# Endpoint público del DPP — fuera de /api/v1 a propósito (URL navegable
+# para escaneo del QR, content negotiation JSON-LD/HTML).
+app.include_router(public_dpp_router)
 
 # Inicializa observabilidad explícitamente (no como side effect al import).
 # Si LANGFUSE_PUBLIC_KEY/SECRET_KEY están configurados, habilita el callback

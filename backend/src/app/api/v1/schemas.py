@@ -42,12 +42,46 @@ class Citation(_Base):
 
 
 class CreateSessionRequest(_Base):
-    description: str = Field(min_length=20, description="Paso 1 — texto libre del fabricante")
+    description: str = Field(
+        min_length=20,
+        max_length=2000,
+        description="Paso 1 — texto libre del fabricante",
+    )
 
 
 class CreateSessionResponse(_Base):
     session_id: str
     created_at: datetime
+
+
+# --- GET /plugins -----------------------------------------------------------
+
+
+class PluginSummary(_Base):
+    """Resumen de un plugin sectorial. Usado por F4-02 (override) y F4-03 (BOM)."""
+
+    name: str
+    regulation: str
+    description: str
+
+
+class PluginsListResponse(_Base):
+    plugins: list[PluginSummary]
+
+
+# --- PATCH /sessions/{id} (F4-01 autosave) ----------------------------------
+
+
+class UpdateProgressRequest(_Base):
+    """Mutación parcial del estado de la sesión (autosave del wizard).
+
+    Todos los campos son opcionales; los presentes se mergean con el estado
+    existente. `bom` hace shallow-merge (no reemplaza claves no incluidas).
+    """
+
+    step: int | None = Field(default=None, ge=1, le=7)
+    description: str | None = Field(default=None, min_length=20, max_length=2000)
+    bom: dict[str, Any] | None = None
 
 
 # --- GET /sessions/{id} -----------------------------------------------------
@@ -83,10 +117,13 @@ class SessionState(_Base):
 
 
 class ClassifyResponse(_Base):
-    sector: str
-    plugin: str
+    sector: str  # id del plugin o "unknown"
+    plugin: str  # = sector cuando es conocido, "unknown" si no
     confidence: float = Field(ge=0.0, le=1.0)
-    citation: Citation
+    citation: Citation | None = Field(
+        default=None,
+        description="None solo si sector='unknown' o el RAG no devolvió fragmentos. Cuando la clasificación es exitosa la cita es obligatoria (invariante de F3-01).",
+    )
     requires_review: bool = Field(
         description="True si confidence < 0.7 (umbral fijo del wizard)",
     )
@@ -148,6 +185,23 @@ class UploadDocumentResponse(_Base):
     deduplicated: bool = Field(
         description="True si el sha256 ya existía y se devolvió el documento original",
     )
+
+
+class DocumentExcerptResponse(_Base):
+    """Fragmento del PDF que respalda un campo extraído (F4-05 criterio 2).
+
+    `excerpt` contiene texto crudo con `…` indicando truncación; el frontend
+    lo renderiza como pre-formatted. `match_found=False` cuando el valor no
+    aparece literal en el PDF: se devuelve el inicio del documento como
+    contexto general en vez de un fragmento concreto.
+    """
+
+    document_id: int
+    field_id: str
+    value: str
+    excerpt: str
+    match_found: bool
+    page_number: int | None = None
 
 
 # --- POST /sessions/{id}/extract (F3-02 SSE) --------------------------------
@@ -244,3 +298,18 @@ class ChatResponse(_Base):
     answer: str
     citation: Citation | None = None
     fragments: list[ChatFragment] = Field(default_factory=list)
+
+
+class ChatHistoryMessage(_Base):
+    """Mensaje persistido del histórico del chat (F3-04 criterio 3)."""
+
+    role: Literal["user", "assistant"]
+    content: str
+    citation: Citation | None = None
+    created_at: datetime
+
+
+class ChatHistoryResponse(_Base):
+    """Histórico completo del chat para una sesión, ordenado cronológicamente."""
+
+    messages: list[ChatHistoryMessage] = Field(default_factory=list)
