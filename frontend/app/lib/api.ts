@@ -73,6 +73,18 @@ export interface ClassifyOverrideRequest {
   reason: string;
 }
 
+// --- Plugins ----------------------------------------------------------------
+
+export interface PluginSummary {
+  name: string;
+  regulation: string;
+  description: string;
+}
+
+export interface PluginsListResponse {
+  plugins: PluginSummary[];
+}
+
 // --- BOM (F4-03) ------------------------------------------------------------
 
 export interface BomRequest {
@@ -232,11 +244,18 @@ export const api = {
     return request(`/sessions/${sessionId}/classify`, { method: "POST" });
   },
 
-  overrideClassification(sessionId: string, body: ClassifyOverrideRequest): Promise<void> {
+  overrideClassification(
+    sessionId: string,
+    body: ClassifyOverrideRequest,
+  ): Promise<SessionState> {
     return request(`/sessions/${sessionId}/classify/override`, {
       method: "POST",
       body: JSON.stringify(body),
     });
+  },
+
+  listPlugins(): Promise<PluginsListResponse> {
+    return request("/plugins");
   },
 
   putBom(sessionId: string, body: BomRequest): Promise<BomResponse> {

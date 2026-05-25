@@ -14,6 +14,9 @@ import { useState, useTransition } from "react";
 
 import { api, type SessionState } from "@/app/lib/api";
 
+import { Step1Description } from "./steps/Step1Description";
+import { Step2Sector } from "./steps/Step2Sector";
+
 const STEPS = [
   { n: 1, label: "Descripción" },
   { n: 2, label: "Sector" },
@@ -44,7 +47,7 @@ export function WizardClient({ initialSession }: { initialSession: SessionState 
         onNavigate={navigateTo}
         disabled={pending}
       />
-      <StepSlot session={session} />
+      <StepSlot session={session} onSessionChange={setSession} />
       <ChatPanel />
     </div>
   );
@@ -123,7 +126,13 @@ function SidebarSteps({
   );
 }
 
-function StepSlot({ session }: { session: SessionState }) {
+function StepSlot({
+  session,
+  onSessionChange,
+}: {
+  session: SessionState;
+  onSessionChange: (s: SessionState) => void;
+}) {
   const stepMeta = STEPS.find((s) => s.n === session.current_step);
   return (
     <section className="p-10">
@@ -134,21 +143,26 @@ function StepSlot({ session }: { session: SessionState }) {
         </h1>
       </header>
 
-      <div className="rounded-lg border-2 border-dashed border-gray-300 bg-white p-8">
-        <p className="text-sm text-gray-600">
-          Slot del paso {session.current_step}. Cada paso del wizard se monta aquí.
-        </p>
-        <ul className="mt-4 list-disc pl-6 text-sm text-gray-500">
-          <li>Pasos 1, 2, 3, 6, 7 → Persona A (F4-02, F4-03, F4-06)</li>
-          <li>Pasos 4, 5 → Persona B (F4-04, F4-05)</li>
-        </ul>
-      </div>
+      {session.current_step === 1 && (
+        <Step1Description session={session} onSessionChange={onSessionChange} />
+      )}
 
-      {session.sector && (
-        <p className="mt-6 text-sm text-gray-600">
-          Sector clasificado: <span className="font-mono">{session.sector}</span> · confianza{" "}
-          <span className="font-mono">{session.classification_confidence ?? "—"}</span>
-        </p>
+      {session.current_step === 2 && (
+        <Step2Sector session={session} onSessionChange={onSessionChange} />
+      )}
+
+      {session.current_step >= 3 && (
+        <div className="rounded-lg border-2 border-dashed border-gray-300 bg-white p-8">
+          <p className="text-sm text-gray-600">
+            Paso {session.current_step} pendiente de implementación.
+          </p>
+          <ul className="mt-4 list-disc pl-6 text-sm text-gray-500">
+            <li>Paso 3 BOM → F4-03 (Persona A)</li>
+            <li>Paso 4 documentos → F4-04 (Persona B)</li>
+            <li>Paso 5 SSE extracción → F4-05 (Persona B)</li>
+            <li>Pasos 6-7 verificación + DPP → F4-06 (Persona A)</li>
+          </ul>
+        </div>
       )}
     </section>
   );

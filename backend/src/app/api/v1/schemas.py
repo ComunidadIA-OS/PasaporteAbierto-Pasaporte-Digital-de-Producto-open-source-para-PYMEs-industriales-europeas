@@ -50,6 +50,21 @@ class CreateSessionResponse(_Base):
     created_at: datetime
 
 
+# --- GET /plugins -----------------------------------------------------------
+
+
+class PluginSummary(_Base):
+    """Resumen de un plugin sectorial. Usado por F4-02 (override) y F4-03 (BOM)."""
+
+    name: str
+    regulation: str
+    description: str
+
+
+class PluginsListResponse(_Base):
+    plugins: list[PluginSummary]
+
+
 # --- PATCH /sessions/{id} (F4-01 autosave) ----------------------------------
 
 

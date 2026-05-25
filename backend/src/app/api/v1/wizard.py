@@ -42,6 +42,7 @@ from app.api.v1.schemas import (
     VerifyResponse,
     VerifyWarning,
 )
+from app.audit import append_entry as append_audit
 from app.classifier import classify as run_classifier
 from app.db.session import get_session
 from app.models.sessions import WizardSession
@@ -201,15 +202,41 @@ def classify_session(
     )
 
 
-@router.post("/{session_id}/classify/override", status_code=204)
-def classify_override_stub(
+@router.post("/{session_id}/classify/override", response_model=SessionState)
+def classify_override(
     session_id: str,
     body: ClassifyOverrideRequest,
-    response: Response,
-) -> Response:
-    """STUB de F3-01 (override manual). En real escribirá audit_log."""
-    _stub(response)
-    return Response(status_code=204, headers={"X-Stub": "true"})
+    db: DbSession,
+) -> SessionState:
+    """Override manual del sector clasificado (F4-02).
+
+    Reemplaza `sessions.sector` y `sessions.plugin` con los del body y
+    registra una entrada en `audit_log` con `operation="classify_override"`,
+    el motivo del fabricante y los valores antes/después. La confianza
+    pasa a 1.0 (decisión humana explícita).
+    """
+    row = _get_or_404(db, session_id)
+    previous = {"sector": row.sector, "plugin": row.plugin}
+
+    row.sector = body.sector
+    row.plugin = body.plugin
+    row.classification_confidence = 1.0
+    row.updated_at = utcnow()
+    db.add(row)
+
+    append_audit(
+        db,
+        operation="classify_override",
+        payload={
+            "session_id": session_id,
+            "previous": previous,
+            "new": {"sector": body.sector, "plugin": body.plugin},
+            "reason": body.reason,
+        },
+    )
+    db.commit()
+    db.refresh(row)
+    return _to_session_state(row)
 
 
 @router.put("/{session_id}/bom", response_model=BomResponse)
