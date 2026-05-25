@@ -414,7 +414,7 @@ def test_cache_hits_on_second_call(tmp_path: Path) -> None:
         return httpx.Response(200, text="<html>hola</html>")
 
     transport = httpx.MockTransport(handler)
-    client = CachedHttpClient(cache_dir=tmp_path, transport=transport)
+    client = CachedHttpClient(cache_dir=tmp_path, transport=transport, min_size=10)
 
     body1 = client.get_text("https://example.com/foo.html", cache_key="foo")
     body2 = client.get_text("https://example.com/foo.html", cache_key="foo")
@@ -433,7 +433,7 @@ def test_force_refresh_bypasses_cache(tmp_path: Path) -> None:
         return httpx.Response(200, text=next(bodies))
 
     transport = httpx.MockTransport(handler)
-    client = CachedHttpClient(cache_dir=tmp_path, transport=transport)
+    client = CachedHttpClient(cache_dir=tmp_path, transport=transport, min_size=10)
 
     first = client.get_text("https://example.com/foo.html", cache_key="foo")
     second = client.get_text("https://example.com/foo.html", cache_key="foo", force_refresh=True)
