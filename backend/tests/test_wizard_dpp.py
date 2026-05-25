@@ -218,3 +218,110 @@ def test_public_dpp_returns_html_when_requested(client: TestClient) -> None:
 def test_public_dpp_404_for_unknown_slug(client: TestClient) -> None:
     r = client.get("/dpp/no-existe-este-slug-x")
     assert r.status_code == 404
+
+
+# ─── F5-01 #2 + F5-03 #3 · provenance + badge HTML ───────────────────────────
+
+
+def _mark_one_field_verified(client: TestClient, session_id: str) -> str:
+    """Mutar un campo del BOM a provenance=verified para tener mezcla."""
+    plugin = load_plugin(BATTERIES)
+    public_required = next(
+        f for f in plugin.fields if f.required and f.access_level == "public"
+    )
+    db = next(client.app.dependency_overrides[get_session]())  # type: ignore[arg-type]
+    try:
+        row = db.exec(
+            select(ExtractedField).where(
+                ExtractedField.session_id == session_id,
+                ExtractedField.field_id == public_required.id,
+            )
+        ).one()
+        row.provenance = "verified"
+        db.add(row)
+        db.commit()
+    finally:
+        db.close()
+    return public_required.id
+
+
+def test_public_dpp_jsonld_exposes_provenance_per_field(client: TestClient) -> None:
+    """F5-01 CA #2: cada campo del JSON-LD público expone su provenance."""
+    sid = _classified_session(client)
+    _fill_all_required(client, sid)
+    verified_id = _mark_one_field_verified(client, sid)
+    client.post(f"/api/v1/sessions/{sid}/dpp")
+
+    slug = sid.split("-", 1)[0]
+    r = client.get(f"/dpp/{slug}", headers={"Accept": "application/ld+json"})
+    assert r.status_code == 200
+    fields = r.json()["fields"]
+    assert isinstance(fields, dict) and fields, "JSON-LD debe tener campos públicos"
+    for _fid, payload in fields.items():
+        assert isinstance(payload, dict)
+        assert "value" in payload
+        assert payload["provenance"] in {"verified", "self_declared"}
+    assert fields[verified_id]["provenance"] == "verified"
+
+
+# ─── F5-04 #3 · firma opt-in por sesión ──────────────────────────────────────
+
+
+def test_publish_unsigned_when_sign_false(client: TestClient) -> None:
+    """`sign=False` → JSON-LD persistido sin firma; respuesta `signed=False`."""
+    sid = _classified_session(client)
+    _fill_all_required(client, sid)
+
+    r = client.post(f"/api/v1/sessions/{sid}/dpp", json={"sign": False})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["signed"] is False
+
+    slug = sid.split("-", 1)[0]
+    pub = client.get(f"/dpp/{slug}", headers={"Accept": "application/ld+json"})
+    assert pub.status_code == 200
+    # Sin firma: no se inyectan headers vacíos que confundan al verificador.
+    assert "X-Signature" not in pub.headers
+    assert "X-Public-Key" not in pub.headers
+
+
+def test_publish_signed_by_default(client: TestClient) -> None:
+    """Sin body → firma activa por defecto (compat con clientes anteriores)."""
+    sid = _classified_session(client)
+    _fill_all_required(client, sid)
+
+    r = client.post(f"/api/v1/sessions/{sid}/dpp")
+    assert r.status_code == 200
+    assert r.json()["signed"] is True
+
+
+def test_audit_log_records_signed_flag(client: TestClient) -> None:
+    """El audit log refleja si la publicación se firmó (trazabilidad)."""
+    sid = _classified_session(client)
+    _fill_all_required(client, sid)
+    client.post(f"/api/v1/sessions/{sid}/dpp", json={"sign": False})
+
+    db = next(client.app.dependency_overrides[get_session]())  # type: ignore[arg-type]
+    try:
+        entry = db.exec(
+            select(AuditLogEntry).where(AuditLogEntry.operation == "publish")
+        ).one()
+        assert (entry.payload or {}).get("signed") is False
+    finally:
+        db.close()
+
+
+def test_public_dpp_html_renders_verified_and_self_declared_badges(client: TestClient) -> None:
+    """F5-03 CA #3: la página HTML diferencia visualmente verified vs self_declared."""
+    sid = _classified_session(client)
+    _fill_all_required(client, sid)
+    _mark_one_field_verified(client, sid)
+    client.post(f"/api/v1/sessions/{sid}/dpp")
+
+    slug = sid.split("-", 1)[0]
+    r = client.get(f"/dpp/{slug}", headers={"Accept": "text/html"})
+    assert r.status_code == 200
+    body = r.content.decode()
+    # Ambos badges deben aparecer porque mezclamos provenance.
+    assert 'class="badge verified"' in body
+    assert 'class="badge self_declared"' in body

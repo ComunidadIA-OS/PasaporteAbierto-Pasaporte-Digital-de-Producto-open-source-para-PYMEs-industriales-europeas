@@ -97,14 +97,34 @@ def filter_public_fields(plugin: Plugin, all_fields: dict[str, Any]) -> dict[str
     return {fid: v for fid, v in all_fields.items() if fid in public_ids}
 
 
-def build_jsonld(plugin: Plugin, gs1_uri: str, public_fields: dict[str, Any]) -> dict:
+def build_jsonld(
+    plugin: Plugin,
+    gs1_uri: str,
+    public_fields: dict[str, Any],
+    provenance: dict[str, str] | None = None,
+) -> dict:
     """Construye el documento JSON-LD del DPP con sólo campos públicos.
+
+    Cada campo se emite como un sub-objeto `{value, provenance}` para
+    cumplir F5-01 CA #2 — el consumidor distingue datos verificados contra
+    PDF (`verified`) de los auto-declarados por el fabricante (`self_declared`).
+    Si `provenance` no se proporciona o falta una entrada para un `field_id`,
+    se asume `self_declared` (la opción más conservadora: el fabricante
+    afirma el dato sin respaldo documental).
 
     El `@context` declara un vocabulario propio bajo un namespace URN local. NO
     pretende ser CIRPASS-2 Core hasta que el consorcio publique su context
     oficial — un URN es válido como identificador en JSON-LD sin necesidad de
     resolver por HTTP, y evita prometer una URL externa inexistente.
     """
+    prov_map: dict[str, str] = provenance or {}
+    fields_with_prov: dict[str, dict[str, Any]] = {
+        fid: {
+            "value": v,
+            "provenance": prov_map.get(fid, "self_declared"),
+        }
+        for fid, v in public_fields.items()
+    }
     return {
         "@context": {
             "@version": 1.1,
@@ -114,13 +134,15 @@ def build_jsonld(plugin: Plugin, gs1_uri: str, public_fields: dict[str, Any]) ->
             "regulation": "dpp:regulation",
             "identifier_scheme": "dpp:identifierScheme",
             "fields": "dpp:fields",
+            "value": "dpp:value",
+            "provenance": "dpp:provenance",
         },
         "@type": "DigitalProductPassport",
         "@id": gs1_uri,
         "sector": plugin.name,
         "regulation": plugin.regulation,
         "identifier_scheme": plugin.identifier_scheme,
-        "fields": public_fields,
+        "fields": fields_with_prov,
     }
 
 

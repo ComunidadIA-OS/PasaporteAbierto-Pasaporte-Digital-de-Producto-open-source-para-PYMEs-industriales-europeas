@@ -267,6 +267,18 @@ class VerifyResponse(_Base):
 # --- POST /sessions/{id}/dpp (paso 7) ---------------------------------------
 
 
+class DppPublishRequest(_Base):
+    """Body opcional del POST /sessions/{id}/dpp.
+
+    `sign` es opt-in por sesión (F5-04 CA #3). Default `True` porque el flujo
+    canónico del wizard publica firmado; bajar a `False` se reserva para
+    DPPs de prueba o cuando el fabricante quiere reservar la clave para una
+    publicación final separada.
+    """
+
+    sign: bool = True
+
+
 class DppResponse(_Base):
     gs1_uri: str
     public_url: str
