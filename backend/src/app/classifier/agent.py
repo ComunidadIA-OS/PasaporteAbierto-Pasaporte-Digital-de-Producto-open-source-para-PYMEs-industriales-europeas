@@ -35,8 +35,10 @@ from app.plugins.loader import Plugin, load_all_plugins
 from app.rag import search_corpus
 from app.rag.schema import Result
 
-# `backend/src/app/classifier/agent.py` → parents[4] = repo root
-PLUGINS_DIR: Path = Path(__file__).resolve().parents[4] / "plugins"
+from app.config import settings
+
+# Resuelto en config.py para soportar host (parents=5) y contenedor (/app/plugins).
+PLUGINS_DIR: Path = settings.plugins_dir
 TOP_K: int = 5
 CONFIDENCE_THRESHOLD: float = 0.7
 

@@ -10,10 +10,11 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 
 from app.api.v1.schemas import PluginsListResponse, PluginSummary
+from app.config import settings
 from app.plugins.loader import Plugin, load_all_plugins
 
-# `backend/src/app/api/v1/plugins.py` → parents[5] = repo root
-PLUGINS_DIR: Path = Path(__file__).resolve().parents[5] / "plugins"
+# Resuelto en config.py para soportar host y contenedor (/app/plugins).
+PLUGINS_DIR: Path = settings.plugins_dir
 
 router = APIRouter(prefix="/plugins", tags=["plugins"])
 
