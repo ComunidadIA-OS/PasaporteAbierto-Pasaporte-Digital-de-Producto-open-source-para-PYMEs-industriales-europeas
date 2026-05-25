@@ -80,35 +80,35 @@ body {
 }
 
 /* ---------- Type ---------- */
-.h-display {
+.typ-display {
   font-family: var(--font-head);
   font-weight: 700;
   letter-spacing: -0.045em;
   font-size: clamp(44px, 7.5vw, 92px);
   line-height: 0.95;
 }
-.h-display em,
-.h-1 em,
-.h-2 em {
+.typ-display em,
+.typ-1 em,
+.typ-2 em {
   font-style: normal;
   color: var(--accent);
   font-weight: 700;
 }
-.h-1 {
+.typ-1 {
   font-family: var(--font-head);
   font-weight: 700;
   letter-spacing: -0.03em;
   font-size: clamp(32px, 4.5vw, 52px);
   line-height: 1.0;
 }
-.h-2 {
+.typ-2 {
   font-family: var(--font-head);
   font-weight: 600;
   letter-spacing: -0.02em;
   font-size: 24px;
   line-height: 1.2;
 }
-.h-3 {
+.typ-3 {
   font-family: var(--font-head);
   font-weight: 600;
   letter-spacing: -0.005em;
@@ -1161,8 +1161,8 @@ body {
    RESPONSIVE
    ============================================================ */
 @media (max-width: 1000px) {
-  .h-display { font-size: clamp(34px, 9vw, 64px); line-height: 1.0; }
-  .h-1       { font-size: clamp(26px, 6vw, 40px); }
+  .typ-display { font-size: clamp(34px, 9vw, 64px); line-height: 1.0; }
+  .typ-1     { font-size: clamp(26px, 6vw, 40px); }
 
   .hero { padding: 56px 0 56px; }
   .hero-grid { grid-template-columns: 1fr; gap: 40px; }

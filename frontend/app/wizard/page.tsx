@@ -60,7 +60,7 @@ export default function WizardEntryPage() {
             ← Volver
           </Link>
           <div className="eyebrow">Paso 01 · Descripción</div>
-          <h1 className="h-1" style={{ marginTop: 12 }}>
+          <h1 className="typ-1" style={{ marginTop: 12 }}>
             Cuéntanos qué <em>fabricas</em>.
           </h1>
           <p className="muted" style={{ marginTop: 16, fontSize: 16, maxWidth: 600 }}>

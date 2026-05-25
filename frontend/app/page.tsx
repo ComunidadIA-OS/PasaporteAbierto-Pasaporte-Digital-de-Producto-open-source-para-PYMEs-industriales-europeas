@@ -171,7 +171,7 @@ export default async function Home() {
                 </Reveal>
 
                 <Reveal delay={120}>
-                  <h1 className="h-display">
+                  <h1 className="typ-display">
                     Compliance <em>auditable</em>
                     <br />
                     end-to-end.
@@ -264,7 +264,7 @@ export default async function Home() {
                   <span className="eyebrow">Por qué PasaporteAbierto</span>
                 </Reveal>
                 <Reveal delay={80}>
-                  <h2 className="h-1">Trazabilidad regulatoria, sin atajos.</h2>
+                  <h2 className="typ-1">Trazabilidad regulatoria, sin atajos.</h2>
                 </Reveal>
               </div>
               <Reveal delay={200}>
@@ -298,7 +298,7 @@ export default async function Home() {
                   <span className="eyebrow">El wizard</span>
                 </Reveal>
                 <Reveal delay={80}>
-                  <h2 className="h-1">
+                  <h2 className="typ-1">
                     Siete pasos. Dos son <em>IA</em>.
                     <br />
                     El resto, deterministas.
@@ -340,7 +340,7 @@ export default async function Home() {
                   <span className="eyebrow">Cobertura sectorial</span>
                 </Reveal>
                 <Reveal delay={80}>
-                  <h2 className="h-1">
+                  <h2 className="typ-1">
                     Un <em>YAML</em> por sector.
                     <br />
                     Cero código para extender.
@@ -384,7 +384,7 @@ export default async function Home() {
             <Reveal>
               <div className="cta-card">
                 <span className="eyebrow">Empieza ahora</span>
-                <h2 className="h-1">Tu primer DPP en menos de 15 minutos.</h2>
+                <h2 className="typ-1">Tu primer DPP en menos de 15 minutos.</h2>
                 <p>
                   Sin login. Sin dependencias SaaS. Levanta toda la solución con{" "}
                   <code className="mono" style={{ color: "var(--accent)" }}>

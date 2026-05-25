@@ -34,7 +34,7 @@ export default async function WizardPage({ params }: { params: Promise<{ session
         </header>
         <main className="wizard-entry-main fade-in">
           <div className="eyebrow">404</div>
-          <h1 className="h-1" style={{ marginTop: 12 }}>
+          <h1 className="typ-1" style={{ marginTop: 12 }}>
             Sesión no <em>encontrada</em>.
           </h1>
           <p className="muted" style={{ marginTop: 16, maxWidth: 540 }}>
