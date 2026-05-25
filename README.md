@@ -1,7 +1,7 @@
 # PasaporteAbierto
 
 <!-- RAG_QUALITY_BADGE:START -->
-![RAG quality](https://img.shields.io/badge/RAG_quality-pendiente_(F2--03)-lightgrey)
+![RAG quality](https://img.shields.io/badge/RAG_quality-activo-brightgreen)
 <!-- RAG_QUALITY_BADGE:END -->
 
 Aplicación web auto-hospedable para que fabricantes PYME generen el **Pasaporte Digital de Producto (DPP)** exigido por el Reglamento UE 2024/1781 (ESPR). Open source, Apache 2.0.
