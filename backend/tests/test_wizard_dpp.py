@@ -85,7 +85,12 @@ def test_publish_happy_path_writes_dpp_and_audit(client: TestClient) -> None:
     body = r.json()
     assert body["gs1_uri"].startswith("urn:iso15459:batteries:")
     assert body["signed"] is True
-    assert body["public_url"].startswith("/dpp/")
+    # public_url es absoluta (default DPP_PUBLIC_BASE_URL=http://localhost:8000)
+    # — debe ser navegable, no un URN sin esquema HTTP, porque es lo que
+    # imprimimos en el QR del producto.
+    assert body["public_url"].startswith("http")
+    assert "/dpp/" in body["public_url"]
+    assert body["jsonld_url"] == body["public_url"]
     assert body["qr_png_url"].endswith(".png")
     assert body["qr_svg_url"].endswith(".svg")
 

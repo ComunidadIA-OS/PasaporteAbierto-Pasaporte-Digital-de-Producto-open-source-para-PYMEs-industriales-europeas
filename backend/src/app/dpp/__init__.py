@@ -4,11 +4,12 @@ Pipeline determinista:
   - `build_gs1_uri(plugin, session_id)` → identificador único según
     `plugin.identifier_scheme` (ISO/IEC 15459 obligatorio para baterías
     por Art. 77.3 de Reg. UE 2023/1542; GS1 Digital Link default).
-  - `build_jsonld(plugin, session, fields)` → JSON-LD CIRPASS-2 Core con
-    solo campos `access_level=public` (las otras 3 secciones del Annex
-    XIII tienen access control aparte).
+  - `build_jsonld(plugin, session, fields)` → JSON-LD con vocabulario local
+    (perfil interno hasta que CIRPASS publique su `@context` oficial). Solo
+    campos `access_level=public`; las otras tres secciones del Annex XIII
+    tienen otros canales de acceso.
   - `sign_payload(key, payload)` → firma Ed25519 (PyNaCl) → (sig, pub).
-  - `generate_qr_png/svg(uri)` → QR con `segno`.
+  - `generate_qr_png/svg(url)` → QR que apunta al endpoint público local.
 
 Clave del fabricante: una `SigningKey` Ed25519 persistida en
 `backend/data/keys/manufacturer.ed25519` (generada al primer uso, 0600).
@@ -19,8 +20,10 @@ suficiente para el hackathon y para que la verificación funcione.
 from __future__ import annotations
 
 import base64
+import contextlib
 import io
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -35,6 +38,10 @@ from app.plugins.loader import Plugin
 KEYS_DIR: Path = Path(__file__).resolve().parents[3] / "data" / "keys"
 KEY_FILE: Path = KEYS_DIR / "manufacturer.ed25519"
 
+# Namespace local del vocabulario JSON-LD (URN: no se resuelve por HTTP, así
+# evitamos prometer un context público que no existe — ver decisión del review).
+_DPP_NAMESPACE: str = "urn:pasaporte-abierto:dpp:v1#"
+
 
 # ─── claves ──────────────────────────────────────────────────────────────────
 
@@ -42,15 +49,29 @@ KEY_FILE: Path = KEYS_DIR / "manufacturer.ed25519"
 def get_or_create_keypair() -> SigningKey:
     """Devuelve la clave de firma del fabricante, generándola si no existe.
 
-    La semilla (32 bytes) se persiste con permisos 0600. Eso permite que
-    el endpoint público verifique firmas pasadas tras un restart.
+    Atomicidad: usa `O_CREAT | O_EXCL` para que sólo un proceso/hilo gane la
+    creación inicial; cualquier otro que llegue tras el fallo `FileExistsError`
+    reusa la clave persistida. Esto evita el race anterior donde dos requests
+    concurrentes generaban claves distintas y la última escrita invalidaba
+    firmas previas.
     """
-    KEYS_DIR.mkdir(parents=True, exist_ok=True)
     if KEY_FILE.exists():
         return SigningKey(KEY_FILE.read_bytes())
-    key = SigningKey.generate()
-    KEY_FILE.write_bytes(bytes(key))
-    KEY_FILE.chmod(0o600)
+    KEYS_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        # O_EXCL es atómico a nivel filesystem (POSIX y Windows).
+        fd = os.open(KEY_FILE, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        return SigningKey(KEY_FILE.read_bytes())
+    try:
+        key = SigningKey.generate()
+        os.write(fd, bytes(key))
+    finally:
+        os.close(fd)
+    # chmod tras cerrar el fd: solo aplica en POSIX (Windows lo ignora silenciosamente).
+    if os.name != "nt":
+        with contextlib.suppress(OSError):
+            KEY_FILE.chmod(0o600)
     return key
 
 
@@ -77,13 +98,22 @@ def filter_public_fields(plugin: Plugin, all_fields: dict[str, Any]) -> dict[str
 
 
 def build_jsonld(plugin: Plugin, gs1_uri: str, public_fields: dict[str, Any]) -> dict:
-    """Construye el documento JSON-LD del DPP con sólo campos público."""
+    """Construye el documento JSON-LD del DPP con sólo campos públicos.
+
+    El `@context` declara un vocabulario propio bajo un namespace URN local. NO
+    pretende ser CIRPASS-2 Core hasta que el consorcio publique su context
+    oficial — un URN es válido como identificador en JSON-LD sin necesidad de
+    resolver por HTTP, y evita prometer una URL externa inexistente.
+    """
     return {
         "@context": {
-            "@vocab": "https://cirpass.eu/dpp/v1/",
-            "dpp": "https://cirpass.eu/dpp/v1/",
-            "regulation": "https://cirpass.eu/dpp/v1/regulation",
-            "sector": "https://cirpass.eu/dpp/v1/sector",
+            "@version": 1.1,
+            "dpp": _DPP_NAMESPACE,
+            "DigitalProductPassport": "dpp:DigitalProductPassport",
+            "sector": "dpp:sector",
+            "regulation": "dpp:regulation",
+            "identifier_scheme": "dpp:identifierScheme",
+            "fields": "dpp:fields",
         },
         "@type": "DigitalProductPassport",
         "@id": gs1_uri,
@@ -95,8 +125,13 @@ def build_jsonld(plugin: Plugin, gs1_uri: str, public_fields: dict[str, Any]) ->
 
 
 def canonical_payload(jsonld: dict) -> bytes:
-    """Bytes deterministas del JSON-LD para firmar/verificar."""
-    return json.dumps(jsonld, sort_keys=True, separators=(",", ":"), default=str).encode()
+    """Bytes deterministas del JSON-LD para firmar/verificar.
+
+    Sin `default=str`: cualquier tipo no serializable lanza `TypeError` antes
+    de firmar. Eso impide producir firmas que un verificador externo no pueda
+    reproducir tras deserializar el JSON-LD recibido por HTTP.
+    """
+    return json.dumps(jsonld, sort_keys=True, separators=(",", ":")).encode()
 
 
 # ─── firma Ed25519 ───────────────────────────────────────────────────────────
@@ -126,19 +161,35 @@ def verify_payload(public_key_b64: str, payload: bytes, signature_b64: str) -> b
         return False
 
 
-# ─── QR ──────────────────────────────────────────────────────────────────────
+# ─── QR y URL pública ────────────────────────────────────────────────────────
 
 
-def generate_qr_png(uri: str, scale: int = 5) -> bytes:
-    """QR PNG con corrección H (alta) — apto para impresión sobre producto."""
+def public_dpp_url(slug: str) -> str:
+    """URL pública absoluta del DPP para imprimir en el QR.
+
+    Se construye a partir de `DPP_PUBLIC_BASE_URL` (env). Por defecto apunta al
+    backend local; en producción el operador la configura al dominio expuesto.
+    El QR del producto debe resolver a `GET /dpp/{slug}` del propio backend,
+    no al identificador `gs1_uri` (URN sin resolución HTTP o redirector externo).
+    """
+    base = os.environ.get("DPP_PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
+    return f"{base}/dpp/{slug}"
+
+
+def generate_qr_png(url: str, scale: int = 5) -> bytes:
+    """QR PNG con corrección H (alta) — apto para impresión sobre producto.
+
+    `url` debe ser la URL pública absoluta del DPP (`public_dpp_url(slug)`),
+    no el `gs1_uri` (que sería un URN no navegable o un redirect externo).
+    """
     buf = io.BytesIO()
-    segno.make(uri, error="h").save(buf, kind="png", scale=scale)
+    segno.make(url, error="h").save(buf, kind="png", scale=scale)
     return buf.getvalue()
 
 
-def generate_qr_svg(uri: str, scale: int = 5) -> bytes:
+def generate_qr_svg(url: str, scale: int = 5) -> bytes:
     buf = io.BytesIO()
-    segno.make(uri, error="h").save(buf, kind="svg", scale=scale)
+    segno.make(url, error="h").save(buf, kind="svg", scale=scale)
     return buf.getvalue()
 
 
@@ -151,6 +202,7 @@ __all__ = [
     "generate_qr_png",
     "generate_qr_svg",
     "get_or_create_keypair",
+    "public_dpp_url",
     "sign_payload",
     "verify_payload",
 ]
