@@ -135,6 +135,61 @@ def _h(s: object) -> str:
     )
 
 
+def _parse_accept(accept: str) -> list[tuple[str, float]]:
+    """Parsea el header Accept devolviendo `(media_type, q_value)` por entrada.
+
+    Sigue RFC 7231 §5.3.2: cada media-range se separa por coma; los parámetros
+    se separan por `;`. El parámetro `q` (default 1.0) define la preferencia.
+    Media-ranges malformados o con `q` no parseable se mantienen con q=1.0
+    (interpretación tolerante recomendada por el propio RFC). Entradas con
+    `media_type` vacío se descartan.
+    """
+    parsed: list[tuple[str, float]] = []
+    for raw in accept.split(","):
+        parts = [p.strip() for p in raw.split(";") if p.strip()]
+        if not parts:
+            continue
+        media_type = parts[0].lower()
+        if not media_type:
+            continue
+        q = 1.0
+        for param in parts[1:]:
+            if param.lower().startswith("q="):
+                try:
+                    q = float(param[2:].strip())
+                except ValueError:
+                    q = 1.0
+                break
+        parsed.append((media_type, q))
+    return parsed
+
+
+def _prefers_html(accept: str) -> bool:
+    """Decide si el cliente prefiere text/html sobre application/ld+json.
+
+    Parsea el header Accept respetando q-values (RFC 7231 §5.3.2). Devuelve
+    True solo si text/html tiene q > 0 y su q es ≥ que el de application/ld+json
+    (default 0 si ld+json no aparece). En empate gana JSON-LD por ser el
+    formato canónico para máquinas (FUNCIONAL §5).
+    """
+    html_q = 0.0
+    jsonld_q = 0.0
+    html_seen = False
+    for media_type, q in _parse_accept(accept):
+        if media_type == "text/html":
+            html_seen = True
+            # Si aparece múltiples veces, nos quedamos con la mayor preferencia.
+            if q > html_q:
+                html_q = q
+        elif media_type == "application/ld+json":
+            if q > jsonld_q:
+                jsonld_q = q
+    if not html_seen or html_q <= 0.0:
+        return False
+    # Empate → JSON-LD (default seguro para auditores/agregadores, FUNCIONAL §5).
+    return html_q > jsonld_q
+
+
 @router.get("/{slug}")
 def get_public_dpp(
     slug: str,
@@ -142,9 +197,7 @@ def get_public_dpp(
     accept: str = Header(default="application/ld+json"),
 ):
     pdpp = _resolve_by_slug(db, slug)
-    # Parsear Accept correctamente: split por comas y comparar media types
-    accepted_types = [t.split(";")[0].strip() for t in accept.split(",")]
-    if "text/html" in accepted_types:
+    if _prefers_html(accept):
         return HTMLResponse(_render_html(pdpp))
     # Default: JSON-LD CIRPASS-2 Core. Headers de firma solo si el DPP está
     # firmado — un DPP `sign=false` (F5-04 CA #3) no debe sembrar headers

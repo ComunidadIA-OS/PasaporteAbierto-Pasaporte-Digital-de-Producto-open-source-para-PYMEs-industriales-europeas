@@ -220,6 +220,111 @@ def test_public_dpp_404_for_unknown_slug(client: TestClient) -> None:
     assert r.status_code == 404
 
 
+# ─── F5-03 CA #1/#2 · content negotiation con q-values (RFC 7231 §5.3.2) ─────
+
+
+def test_prefers_html_unit_cases() -> None:
+    """Unit tests del helper `_prefers_html`: cubrimos los edge cases del
+    parseo RFC 7231 sin levantar la app (rápidos y deterministas)."""
+    from app.api.public_dpp import _prefers_html
+
+    # Solo JSON-LD → JSON-LD (False).
+    assert _prefers_html("application/ld+json") is False
+    # Solo HTML → HTML (True).
+    assert _prefers_html("text/html") is True
+    # Wildcard puro → JSON-LD (default seguro, no asumimos preferencia humana).
+    assert _prefers_html("*/*") is False
+    # Header de navegador típico (Firefox/Chrome) → HTML.
+    assert (
+        _prefers_html(
+            "text/html,application/xhtml+xml,application/xml;q=0.9,"
+            "image/webp,*/*;q=0.8"
+        )
+        is True
+    )
+    # Bug fix: HTML degradado a q=0.5 mientras JSON-LD pide q=1.0 → JSON-LD.
+    assert (
+        _prefers_html("text/html;q=0.5, application/ld+json;q=1.0") is False
+    )
+    # Empate explícito q=1.0/q=1.0 → gana JSON-LD (FUNCIONAL §5: canónico
+    # para máquinas; auditores/agregadores son el caso de uso por defecto).
+    assert (
+        _prefers_html("application/ld+json;q=1.0, text/html;q=1.0") is False
+    )
+    # q=0 significa "no acepto este tipo" → JSON-LD aunque text/html aparezca.
+    assert _prefers_html("text/html;q=0") is False
+    # Header vacío → JSON-LD (default seguro para curl/máquinas).
+    assert _prefers_html("") is False
+    # Espacios extras y mayúsculas en `Q=` deben tolerarse.
+    assert _prefers_html("text/html ; Q=0.9 , application/ld+json ; q=0.5") is True
+    # Media-range malformado en q (no parseable) → q=1.0 según RFC 7231.
+    assert _prefers_html("text/html;q=notanumber") is True
+
+
+def test_public_dpp_respects_q_values_prefers_jsonld(client: TestClient) -> None:
+    """F5-03 CA #1: un cliente con `text/html;q=0.5, application/ld+json;q=1.0`
+    debe recibir JSON-LD. Antes del fix, recibía HTML porque el parseo
+    descartaba los q-values."""
+    sid = _classified_session(client)
+    _fill_all_required(client, sid)
+    client.post(f"/api/v1/sessions/{sid}/dpp")
+
+    slug = sid.split("-", 1)[0]
+    r = client.get(
+        f"/dpp/{slug}",
+        headers={"Accept": "text/html;q=0.5, application/ld+json;q=1.0"},
+    )
+    assert r.status_code == 200
+    assert "application/ld+json" in r.headers["content-type"]
+    assert r.json()["@type"] == "DigitalProductPassport"
+
+
+def test_public_dpp_browser_accept_header_returns_html(client: TestClient) -> None:
+    """F5-03 CA #2: el header Accept típico de Firefox/Chrome (text/html con
+    q implícito 1.0) debe recibir la página HTML."""
+    sid = _classified_session(client)
+    _fill_all_required(client, sid)
+    client.post(f"/api/v1/sessions/{sid}/dpp")
+
+    slug = sid.split("-", 1)[0]
+    r = client.get(
+        f"/dpp/{slug}",
+        headers={
+            "Accept": (
+                "text/html,application/xhtml+xml,application/xml;q=0.9,"
+                "image/webp,*/*;q=0.8"
+            )
+        },
+    )
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert b"<!doctype html>" in r.content
+
+
+def test_public_dpp_html_q_zero_falls_back_to_jsonld(client: TestClient) -> None:
+    """`text/html;q=0` significa "no acepto HTML" → JSON-LD."""
+    sid = _classified_session(client)
+    _fill_all_required(client, sid)
+    client.post(f"/api/v1/sessions/{sid}/dpp")
+
+    slug = sid.split("-", 1)[0]
+    r = client.get(f"/dpp/{slug}", headers={"Accept": "text/html;q=0"})
+    assert r.status_code == 200
+    assert "application/ld+json" in r.headers["content-type"]
+
+
+def test_public_dpp_wildcard_accept_returns_jsonld(client: TestClient) -> None:
+    """`Accept: */*` (curl sin -H, agregadores) → JSON-LD canónico."""
+    sid = _classified_session(client)
+    _fill_all_required(client, sid)
+    client.post(f"/api/v1/sessions/{sid}/dpp")
+
+    slug = sid.split("-", 1)[0]
+    r = client.get(f"/dpp/{slug}", headers={"Accept": "*/*"})
+    assert r.status_code == 200
+    assert "application/ld+json" in r.headers["content-type"]
+
+
 # ─── F5-01 #2 + F5-03 #3 · provenance + badge HTML ───────────────────────────
 
 
