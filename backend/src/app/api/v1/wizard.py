@@ -50,6 +50,7 @@ from app.models.extracted_fields import ExtractedField
 from app.models.sessions import WizardSession
 from app.plugins.loader import Plugin, PluginField, load_all_plugins
 from app.time_utils import utcnow
+from app.verifier import verify_session as run_verifier
 
 # Resolver del directorio de plugins. Duplicado con api/v1/plugins.py por
 # simplicidad; si crece se mueve a app/plugins/registry.
@@ -410,31 +411,34 @@ def list_documents_stub(session_id: str, response: Response) -> DocumentsListRes
 
 
 @router.get("/{session_id}/verify", response_model=VerifyResponse)
-def verify_stub(session_id: str, response: Response) -> VerifyResponse:
-    """STUB de F3-03. Devuelve completitud 0.8 con 2 faltantes."""
-    _stub(response)
+def verify(session_id: str, db: DbSession) -> VerifyResponse:
+    """Verificador determinista (F3-03). Valida estado de sesión contra plugin.
+
+    GET porque es idempotente: no escribe BD ni audit_log. El audit log de
+    "verify pasó / falló" se escribe en F4-06 al publicar (allí sí hay
+    decisión, no antes).
+    """
+    row = _get_or_404(db, session_id)
+    plugin = _resolve_plugin(row.plugin)
+    result = run_verifier(db, row, plugin)
     return VerifyResponse(
-        completeness=0.8,
+        completeness=result.completeness,
         missing_fields=[
             MissingField(
-                field_id="state_of_health",
-                citation=Citation(regulation="Reglamento UE 2023/1542", article="Annex XIII §1.k"),
-                reason="required_pending",
-            ),
-            MissingField(
-                field_id="recycled_content",
-                citation=Citation(regulation="Reglamento UE 2023/1542", article="Art. 8"),
-                reason="required_pending",
-            ),
+                field_id=m.field_id,
+                citation=Citation(
+                    regulation=m.citation_regulation,
+                    article=m.citation_article,
+                ),
+                reason=m.reason,
+            )
+            for m in result.missing_fields
         ],
         warnings=[
-            VerifyWarning(
-                field_id=None,
-                message="Faltan 2 campos obligatorios para publicar el DPP.",
-                rule_id=None,
-            ),
+            VerifyWarning(rule_id=w.rule_id, field_id=w.field_id, message=w.message)
+            for w in result.warnings
         ],
-        can_publish=False,
+        can_publish=result.can_publish,
     )
 
 
