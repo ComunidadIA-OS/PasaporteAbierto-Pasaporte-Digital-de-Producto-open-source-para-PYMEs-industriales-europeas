@@ -34,7 +34,6 @@ from app.config import settings
 from app.db.session import get_session
 from app.models.documents import Document
 
-
 router = APIRouter(prefix="/demo", tags=["demo"])
 
 DbSession = Annotated[Session, Depends(get_session)]
