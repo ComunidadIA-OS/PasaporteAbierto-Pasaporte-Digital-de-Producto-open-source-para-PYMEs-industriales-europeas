@@ -18,11 +18,11 @@
   --text:         #0a0a0a;
   --text-muted:   #71717a;
   --text-faint:   #a1a1aa;
-  --accent:       #00b14f;
-  --accent-strong:#008f3a;
+  --accent:       #003399;
+  --accent-strong:#002266;
   --accent-text:  #ffffff;
-  --accent-soft:  rgba(0, 177, 79, 0.10);
-  --accent-glow:  rgba(0, 177, 79, 0.28);
+  --accent-soft:  rgba(0, 51, 153, 0.10);
+  --accent-glow:  rgba(0, 51, 153, 0.28);
   --eu-blue:      #003399;
   --eu-gold:      #ffcc00;
   --success:      #00b14f;
