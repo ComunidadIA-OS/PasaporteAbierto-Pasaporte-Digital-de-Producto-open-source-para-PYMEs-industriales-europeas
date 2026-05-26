@@ -28,9 +28,11 @@ from app.api.v1.schemas import (
     Citation,
 )
 from app.chat import answer as chat_answer
+from app.config import settings
 from app.db.session import get_session
 from app.models.chat_messages import ChatMessage
 from app.models.sessions import WizardSession
+from app.plugins.loader import load_all_plugins
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -75,11 +77,39 @@ def chat(body: ChatRequest, db: DbSession) -> ChatResponse:
         raise HTTPException(status_code=404, detail="session_not_found")
 
     progress = row.progress or {}
-    context = {
+    context: dict[str, Any] = {
         "step": progress.get("step", 1),
         "sector": row.sector,
         "plugin": row.plugin,
     }
+
+    # Si la sesión ya está clasificada, cargamos la definición completa del plugin
+    # para que el chat pueda explicar campos concretos (p. ej. "qué es
+    # battery_passport_unique_id") usando la cita normativa del propio YAML.
+    # Un fallo de carga no bloquea el chat: simplemente no podrá responder
+    # preguntas sobre campos hasta que el plugin vuelva a ser cargable.
+    if row.plugin:
+        try:
+            plugins = load_all_plugins(settings.plugins_dir)
+            plugin_def = plugins.get(row.plugin)
+            if plugin_def is not None:
+                context["plugin_def"] = plugin_def
+        except Exception:
+            pass
+
+    # Cargamos los últimos turnos persistidos para que el LLM pueda resolver
+    # referencias deícticas ("ese valor", "lo anterior"). Limitamos a 10 mensajes
+    # (~5 turnos) para no inflar el prompt. Se leen ANTES de persistir la pregunta
+    # nueva, así no aparece duplicada.
+    recent = db.exec(
+        select(ChatMessage)
+        .where(ChatMessage.session_id == body.session_id)
+        .order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc())
+        .limit(10)
+    ).all()
+    context["history"] = [
+        {"role": m.role, "content": m.content} for m in reversed(recent)
+    ]
 
     # Determinar idioma del contexto
     idioma = "es"  # Default; podría inferirse de la sesión
