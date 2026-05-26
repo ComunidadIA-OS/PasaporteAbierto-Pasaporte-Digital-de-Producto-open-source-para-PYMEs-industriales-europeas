@@ -57,6 +57,34 @@ services:
     volumes:
       - ollama_data:/root/.ollama
 
+  # Init container: espera a que ollama responda y descarga el modelo
+  # declarado en MODEL_BACKEND (.env). Idempotente — `ollama pull` no
+  # re-descarga si ya está. Sale al terminar.
+  ollama-init:
+    image: ollama/ollama:latest
+    profiles: ["ollama"]
+    depends_on:
+      ollama:
+        condition: service_started
+    env_file: .env
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh"]
+    command:
+      - "-c"
+      - |
+        set -e
+        until ollama list >/dev/null 2>&1; do
+          echo "[ollama-init] esperando al servidor ollama..."
+          sleep 2
+        done
+        MODEL="$${MODEL_BACKEND#ollama:}"
+        MODEL="$${MODEL:-qwen2.5:7b}"
+        echo "[ollama-init] asegurando modelo $$MODEL (descarga si no está)..."
+        ollama pull "$$MODEL"
+        echo "[ollama-init] ✓ modelo $$MODEL listo."
+    restart: "no"
+
 volumes:
   backend_data:
   langfuse_db_data:
