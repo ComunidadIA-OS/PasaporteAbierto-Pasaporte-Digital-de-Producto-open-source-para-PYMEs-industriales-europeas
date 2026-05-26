@@ -159,7 +159,14 @@ export function Step3Bom({
       onSubmit={handleSubmit(onSubmit)}
       style={{ display: "flex", flexDirection: "column", gap: 24 }}
     >
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+      <header
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 16,
+        }}
+      >
         <div>
           <h2 className="typ-3" style={{ margin: 0 }}>
             BOM · {plugin.name}{" "}
@@ -173,10 +180,7 @@ export function Step3Bom({
             con <code className="mono">provenance=self_declared</code>.
           </p>
           {demoMsg && (
-            <p
-              className="mono"
-              style={{ margin: "8px 0 0", fontSize: 11, color: "var(--accent)" }}
-            >
+            <p className="mono" style={{ margin: "8px 0 0", fontSize: 11, color: "var(--accent)" }}>
               {demoMsg}
             </p>
           )}

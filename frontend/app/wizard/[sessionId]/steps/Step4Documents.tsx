@@ -119,7 +119,14 @@ export function Step4Documents({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 16,
+        }}
+      >
         <p className="muted" style={{ margin: 0, flex: 1 }}>
           Sube los documentos requeridos para tu producto. La lista se genera a partir del plugin y
           del BOM que has introducido.
