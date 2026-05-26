@@ -182,8 +182,7 @@ def answer(
         raw_history = session_context.get("history")
         if isinstance(raw_history, list):
             history = [
-                m for m in raw_history
-                if isinstance(m, dict) and m.get("role") and m.get("content")
+                m for m in raw_history if isinstance(m, dict) and m.get("role") and m.get("content")
             ]
 
     try:
@@ -349,8 +348,7 @@ def _build_prompt(
         # Truncamos cada mensaje a 300 caracteres para que 5 turnos sigan siendo
         # ~3 KB. El LLM solo necesita la referencia, no el cuerpo completo.
         history_lines = "\n".join(
-            f"{m.get('role', '?')}: {str(m.get('content', ''))[:300]}"
-            for m in history
+            f"{m.get('role', '?')}: {str(m.get('content', ''))[:300]}" for m in history
         )
         sections.append(
             "Histórico reciente de la conversación (más antiguo primero, "
@@ -361,8 +359,7 @@ def _build_prompt(
 
     if fragments:
         fragment_lines = "\n".join(
-            f"[{i}] {frag.cita} — {frag.texto[:400].strip()}"
-            for i, frag in enumerate(fragments)
+            f"[{i}] {frag.cita} — {frag.texto[:400].strip()}" for i, frag in enumerate(fragments)
         )
         sections.append(
             f"Fragmentos del corpus normativo (top-{len(fragments)}):\n{fragment_lines}"
@@ -386,8 +383,7 @@ def _build_prompt(
         )
         xval_lines = (
             "\n".join(
-                f"- {cv.id}: {cv.rule}"
-                + (f"  // {cv.message}" if cv.message else "")
+                f"- {cv.id}: {cv.rule}" + (f"  // {cv.message}" if cv.message else "")
                 for cv in plugin.cross_validations
             )
             if plugin.cross_validations
@@ -430,10 +426,7 @@ def _render_plugin_field(f: PluginField) -> str:
     if f.validation:
         parts.append(f"validation=`{f.validation}`")
     meta = ", ".join(parts)
-    return (
-        f"- {f.id} ({meta}) → "
-        f"[Reglamento {f.citation.regulation}, {f.citation.article}]"
-    )
+    return f"- {f.id} ({meta}) → " f"[Reglamento {f.citation.regulation}, {f.citation.article}]"
 
 
 def _find_plugin_field(plugin: Plugin, field_id: Any) -> PluginField | None:

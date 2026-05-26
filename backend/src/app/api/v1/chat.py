@@ -107,9 +107,7 @@ def chat(body: ChatRequest, db: DbSession) -> ChatResponse:
         .order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc())
         .limit(10)
     ).all()
-    context["history"] = [
-        {"role": m.role, "content": m.content} for m in reversed(recent)
-    ]
+    context["history"] = [{"role": m.role, "content": m.content} for m in reversed(recent)]
 
     # Determinar idioma del contexto
     idioma = "es"  # Default; podría inferirse de la sesión
