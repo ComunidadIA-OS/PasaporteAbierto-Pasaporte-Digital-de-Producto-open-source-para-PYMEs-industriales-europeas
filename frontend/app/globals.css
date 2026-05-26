@@ -190,11 +190,9 @@ body {
   display: grid;
   place-items: center;
   border-radius: 4px;
-  background: var(--text);
+  background: #fff;
+  border: 1.5px solid var(--text);
   color: var(--accent);
-  font-family: var(--font-head);
-  font-weight: 700;
-  font-size: 14px;
 }
 .appbar-nav {
   display: flex;
