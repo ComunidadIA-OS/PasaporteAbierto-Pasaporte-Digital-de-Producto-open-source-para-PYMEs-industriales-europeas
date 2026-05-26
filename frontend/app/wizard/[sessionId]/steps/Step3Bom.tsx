@@ -23,6 +23,7 @@ import {
   type PluginFieldDefinition,
   type SessionState,
 } from "@/app/lib/api";
+import { humanizeId } from "@/app/lib/field-labels";
 
 type FormValues = Record<string, unknown>;
 
@@ -38,7 +39,7 @@ export function Step3Bom({
   const [serverErrors, setServerErrors] = useState<BomValidationError[]>([]);
   const [pending, startTransition] = useTransition();
 
-  const { register, handleSubmit, reset } = useForm<FormValues>({
+  const { register, handleSubmit, reset, watch } = useForm<FormValues>({
     defaultValues: session.bom as FormValues,
   });
 
@@ -119,6 +120,26 @@ export function Step3Bom({
     return <p className="muted">Cargando definición del plugin…</p>;
   }
 
+  const watchedValues = watch();
+  const filledCount = plugin
+    ? plugin.fields.filter((f) => {
+        const v = watchedValues[f.id];
+        if (v === undefined || v === null || v === "") return false;
+        if (f.type === "boolean") return true; // checkboxes always count
+        return true;
+      }).length
+    : 0;
+  const totalFields = plugin?.fields.length ?? 0;
+  const requiredFields = plugin?.fields.filter((f) => f.required).length ?? 0;
+  const filledRequired = plugin
+    ? plugin.fields.filter((f) => {
+        if (!f.required) return false;
+        const v = watchedValues[f.id];
+        return v !== undefined && v !== null && v !== "";
+      }).length
+    : 0;
+  const progressPct = totalFields > 0 ? Math.round((filledCount / totalFields) * 100) : 0;
+
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
@@ -136,6 +157,32 @@ export function Step3Bom({
           <span style={{ color: "var(--danger)" }}>*</span> son obligatorios. Los datos se guardan
           con <code className="mono">provenance=self_declared</code>.
         </p>
+        <div style={{ marginTop: 12 }}>
+          <div className="bar" style={{ height: 4 }}>
+            <span style={{ width: `${progressPct}%` }} />
+          </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              marginTop: 6,
+              fontSize: 11,
+              color: "var(--text-muted)",
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            <span>
+              {filledCount}/{totalFields} completados · {progressPct}%
+            </span>
+            <span
+              style={{
+                color: filledRequired === requiredFields ? "var(--success)" : "var(--warn)",
+              }}
+            >
+              {filledRequired}/{requiredFields} obligatorios
+            </span>
+          </div>
+        </div>
       </header>
 
       <div
@@ -169,12 +216,6 @@ export function Step3Bom({
       </div>
     </form>
   );
-}
-
-/** Convierte un id snake_case en texto legible: battery_mass_kg → Battery mass kg */
-function humanizeId(id: string): string {
-  const words = id.replace(/_/g, " ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 function FieldRow({

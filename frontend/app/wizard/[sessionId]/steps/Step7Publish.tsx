@@ -19,8 +19,10 @@ export function Step7Publish({ session }: { session: SessionState }) {
   const [dpp, setDpp] = useState<DppResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   function publish() {
+    setConfirmOpen(false);
     setError(null);
     startTransition(async () => {
       try {
@@ -57,16 +59,54 @@ export function Step7Publish({ session }: { session: SessionState }) {
           </p>
         )}
 
-        <div>
-          <button
-            type="button"
-            onClick={publish}
-            disabled={pending}
-            className="btn btn-primary btn-lg"
+        {!confirmOpen ? (
+          <div>
+            <button
+              type="button"
+              onClick={() => setConfirmOpen(true)}
+              disabled={pending}
+              className="btn btn-primary btn-lg"
+            >
+              {pending ? "Publicando…" : "Publicar DPP"}
+            </button>
+          </div>
+        ) : (
+          <div
+            className="card"
+            style={{
+              border: "2px solid var(--accent)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+            }}
           >
-            {pending ? "Publicando…" : "Publicar DPP"}
-          </button>
-        </div>
+            <h3 className="typ-3" style={{ margin: 0 }}>
+              ¿Confirmar publicación?
+            </h3>
+            <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+              Se firmará el DPP con Ed25519, se persistirá en la BD y se generará el QR + URL
+              pública. Esta acción no se puede deshacer.
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                type="button"
+                onClick={publish}
+                disabled={pending}
+                className="btn btn-primary"
+              >
+                {pending ? "Publicando…" : "Sí, publicar"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmOpen(false)}
+                disabled={pending}
+                className="btn btn-secondary"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

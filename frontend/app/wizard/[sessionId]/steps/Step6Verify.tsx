@@ -16,10 +16,12 @@ import {
   ApiError,
   api,
   type MissingField,
+  type PluginFieldDefinition,
   type SessionState,
   type VerifyResponse,
   type VerifyWarning,
 } from "@/app/lib/api";
+import { resolveLabel, usePluginFields } from "@/app/lib/field-labels";
 
 export function Step6Verify({
   session,
@@ -31,6 +33,7 @@ export function Step6Verify({
   const [verify, setVerify] = useState<VerifyResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const fieldsMap = usePluginFields(session.plugin);
 
   // Re-verifica cuando cambia session_id O updated_at: si el usuario vuelve al
   // paso 3 y modifica el BOM, el wizard actualiza updated_at y al regresar
@@ -107,7 +110,7 @@ export function Step6Verify({
             }}
           >
             {verify.missing_fields.map((m) => (
-              <MissingRow key={m.field_id} miss={m} />
+              <MissingRow key={m.field_id} miss={m} fieldsMap={fieldsMap} />
             ))}
           </ul>
         </section>
@@ -158,8 +161,15 @@ export function Step6Verify({
   );
 }
 
-function MissingRow({ miss }: { miss: MissingField }) {
+function MissingRow({
+  miss,
+  fieldsMap,
+}: {
+  miss: MissingField;
+  fieldsMap: Map<string, PluginFieldDefinition> | null;
+}) {
   const toneColor = miss.reason === "validation_failed" ? "var(--warn)" : "var(--danger)";
+  const label = fieldsMap ? resolveLabel(miss.field_id, fieldsMap) : miss.field_id;
   return (
     <li
       style={{
@@ -171,9 +181,7 @@ function MissingRow({ miss }: { miss: MissingField }) {
         fontSize: 13,
       }}
     >
-      <span className="mono" style={{ fontSize: 12 }}>
-        {miss.field_id}
-      </span>
+      <span style={{ fontSize: 13 }}>{label}</span>
       <span className="mono" style={{ fontSize: 11, color: toneColor }}>
         {miss.reason === "validation_failed" ? "Tipo inválido" : "Pendiente"}
       </span>
