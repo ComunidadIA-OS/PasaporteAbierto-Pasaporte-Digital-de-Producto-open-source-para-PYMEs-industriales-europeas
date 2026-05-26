@@ -25,6 +25,7 @@ class PluginField(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str
+    label: str | None = None
     type: FieldType
     required: bool
     citation: Citation

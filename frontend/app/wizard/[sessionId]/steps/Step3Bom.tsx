@@ -171,6 +171,12 @@ export function Step3Bom({
   );
 }
 
+/** Convierte un id snake_case en texto legible: battery_mass_kg → Battery mass kg */
+function humanizeId(id: string): string {
+  const words = id.replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 function FieldRow({
   field,
   register,
@@ -180,6 +186,7 @@ function FieldRow({
   register: ReturnType<typeof useForm<FormValues>>["register"];
   error: string | undefined;
 }) {
+  const displayLabel = field.label ?? humanizeId(field.id);
   const citation = `${field.citation.regulation}, ${field.citation.article}`;
   const labelStyle: React.CSSProperties = {
     display: "flex",
@@ -197,7 +204,7 @@ function FieldRow({
     <label htmlFor={field.id} style={{ display: "block" }}>
       <span style={labelStyle}>
         <span>
-          {field.id}
+          {displayLabel}
           {field.required && <span style={{ marginLeft: 2, color: "var(--danger)" }}>*</span>}
         </span>
         <span

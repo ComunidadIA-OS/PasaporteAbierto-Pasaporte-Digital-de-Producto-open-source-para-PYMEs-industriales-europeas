@@ -20,6 +20,7 @@ fields:
   item_required: [id, type, required, citation]
   item_properties:
     id: { type: string }
+    label: { type: string, optional: true }  # nombre legible para la UI (ej: "Peso de la batería (kg)")
     type: { type: string, enum: [string, number, integer, boolean, enum, repeater] }
     required: { type: boolean }
     citation:
