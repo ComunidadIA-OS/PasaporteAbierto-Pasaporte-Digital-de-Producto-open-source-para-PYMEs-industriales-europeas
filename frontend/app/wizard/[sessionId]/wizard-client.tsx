@@ -96,7 +96,12 @@ export function WizardClient({ initialSession }: { initialSession: SessionState 
             onNavigate={navigateTo}
             disabled={pending}
           />
-          <StepSlot session={session} onSessionChange={setSession} />
+          <StepSlot
+            session={session}
+            onSessionChange={setSession}
+            onBack={() => navigateTo(session.current_step - 1)}
+            backPending={pending}
+          />
         </main>
       </div>
 
@@ -169,14 +174,29 @@ function HorizontalStepper({
 function StepSlot({
   session,
   onSessionChange,
+  onBack,
+  backPending,
 }: {
   session: SessionState;
   onSessionChange: (s: SessionState) => void;
+  onBack: () => void;
+  backPending: boolean;
 }) {
   const meta = STEPS.find((s) => s.n === session.current_step);
   return (
     <section className="fade-up" key={session.current_step}>
       <header className="wm-head">
+        {session.current_step > 1 && (
+          <button
+            type="button"
+            onClick={onBack}
+            disabled={backPending}
+            className="btn btn-ghost"
+            style={{ marginBottom: 8, fontSize: 13, padding: "6px 0", color: "var(--text-muted)" }}
+          >
+            ← Volver al paso {session.current_step - 1}
+          </button>
+        )}
         <div className="label">
           PASO {String(session.current_step).padStart(2, "0")} ·{" "}
           {meta?.kind === "ai" ? "Componente IA" : "Determinista"}

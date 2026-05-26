@@ -24,6 +24,7 @@ import {
   type SessionState,
 } from "@/app/lib/api";
 import { isDemoMode } from "@/app/lib/demo-mode";
+import { humanizeId } from "@/app/lib/field-labels";
 
 type FormValues = Record<string, unknown>;
 
@@ -41,7 +42,7 @@ export function Step3Bom({
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [demoMsg, setDemoMsg] = useState<string | null>(null);
 
-  const { register, handleSubmit, reset } = useForm<FormValues>({
+  const { register, handleSubmit, reset, watch } = useForm<FormValues>({
     defaultValues: session.bom as FormValues,
   });
 
@@ -154,6 +155,26 @@ export function Step3Bom({
     return <p className="muted">Cargando definición del plugin…</p>;
   }
 
+  const watchedValues = watch();
+  const filledCount = plugin
+    ? plugin.fields.filter((f) => {
+        const v = watchedValues[f.id];
+        if (v === undefined || v === null || v === "") return false;
+        if (f.type === "boolean") return true; // checkboxes always count
+        return true;
+      }).length
+    : 0;
+  const totalFields = plugin?.fields.length ?? 0;
+  const requiredFields = plugin?.fields.filter((f) => f.required).length ?? 0;
+  const filledRequired = plugin
+    ? plugin.fields.filter((f) => {
+        if (!f.required) return false;
+        const v = watchedValues[f.id];
+        return v !== undefined && v !== null && v !== "";
+      }).length
+    : 0;
+  const progressPct = totalFields > 0 ? Math.round((filledCount / totalFields) * 100) : 0;
+
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
@@ -197,6 +218,32 @@ export function Step3Bom({
             {loadingDemo ? "Cargando…" : "✨ Cargar ejemplo"}
           </button>
         )}
+        <div style={{ marginTop: 12 }}>
+          <div className="bar" style={{ height: 4 }}>
+            <span style={{ width: `${progressPct}%` }} />
+          </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              marginTop: 6,
+              fontSize: 11,
+              color: "var(--text-muted)",
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            <span>
+              {filledCount}/{totalFields} completados · {progressPct}%
+            </span>
+            <span
+              style={{
+                color: filledRequired === requiredFields ? "var(--success)" : "var(--warn)",
+              }}
+            >
+              {filledRequired}/{requiredFields} obligatorios
+            </span>
+          </div>
+        </div>
       </header>
 
       <div
@@ -241,6 +288,7 @@ function FieldRow({
   register: ReturnType<typeof useForm<FormValues>>["register"];
   error: string | undefined;
 }) {
+  const displayLabel = field.label ?? humanizeId(field.id);
   const citation = `${field.citation.regulation}, ${field.citation.article}`;
   const labelStyle: React.CSSProperties = {
     display: "flex",
@@ -258,7 +306,7 @@ function FieldRow({
     <label htmlFor={field.id} style={{ display: "block" }}>
       <span style={labelStyle}>
         <span>
-          {field.id}
+          {displayLabel}
           {field.required && <span style={{ marginLeft: 2, color: "var(--danger)" }}>*</span>}
         </span>
         <span

@@ -9,6 +9,7 @@ fields:
 
   # (1a) → Anexo VI Parte A, expandido a sub-campos
   - id: battery_passport_unique_id
+    label: "Identificador unico del pasaporte"
     type: string
     required: true
     access_level: public
@@ -16,6 +17,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Art. 77.3 (identificador único conforme ISO/IEC 15459)"
   - id: battery_serial_number
+    label: "Numero de serie"
     type: string
     required: true
     access_level: public
@@ -23,6 +25,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Art. 38.6; Anexo IX"
   - id: manufacturer_identifier
+    label: "Identificador del fabricante"
     type: string
     required: true
     access_level: public
@@ -30,6 +33,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo VI Parte A(1); Art. 38.7"
   - id: battery_category
+    label: "Categoria de bateria"
     type: enum
     required: true
     access_level: public
@@ -38,6 +42,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (1a); Anexo VI Parte A(2); Art. 38.6"
   - id: manufacturing_place
+    label: "Lugar de fabricacion"
     type: string
     required: true
     access_level: public
@@ -45,6 +50,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (1a); Anexo VI Parte A(3)"
   - id: manufacturing_date
+    label: "Fecha de fabricacion"
     type: string
     required: true
     access_level: public
@@ -52,6 +58,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (1a); Anexo VI Parte A(4)"
   - id: battery_mass_kg
+    label: "Peso de la bateria (kg)"
     type: number
     required: true
     access_level: public
@@ -59,6 +66,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (1a); Anexo VI Parte A(5)"
   - id: extinguishing_agent
+    label: "Agente extintor"
     type: string
     required: true
     access_level: public
@@ -68,6 +76,7 @@ fields:
 
   # (1b) composición material
   - id: battery_chemistry
+    label: "Quimica de la bateria"
     type: enum
     required: true
     access_level: public
@@ -76,6 +85,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (1b); Anexo VI Parte A(7)"
   - id: hazardous_substances
+    label: "Sustancias peligrosas"
     type: repeater
     required: true
     access_level: public
@@ -83,6 +93,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (1b); Anexo VI Parte A(8)"
   - id: critical_raw_materials
+    label: "Materias primas criticas"
     type: repeater
     required: true
     access_level: public
@@ -92,6 +103,7 @@ fields:
 
   # (1c) huella de carbono
   - id: carbon_footprint_kgco2e_per_kwh
+    label: "Huella de carbono (kgCO2e/kWh)"
     type: number
     required: true
     access_level: public
@@ -99,6 +111,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (1c); Art. 7.1"
   - id: carbon_footprint_study_url
+    label: "URL del estudio de huella de carbono"
     type: string
     required: true
     access_level: public
@@ -108,6 +121,7 @@ fields:
 
   # (1d) diligencia debida
   - id: due_diligence_report_url
+    label: "URL del informe de diligencia debida"
     type: string
     required: true
     access_level: public
@@ -117,6 +131,7 @@ fields:
 
   # (1e) contenido reciclado
   - id: recycled_content_cobalt_pct
+    label: "Contenido reciclado de cobalto (%)"
     type: number
     required: true
     access_level: public
@@ -125,6 +140,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (1e); Art. 8.1"
   - id: recycled_content_lithium_pct
+    label: "Contenido reciclado de litio (%)"
     type: number
     required: true
     access_level: public
@@ -133,6 +149,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (1e); Art. 8.1"
   - id: recycled_content_nickel_pct
+    label: "Contenido reciclado de niquel (%)"
     type: number
     required: true
     access_level: public
@@ -141,6 +158,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (1e); Art. 8.1"
   - id: recycled_content_lead_pct
+    label: "Contenido reciclado de plomo (%)"
     type: number
     required: true
     access_level: public
@@ -151,6 +169,7 @@ fields:
 
   # (1f) contenido renovable
   - id: renewable_content_pct
+    label: "Contenido renovable (%)"
     type: number
     required: true
     access_level: public
@@ -161,6 +180,7 @@ fields:
 
   # (1g) capacidad asignada (Ah) — Anexo XIII literal: "amperios-hora"
   - id: rated_capacity_ah
+    label: "Capacidad nominal (Ah)"
     type: number
     required: true
     access_level: public
@@ -170,6 +190,7 @@ fields:
 
   # (1h) tensiones mín/nominal/máx
   - id: voltage_min_v
+    label: "Tension minima (V)"
     type: number
     required: true
     access_level: public
@@ -177,6 +198,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (1h)"
   - id: voltage_nominal_v
+    label: "Tension nominal (V)"
     type: number
     required: true
     access_level: public
@@ -184,6 +206,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (1h)"
   - id: voltage_max_v
+    label: "Tension maxima (V)"
     type: number
     required: true
     access_level: public
@@ -193,6 +216,7 @@ fields:
 
   # (1i) capacidad de potencia original + límites
   - id: original_power_capability_w
+    label: "Potencia original (W)"
     type: number
     required: true
     access_level: public
@@ -200,6 +224,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (1i); Art. 10; Anexo IV Parte B(4)"
   - id: max_permitted_power_w
+    label: "Potencia maxima permitida (W)"
     type: number
     required: true
     access_level: public
@@ -209,6 +234,7 @@ fields:
 
   # (1j) vida útil prevista + prueba de referencia
   - id: expected_lifetime_cycles
+    label: "Ciclos de vida esperados"
     type: integer
     required: true
     access_level: public
@@ -216,6 +242,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (1j); Anexo IV Parte A(5)"
   - id: cycle_life_reference_test
+    label: "Ensayo de referencia del ciclo de vida"
     type: string
     required: true
     access_level: public
@@ -225,6 +252,7 @@ fields:
 
   # (1k) límite de capacidad para agotamiento — solo EV
   - id: capacity_exhaustion_threshold_pct
+    label: "Umbral de agotamiento de capacidad (%)"
     type: number
     required: false   # condicional: solo aplicable a EV (validar en cross_validation)
     access_level: public
@@ -235,6 +263,7 @@ fields:
 
   # (1l) rango temperatura en reposo
   - id: idle_temperature_min_c
+    label: "Temperatura minima en reposo (C)"
     type: number
     required: true
     access_level: public
@@ -242,6 +271,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (1l)"
   - id: idle_temperature_max_c
+    label: "Temperatura maxima en reposo (C)"
     type: number
     required: true
     access_level: public
@@ -251,6 +281,7 @@ fields:
 
   # (1m) garantía
   - id: warranty_period_months
+    label: "Periodo de garantia (meses)"
     type: integer
     required: true
     access_level: public
@@ -260,6 +291,7 @@ fields:
 
   # (1n) eficiencia round-trip inicial + al 50% del ciclo
   - id: roundtrip_efficiency_initial_pct
+    label: "Eficiencia ida y vuelta inicial (%)"
     type: number
     required: true
     access_level: public
@@ -268,6 +300,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (1n); Art. 10; Anexo IV(6)"
   - id: roundtrip_efficiency_mid_lifecycle_pct
+    label: "Eficiencia ida y vuelta a mitad de vida (%)"
     type: number
     required: true
     access_level: public
@@ -278,6 +311,7 @@ fields:
 
   # (1o) resistencia interna celda + pack
   - id: internal_resistance_cell_ohm
+    label: "Resistencia interna de celda (ohm)"
     type: number
     required: true
     access_level: public
@@ -285,6 +319,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (1o); Art. 10; Anexo IV Parte A(3)"
   - id: internal_resistance_pack_ohm
+    label: "Resistencia interna del pack (ohm)"
     type: number
     required: true
     access_level: public
@@ -294,6 +329,7 @@ fields:
 
   # (1p) C-rate de la prueba ciclo de vida
   - id: cycle_life_test_c_rate
+    label: "C-rate del ensayo de ciclo de vida"
     type: number
     required: true
     access_level: public
@@ -303,6 +339,7 @@ fields:
 
   # (1q) marcado del Art. 13.3 y .4
   - id: marking_requirements_url
+    label: "URL de requisitos de marcado"
     type: string
     required: true
     access_level: public
@@ -312,6 +349,7 @@ fields:
 
   # (1r) Declaración UE de conformidad — NO es Art. 19 (CE marking), es Art. 18
   - id: eu_declaration_of_conformity_url
+    label: "URL de la declaracion UE de conformidad"
     type: string
     required: true
     access_level: public
@@ -321,6 +359,7 @@ fields:
 
   # (1s) info gestión de residuos (Art. 74.1.a-f consolidado en 2 URLs)
   - id: waste_management_info_url
+    label: "URL de informacion de gestion de residuos"
     type: string
     required: true
     access_level: public
@@ -328,6 +367,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (1s); Art. 74.1.a-e"
   - id: environmental_health_impact_info_url
+    label: "URL de impacto ambiental y sanitario"
     type: string
     required: true
     access_level: public
@@ -338,6 +378,7 @@ fields:
   # ═══ Anexo XIII Sección 2 — INTERÉS LEGÍTIMO + COMISIÓN ═══
 
   - id: composition_cathode
+    label: "Composicion del catodo"
     type: string
     required: true
     access_level: legitimate_interest
@@ -345,6 +386,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (2a)"
   - id: composition_anode
+    label: "Composicion del anodo"
     type: string
     required: true
     access_level: legitimate_interest
@@ -352,6 +394,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (2a)"
   - id: composition_electrolyte
+    label: "Composicion del electrolito"
     type: string
     required: true
     access_level: legitimate_interest
@@ -359,6 +402,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (2a)"
   - id: component_part_numbers
+    label: "Numeros de pieza de componentes"
     type: repeater
     required: true
     access_level: legitimate_interest
@@ -366,6 +410,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (2b)"
   - id: spare_parts_sources_url
+    label: "URL de fuentes de repuestos"
     type: string
     required: true
     access_level: legitimate_interest
@@ -373,6 +418,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (2b)"
   - id: dismantling_info_url
+    label: "URL de informacion de desmontaje"
     type: string
     required: true
     access_level: legitimate_interest
@@ -380,6 +426,7 @@ fields:
       regulation: "EU 2023/1542"
       article: "Anexo XIII (2c)"
   - id: safety_measures_url
+    label: "URL de medidas de seguridad"
     type: string
     required: true
     access_level: legitimate_interest
@@ -390,6 +437,7 @@ fields:
   # ═══ Anexo XIII Sección 3 — SOLO AUTORIDADES Y COMISIÓN ═══
 
   - id: conformity_test_reports_url
+    label: "URL de informes de ensayo de conformidad"
     type: string
     required: true
     access_level: authorities_only

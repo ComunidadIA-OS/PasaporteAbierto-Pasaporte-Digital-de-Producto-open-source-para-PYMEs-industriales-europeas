@@ -89,6 +89,7 @@ export type FieldType = "string" | "number" | "integer" | "boolean" | "enum" | "
 
 export interface PluginFieldDefinition {
   id: string;
+  label: string | null;
   type: FieldType;
   required: boolean;
   citation: { regulation: string; article: string };

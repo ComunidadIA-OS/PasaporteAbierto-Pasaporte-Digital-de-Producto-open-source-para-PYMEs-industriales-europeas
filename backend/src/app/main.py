@@ -1,13 +1,24 @@
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.public_dpp import router as public_dpp_router
 from app.api.v1.router import api_router
+from app.db.session import init_db
 from app.observability.langfuse_client import init_observability
 
-app = FastAPI(title="PasaporteAbierto", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Inicializa BD (crea tablas si no existen) y observabilidad al arrancar."""
+    init_db()
+    init_observability()
+    yield
+
+
+app = FastAPI(title="PasaporteAbierto", version="0.1.0", lifespan=lifespan)
 
 # CORS — el frontend (Next.js) corre en otro origen (puerto distinto en dev,
 # host distinto en algunos despliegues). Sin esto, los client components
@@ -32,8 +43,4 @@ app.include_router(api_router)
 # para escaneo del QR, content negotiation JSON-LD/HTML).
 app.include_router(public_dpp_router)
 
-# Inicializa observabilidad explícitamente (no como side effect al import).
-# Si LANGFUSE_PUBLIC_KEY/SECRET_KEY están configurados, habilita el callback
-# automático de LiteLLM hacia Langfuse para que cada llamada a complete()
-# emita un span generation. Sin credenciales, es no-op.
-init_observability()
+# Observabilidad e init_db se ejecutan en el lifespan (arriba).

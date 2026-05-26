@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api, type DocumentExcerptResponse, type SessionState } from "@/app/lib/api";
+import { resolveLabel, usePluginFields } from "@/app/lib/field-labels";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const API_V1 = `${API_BASE}/api/v1`;
@@ -57,6 +58,7 @@ export function Step5Extract({
   const [excerpt, setExcerpt] = useState<DocumentExcerptResponse | null>(null);
   const [excerptLoading, setExcerptLoading] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const fieldsMap = usePluginFields(session.plugin);
 
   const showExcerpt = useCallback(
     async (field: ExtractedField) => {
@@ -242,8 +244,8 @@ export function Step5Extract({
                 f.source_document_id != null && f.provenance !== "required_pending";
               return (
                 <tr key={f.field_id}>
-                  <td className="mono" style={{ fontSize: 12 }}>
-                    {f.field_id}
+                  <td style={{ fontSize: 13 }}>
+                    {fieldsMap ? resolveLabel(f.field_id, fieldsMap) : f.field_id}
                   </td>
                   <td>{f.value != null ? String(f.value) : <span className="faint">—</span>}</td>
                   <td>
@@ -307,7 +309,10 @@ export function Step5Extract({
             <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
               <div>
                 <h3 id="excerpt-title" className="typ-3" style={{ margin: 0 }}>
-                  Fragmento fuente · <code className="mono">{excerpt.field_id}</code>
+                  Fragmento fuente ·{" "}
+                  <code className="mono">
+                    {fieldsMap ? resolveLabel(excerpt.field_id, fieldsMap) : excerpt.field_id}
+                  </code>
                 </h3>
                 <p className="muted" style={{ marginTop: 6, marginBottom: 0, fontSize: 12 }}>
                   Valor extraído: <code className="mono">{excerpt.value}</code>

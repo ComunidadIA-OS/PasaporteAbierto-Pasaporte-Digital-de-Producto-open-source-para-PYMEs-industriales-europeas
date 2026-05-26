@@ -1,8 +1,4 @@
-// Landing — tema Compliance OS (tech SaaS · brutalist · referencias UE · acento eco).
-//
-// Estructura espejo del prototipo (design bundle): appbar con pill de salud, hero
-// 2-col (texto + dashboard oscuro), sección "por qué" con 3 features bordeadas
-// brutalist, lista de 7 pasos, plugins disponibles, CTA en card negra y footer 4-col.
+// Landing — PasaporteAbierto · Visual corporate landing con animaciones.
 
 import Link from "next/link";
 
@@ -22,106 +18,72 @@ async function getHealth() {
   }
 }
 
-const HERO_STATS = [
-  { n: "7", l: "pasos guiados" },
-  { n: "≤15min", l: "por pasaporte" },
-  { n: "2", l: "sectores activos" },
-  { n: "100%", l: "on-premise" },
-];
-
-const REGULATION = [
+const HOW_STEPS = [
   {
-    num: "01",
-    glyph: "§",
-    title: "Conforme al Reg. UE 2024/1781",
-    body: "Cumplimiento de ESPR y de actos delegados sectoriales. Cada campo cita el artículo que lo justifica, en su idioma original.",
+    n: "01",
+    title: "Describe tu producto",
+    body: "Introduce los datos de tu producto. La IA clasifica el sector ESPR y carga los campos normativos.",
   },
   {
-    num: "02",
-    glyph: "⛨",
-    title: "Audit log con hash chain",
-    body: "Cada decisión queda registrada y encadenada por hash. Cualquier manipulación rompe la cadena de forma detectable.",
+    n: "02",
+    title: "Sube tus documentos",
+    body: "Datasheets, LCA, declaración CE. La IA extrae automáticamente los campos del DPP.",
   },
   {
-    num: "03",
-    glyph: "⚿",
-    title: "Firma Ed25519 + JSON-LD CIRPASS-2",
-    body: "El DPP se firma criptográficamente y se publica en formato JSON-LD CIRPASS-2 Core. QR resoluble vía URN ISO/IEC 15459.",
+    n: "03",
+    title: "Publica con firma",
+    body: "Verifica la completitud, firma con Ed25519 y publica el DPP con QR resoluble.",
   },
 ];
 
-const STEPS = [
+const TRUST_POINTS = [
   {
-    n: 1,
-    kind: "det" as const,
-    label: "Descripción del producto",
-    desc: "Texto libre. Alimenta la clasificación.",
+    icon: "§",
+    title: "Conforme a ESPR",
+    body: "Cada campo cita el artículo del reglamento que lo exige.",
+    color: "#6ea8fe",
+    bg: "rgba(110, 168, 254, 0.12)",
   },
   {
-    n: 2,
-    kind: "ai" as const,
-    label: "Clasificación de sector",
-    desc: "IA con RAG sobre corpus normativo. Cita Art.",
+    icon: "#",
+    title: "Auditoría inmutable",
+    body: "Hash chain verificable. Preparado para inspecciones.",
+    color: "#4ade80",
+    bg: "rgba(74, 222, 128, 0.12)",
   },
   {
-    n: 3,
-    kind: "det" as const,
-    label: "BOM (Bill of Materials) dinámico",
-    desc: "Formulario adaptado al plugin del sector.",
-  },
-  {
-    n: 4,
-    kind: "det" as const,
-    label: "Documentos requeridos",
-    desc: "Datasheets, LCA, declaración CE, SDS…",
-  },
-  {
-    n: 5,
-    kind: "ai" as const,
-    label: "Extracción IA de campos",
-    desc: "pdfplumber + LLM. SSE streaming en vivo.",
-  },
-  {
-    n: 6,
-    kind: "det" as const,
-    label: "Verificación de completitud",
-    desc: "Score y advertencias contra el plugin.",
-  },
-  {
-    n: 7,
-    kind: "det" as const,
-    label: "Publicación DPP + QR + firma",
-    desc: "JSON-LD CIRPASS-2 + Ed25519 + ISO 15459.",
+    icon: "K",
+    title: "Firma criptográfica",
+    body: "Ed25519 + JSON-LD CIRPASS-2 + QR por producto.",
+    color: "#99bbff",
+    bg: "rgba(153, 187, 255, 0.1)",
   },
 ];
 
-const PLUGINS = [
+const ROADMAP = [
   {
-    name: "batteries.yaml",
-    title: "Baterías industriales",
-    meta: "Reg. UE 2023/1542 · 48 campos",
-    status: "estable",
-    statusClass: "badge-success",
-    glyph: "▮",
-    desc: "Cubre Anexo XIII secciones 1, 2 y 3 (públicas, interés legítimo, autoridades). Identificador ISO/IEC 15459 por Art. 77.3.",
+    year: "2026",
+    status: "live",
+    color: "#00b14f",
+    glow: "rgba(0, 177, 79, 0.4)",
+    sectors: ["Baterías"],
+    label: "Ya obligatorio",
   },
   {
-    name: "textile.yaml",
-    title: "Textil técnico",
-    meta: "Acto delegado ESPR · 22 campos",
-    status: "beta",
-    statusClass: "badge-warn",
-    glyph: "✿",
-    desc: "Plugin de referencia para validar la arquitectura de extensibilidad. Identificador GS1 Digital Link por defecto.",
+    year: "2027",
+    status: "ready",
+    color: "#003399",
+    glow: "rgba(0, 51, 153, 0.35)",
+    sectors: ["Textil", "Electrónica"],
+    label: "Acto delegado finalizado",
   },
   {
-    name: "your-sector.yaml",
-    title: "Tu sector",
-    meta: "Plugin YAML · — campos",
-    status: "comunidad",
-    statusClass: "badge-neutral",
-    glyph: "</>",
-    desc: "Añade un sector nuevo con un YAML. El loader valida contra schema; si no cumple, no se carga. Sin tocar el core.",
+    year: "2028",
+    status: "coming",
+    color: "#ea580c",
+    glow: "rgba(234, 88, 12, 0.3)",
+    sectors: ["Mobiliario", "Construcción", "Neumáticos"],
+    label: "En preparación",
   },
 ];
 
@@ -168,39 +130,250 @@ export default async function Home() {
       </header>
 
       <main className="fade-in">
-        <section className="hero">
+        {/* ── HERO ── */}
+        <section className="v-hero">
+          {/* Decoración de fondo */}
+          <div className="v-hero-bg" aria-hidden>
+            <div className="v-hero-grid" />
+            <div className="v-hero-orb v-hero-orb-1" />
+            <div className="v-hero-orb v-hero-orb-2" />
+            <div className="v-hero-orb v-hero-orb-3" />
+          </div>
+
+          <div className="v-hero-content container container-narrow">
+            <Reveal>
+              <div className="hero-tag hero-tag-dark">
+                <span className="dot dot-glow" />
+                <span>ESPR · Reg. UE 2024/1781</span>
+                <span aria-hidden style={{ opacity: 0.3 }}>
+                  ·
+                </span>
+                <span>Open Source · Apache 2.0</span>
+              </div>
+            </Reveal>
+
+            <Reveal delay={100}>
+              <h1 className="v-hero-title">
+                Tu Pasaporte Digital
+                <br />
+                de Producto, <em>conforme</em>
+              </h1>
+            </Reveal>
+
+            <Reveal delay={220}>
+              <p className="v-hero-sub">
+                Genera el DPP que exige el Reglamento ESPR en minutos. Auto-hospedable, con firma
+                criptográfica, sin coste de licencia y sin depender de ningún SaaS.
+              </p>
+            </Reveal>
+
+            <Reveal delay={340}>
+              <div className="v-hero-actions">
+                <Link href="/wizard" className="btn btn-primary btn-lg btn-glow">
+                  Crear mi primer DPP →
+                </Link>
+                <a
+                  href={REPO_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-ghost-light btn-lg"
+                >
+                  Ver en GitHub
+                </a>
+              </div>
+            </Reveal>
+
+            <Reveal delay={460}>
+              <div className="v-hero-metrics">
+                {[
+                  { n: "7", l: "pasos guiados" },
+                  { n: "≤15'", l: "por pasaporte" },
+                  { n: "6", l: "sectores ESPR" },
+                  { n: "0€", l: "licencia" },
+                ].map((s) => (
+                  <div key={s.l} className="v-metric">
+                    <span className="v-metric-n">{s.n}</span>
+                    <span className="v-metric-l">{s.l}</span>
+                  </div>
+                ))}
+              </div>
+            </Reveal>
+          </div>
+
+          {/* Flecha scroll indicator */}
+          <div className="v-hero-scroll" aria-hidden>
+            <div className="v-hero-scroll-line" />
+          </div>
+        </section>
+
+        {/* ── CÓMO FUNCIONA (con línea conectora) ── */}
+        <section className="v-section v-section-light">
           <div className="container">
-            <div className="hero-grid">
-              <div>
-                <Reveal>
-                  <div className="hero-tag">
-                    <span className="dot" />
-                    <span>ESPR · Reg. UE 2024/1781</span>
-                    <span aria-hidden style={{ opacity: 0.4 }}>
-                      ·
-                    </span>
-                    <span>Open Source</span>
+            <div className="v-section-head">
+              <Reveal>
+                <span className="eyebrow">Cómo funciona</span>
+              </Reveal>
+              <Reveal delay={80}>
+                <h2 className="typ-1">
+                  De la descripción al DPP firmado
+                  <br />
+                  en <em>tres pasos</em>
+                </h2>
+              </Reveal>
+            </div>
+
+            <div className="v-steps">
+              <div className="v-steps-line" aria-hidden />
+              {HOW_STEPS.map((s, i) => (
+                <Reveal key={s.n} delay={i * 180}>
+                  <div className="v-step">
+                    <div className="v-step-dot" aria-hidden>
+                      <span className="v-step-dot-num">{s.n}</span>
+                    </div>
+                    <div className="v-step-content">
+                      <div className="v-step-num">Paso {s.n}</div>
+                      <h3>{s.title}</h3>
+                      <p>{s.body}</p>
+                    </div>
                   </div>
                 </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
 
-                <Reveal delay={120}>
-                  <h1 className="typ-display">
-                    Compliance <em>auditable</em>
+        {/* ── CONFIANZA ── */}
+        <section className="v-section v-section-dark">
+          <div className="container">
+            <div className="v-section-head">
+              <Reveal>
+                <span className="eyebrow eyebrow-light">Diseñado para cumplir</span>
+              </Reveal>
+              <Reveal delay={80}>
+                <h2 className="typ-1 typ-light">Tres garantías para tu equipo de compliance</h2>
+              </Reveal>
+            </div>
+
+            <div className="v-trust-row">
+              {TRUST_POINTS.map((t, i) => (
+                <Reveal key={t.title} delay={i * 120}>
+                  <div className="v-trust-pill">
+                    <span
+                      className="v-trust-icon"
+                      style={{ background: t.bg, color: t.color }}
+                      aria-hidden
+                    >
+                      {t.icon}
+                    </span>
+                    <div>
+                      <strong>{t.title}</strong>
+                      <span>{t.body}</span>
+                    </div>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── ROADMAP VISUAL ── */}
+        <section className="v-section v-section-roadmap">
+          <div className="container">
+            <div className="v-section-head">
+              <Reveal>
+                <span className="eyebrow">Roadmap normativo</span>
+              </Reveal>
+              <Reveal delay={80}>
+                <h2 className="typ-1">
+                  La ventana para prepararse es <em>ahora</em>
+                </h2>
+              </Reveal>
+            </div>
+
+            <Reveal delay={200}>
+              <div className="v-roadmap">
+                {/* Línea de progreso horizontal */}
+                <div className="v-rm-track" aria-hidden>
+                  <div className="v-rm-track-fill" />
+                </div>
+
+                <div className="v-rm-nodes">
+                  {ROADMAP.map((phase, i) => (
+                    <div
+                      key={phase.year}
+                      className={`v-rm-node v-rm-${phase.status}`}
+                      style={
+                        {
+                          "--rm-color": phase.color,
+                          "--rm-glow": phase.glow,
+                          "--rm-delay": `${i * 0.2}s`,
+                        } as React.CSSProperties
+                      }
+                    >
+                      {/* Nodo circular animado */}
+                      <div className="v-rm-circle">
+                        <div className="v-rm-ring" aria-hidden />
+                        <div className="v-rm-dot-inner" aria-hidden />
+                        {phase.status === "live" && <div className="v-rm-glow-ring" aria-hidden />}
+                      </div>
+
+                      {/* Año */}
+                      <div className="v-rm-year">{phase.year}</div>
+
+                      {/* Badge de estado */}
+                      <div className="v-rm-badge">{phase.label}</div>
+
+                      {/* Sectores */}
+                      <div className="v-rm-sectors">
+                        {phase.sectors.map((s) => (
+                          <span key={s} className="v-rm-sector">
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Indicador EN VIGOR */}
+                      {phase.status === "live" && (
+                        <div className="v-rm-live-tag">
+                          <span className="v-rm-live-dot" aria-hidden />
+                          EN VIGOR
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Reveal>
+
+            <Reveal delay={500}>
+              <p className="v-roadmap-note">
+                Las marcas que piloten ahora evitarán la avalancha de 2027. Los retailers ya
+                preguntan a proveedores por su preparación DPP.
+              </p>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ── CTA ── */}
+        <section className="v-section v-section-cta2">
+          <div className="container">
+            <div className="v-cta2">
+              <Reveal>
+                <div className="v-cta2-text">
+                  <span className="eyebrow">Empieza ahora</span>
+                  <h2 className="typ-1">
+                    Baterías ya es obligatorio.
                     <br />
-                    end-to-end.
-                  </h1>
-                </Reveal>
-
-                <Reveal delay={260}>
-                  <p className="hero-lede">
-                    Aplicación auto-hospedable que ayuda a fabricantes PYME a generar el DPP exigido
-                    por el Reglamento UE 2024/1781 en menos de 15 minutos. Trazabilidad inmutable,
-                    citas normativas en cada decisión, código abierto.
+                    ¿Tu producto es el siguiente?
+                  </h2>
+                  <p>
+                    Despliega con{" "}
+                    <code className="mono" style={{ color: "var(--accent)" }}>
+                      docker compose up
+                    </code>
+                    . Sin licencia, sin vendor lock-in. Apache 2.0.
                   </p>
-                </Reveal>
-
-                <Reveal delay={380}>
-                  <div className="hero-cta">
+                  <div className="v-cta2-actions">
                     <Link href="/wizard" className="btn btn-primary btn-lg">
                       Crear mi primer DPP →
                     </Link>
@@ -208,218 +381,89 @@ export default async function Home() {
                       href={REPO_URL}
                       target="_blank"
                       rel="noreferrer"
-                      className="btn btn-secondary btn-lg"
+                      className="btn btn-ghost btn-lg"
                     >
                       Ver en GitHub
                     </a>
                   </div>
-                </Reveal>
-
-                <Reveal delay={500}>
-                  <div className="hero-strip">
-                    {HERO_STATS.map((s) => (
-                      <div key={s.l}>
-                        <div className="n">{s.n}</div>
-                        <div className="l">{s.l}</div>
-                      </div>
-                    ))}
-                  </div>
-                </Reveal>
-              </div>
+                </div>
+              </Reveal>
 
               <Reveal delay={200}>
-                <div className="hero-preview" aria-hidden>
-                  <div className="preview-head">
-                    <div className="dotrow">
-                      <span />
-                      <span />
-                      <span />
+                <div className="v-cta2-visual">
+                  {/* Mockup de un DPP card con QR */}
+                  <div className="v-dpp-mock">
+                    <div className="v-dpp-mock-header">
+                      <div className="v-dpp-mock-badge">DPP Conforme</div>
+                      <div className="v-dpp-mock-id">ES-BAT-2026-001</div>
                     </div>
-                    <div className="preview-url">pasaporte.industriasvolta.eu/dpp/9f3a7b2c1e</div>
-                  </div>
-                  <div className="preview-body">
-                    <div className="preview-product">
-                      <div className="preview-thumb">⚡</div>
-                      <div>
-                        <div className="name">VoltaCore HS-5000</div>
-                        <div className="meta">Batería Li-ion · 5 kWh · Industrias Volta</div>
+                    <div className="v-dpp-mock-body">
+                      <div className="v-dpp-mock-field">
+                        <span className="v-dpp-mock-label">Producto</span>
+                        <span className="v-dpp-mock-value">Batería Li-Ion 48V</span>
+                      </div>
+                      <div className="v-dpp-mock-field">
+                        <span className="v-dpp-mock-label">Fabricante</span>
+                        <span className="v-dpp-mock-value">TuEmpresa S.L.</span>
+                      </div>
+                      <div className="v-dpp-mock-field">
+                        <span className="v-dpp-mock-label">Firma</span>
+                        <span className="v-dpp-mock-value v-dpp-mock-sig">Ed25519 ✓</span>
                       </div>
                     </div>
-
-                    {[
-                      { l: "Química", v: "NMC-622" },
-                      { l: "Capacidad", v: "5,12 kWh @ 51,2 V" },
-                      { l: "CO₂e (LCA)", v: "82 kg / kWh" },
-                      { l: "Co reciclado", v: "16%", badge: "min Art. 8" },
-                      { l: "Vida útil", v: "6 000 ciclos · 15 a" },
-                      { l: "Firma", v: "Ed25519 ✓" },
-                    ].map((row) => (
-                      <div key={row.l} className="preview-row">
-                        <span className="lbl">{row.l}</span>
-                        <span className="val">
-                          {row.v}
-                          {row.badge && <span className="badge">{row.badge}</span>}
-                        </span>
-                      </div>
-                    ))}
+                    <div className="v-dpp-mock-qr">
+                      <svg viewBox="0 0 100 100" width="80" height="80" aria-label="QR code mockup">
+                        <rect width="100" height="100" rx="8" fill="#fff" />
+                        <g fill="#0a0a0a">
+                          {/* QR corners */}
+                          <rect x="8" y="8" width="24" height="24" rx="2" />
+                          <rect x="12" y="12" width="16" height="16" rx="1" fill="#fff" />
+                          <rect x="16" y="16" width="8" height="8" rx="1" fill="#0a0a0a" />
+                          <rect x="68" y="8" width="24" height="24" rx="2" />
+                          <rect x="72" y="12" width="16" height="16" rx="1" fill="#fff" />
+                          <rect x="76" y="16" width="8" height="8" rx="1" fill="#0a0a0a" />
+                          <rect x="8" y="68" width="24" height="24" rx="2" />
+                          <rect x="12" y="72" width="16" height="16" rx="1" fill="#fff" />
+                          <rect x="16" y="76" width="8" height="8" rx="1" fill="#0a0a0a" />
+                          {/* QR data dots */}
+                          <rect x="40" y="10" width="6" height="6" rx="1" />
+                          <rect x="50" y="10" width="6" height="6" rx="1" />
+                          <rect x="40" y="20" width="6" height="6" rx="1" />
+                          <rect x="56" y="20" width="6" height="6" rx="1" />
+                          <rect x="10" y="40" width="6" height="6" rx="1" />
+                          <rect x="20" y="40" width="6" height="6" rx="1" />
+                          <rect x="36" y="36" width="6" height="6" rx="1" />
+                          <rect x="46" y="36" width="6" height="6" rx="1" />
+                          <rect x="56" y="36" width="6" height="6" rx="1" />
+                          <rect x="36" y="46" width="6" height="6" rx="1" />
+                          <rect x="50" y="46" width="6" height="6" rx="1" />
+                          <rect x="60" y="46" width="6" height="6" rx="1" />
+                          <rect x="36" y="56" width="6" height="6" rx="1" />
+                          <rect x="46" y="56" width="6" height="6" rx="1" />
+                          <rect x="56" y="56" width="6" height="6" rx="1" />
+                          <rect x="70" y="40" width="6" height="6" rx="1" />
+                          <rect x="80" y="40" width="6" height="6" rx="1" />
+                          <rect x="70" y="50" width="6" height="6" rx="1" />
+                          <rect x="84" y="50" width="6" height="6" rx="1" />
+                          <rect x="40" y="70" width="6" height="6" rx="1" />
+                          <rect x="50" y="70" width="6" height="6" rx="1" />
+                          <rect x="60" y="70" width="6" height="6" rx="1" />
+                          <rect x="70" y="70" width="6" height="6" rx="1" />
+                          <rect x="80" y="70" width="6" height="6" rx="1" />
+                          <rect x="40" y="80" width="6" height="6" rx="1" />
+                          <rect x="56" y="80" width="6" height="6" rx="1" />
+                          <rect x="70" y="80" width="6" height="6" rx="1" />
+                          <rect x="84" y="80" width="6" height="6" rx="1" />
+                        </g>
+                      </svg>
+                      <span className="v-dpp-mock-qr-label">Escanea el DPP</span>
+                    </div>
+                    {/* Glow decorativo */}
+                    <div className="v-dpp-mock-glow" aria-hidden />
                   </div>
                 </div>
               </Reveal>
             </div>
-          </div>
-        </section>
-
-        <section className="section">
-          <div className="container">
-            <div className="section-head">
-              <div className="lead">
-                <Reveal>
-                  <span className="eyebrow">Por qué PasaporteAbierto</span>
-                </Reveal>
-                <Reveal delay={80}>
-                  <h2 className="typ-1">Trazabilidad regulatoria, sin atajos.</h2>
-                </Reveal>
-              </div>
-              <Reveal delay={200}>
-                <p className="lede-aside">
-                  Diseñado con criterios institucionales: cada paso es verificable, cada campo cita
-                  norma, y nada se publica si falta un dato obligatorio.
-                </p>
-              </Reveal>
-            </div>
-
-            <div className="feature-grid">
-              {REGULATION.map((it, i) => (
-                <Reveal key={it.num} delay={i * 100}>
-                  <div className="num">— {it.num}</div>
-                  <div className="glyph" aria-hidden>
-                    {it.glyph}
-                  </div>
-                  <h3>{it.title}</h3>
-                  <p>{it.body}</p>
-                </Reveal>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="section">
-          <div className="container">
-            <div className="section-head">
-              <div className="lead">
-                <Reveal>
-                  <span className="eyebrow">El wizard</span>
-                </Reveal>
-                <Reveal delay={80}>
-                  <h2 className="typ-1">
-                    Siete pasos. Dos son <em>IA</em>.
-                    <br />
-                    El resto, deterministas.
-                  </h2>
-                </Reveal>
-              </div>
-              <Reveal delay={200}>
-                <p className="lede-aside">
-                  Pipeline lineal. Los pasos de IA están acotados a Clasificador (2) y Recolector
-                  (5); todo lo demás es código verificable paso a paso.
-                </p>
-              </Reveal>
-            </div>
-
-            <Reveal>
-              <div className="steps-list">
-                {STEPS.map((s) => (
-                  <div key={s.n} className="step-item">
-                    <div className="si-num">PASO {String(s.n).padStart(2, "0")}</div>
-                    <div>
-                      <div className="si-title">{s.label}</div>
-                      <div className="si-desc">{s.desc}</div>
-                    </div>
-                    <div className={`si-kind ${s.kind}`}>
-                      {s.kind === "ai" ? "AI · Recolector" : "determinista"}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Reveal>
-          </div>
-        </section>
-
-        <section className="section">
-          <div className="container">
-            <div className="section-head">
-              <div className="lead">
-                <Reveal>
-                  <span className="eyebrow">Cobertura sectorial</span>
-                </Reveal>
-                <Reveal delay={80}>
-                  <h2 className="typ-1">
-                    Un <em>YAML</em> por sector.
-                    <br />
-                    Cero código para extender.
-                  </h2>
-                </Reveal>
-              </div>
-            </div>
-
-            <div className="feature-grid">
-              {PLUGINS.map((p, i) => (
-                <Reveal key={p.name} delay={i * 100}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                    }}
-                  >
-                    <div className="num">{p.name}</div>
-                    <span className={`badge ${p.statusClass}`}>{p.status}</span>
-                  </div>
-                  <div className="glyph" aria-hidden>
-                    {p.glyph}
-                  </div>
-                  <h3>{p.title}</h3>
-                  <div
-                    className="mono"
-                    style={{ fontSize: 11, color: "var(--text-muted)", margin: "4px 0 12px" }}
-                  >
-                    {p.meta}
-                  </div>
-                  <p>{p.desc}</p>
-                </Reveal>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="section">
-          <div className="container">
-            <Reveal>
-              <div className="cta-card">
-                <span className="eyebrow">Empieza ahora</span>
-                <h2 className="typ-1">Tu primer DPP en menos de 15 minutos.</h2>
-                <p>
-                  Sin login. Sin dependencias SaaS. Levanta toda la solución con{" "}
-                  <code className="mono" style={{ color: "var(--accent)" }}>
-                    docker compose up
-                  </code>{" "}
-                  y empieza a generar pasaportes.
-                </p>
-                <div className="hero-cta">
-                  <Link href="/wizard" className="btn btn-primary btn-lg">
-                    Crear mi primer DPP →
-                  </Link>
-                  <a
-                    href={REPO_URL}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn btn-secondary btn-lg"
-                  >
-                    Ver en GitHub
-                  </a>
-                </div>
-              </div>
-            </Reveal>
           </div>
         </section>
       </main>
