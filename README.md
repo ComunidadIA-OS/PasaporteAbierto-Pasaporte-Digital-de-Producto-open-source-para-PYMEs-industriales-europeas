@@ -18,16 +18,49 @@ Aplicación web auto-hospedable para que fabricantes PYME generen el **Pasaporte
 - **Docker 24+** y `docker compose`.
 - Opcional (sólo para desarrollo local sin contenedor): Python 3.11, [uv](https://docs.astral.sh/uv/), Node 20, pnpm 9.
 
-## Setup en ≤30 minutos
+## Quickstart (≤30 minutos)
+
+### Requisitos
+
+- **Docker 24+** y Docker Compose v2.
+- **8 GB de RAM** libres (Ollama carga el modelo en memoria).
+- ~5 GB de disco la primera vez (descarga del modelo Qwen 2.5 7B).
+
+### 1. Clonar y configurar
 
 ```bash
-git clone <repo-url>
-cd PasaporteAbierto-*
+git clone https://github.com/ComunidadIA-OS/PasaporteAbierto-Pasaporte-Digital-de-Producto-open-source-para-PYMEs-industriales-europeas.git
+cd PasaporteAbierto-Pasaporte-Digital-de-Producto-open-source-para-PYMEs-industriales-europeas
 cp .env.example .env
+```
+
+### 2. Elegir backend de IA y levantar
+
+**Opcion A — Modelo local con Ollama (sin API key, sin coste por token):**
+
+El `.env.example` ya viene configurado para esta opcion (`MODEL_LOCAL=true`, `MODEL_BACKEND=ollama:qwen2.5:7b`).
+
+```bash
+docker compose --profile ollama up -d --build
+```
+
+> La primera vez tarda ~5-10 min: construye las imagenes y descarga el modelo (~5 GB).
+
+**Opcion B — API comercial (Anthropic, OpenAI, Groq...):**
+
+Edita `.env`:
+
+```bash
+MODEL_LOCAL=false
+MODEL_BACKEND=anthropic:claude-sonnet-4-20250514   # o openai:gpt-4o, groq:llama-3.1-70b-versatile
+ANTHROPIC_API_KEY=sk-ant-...                        # descomenta y rellena la key del proveedor
+```
+
+```bash
 docker compose up -d --build
 ```
 
-Tras ~2 minutos (primera vez ~5-10 min por el build), verifica:
+### 3. Verificar que todo esta arriba
 
 ```bash
 curl -s http://localhost:8000/api/v1/health | python -m json.tool
@@ -35,32 +68,31 @@ curl -s http://localhost:8000/api/v1/health | python -m json.tool
 
 Debe devolver `version`, `model` y `backend`.
 
-| Servicio | URL | Notas |
+| Servicio | URL | Descripcion |
 |---|---|---|
-| Backend FastAPI | http://localhost:8000 | OpenAPI en `/docs` |
-| Frontend Next.js | http://localhost:3000 | UI del wizard (vacía en F1, se construye en F3) |
-| Langfuse | http://localhost:3010 | Crea cuenta admin la primera vez |
-| Ollama (opcional) | http://localhost:11434 | Sólo con `--profile ollama` |
+| Frontend | http://localhost:3000 | UI del wizard — abre aqui para empezar |
+| Backend API | http://localhost:8000/docs | Documentacion OpenAPI interactiva |
+| Langfuse | http://localhost:3010 | Panel de observabilidad (crea cuenta admin la primera vez) |
+| Ollama | http://localhost:11434 | Solo si usaste Opcion A |
 
-### Activar Langfuse para trazas IA
+### 4. Generar tu primer DPP
+
+1. Abre **http://localhost:3000** y haz clic en **Crear mi primer DPP**.
+2. Describe tu producto (ej: "Bateria industrial Li-ion 5 kWh para almacenamiento residencial").
+3. La IA clasifica el sector y carga el plugin con sus campos obligatorios.
+4. Rellena el BOM (Bill of Materials) y sube las fichas tecnicas en PDF.
+5. El Recolector extrae datos de los PDFs automaticamente.
+6. El Verificador confirma completitud.
+7. Publica: obtienes JSON-LD firmado con Ed25519, codigo QR y URL publica.
+
+### Activar Langfuse (trazas de IA)
 
 1. Abre `http://localhost:3010` y crea la primera cuenta (queda como admin).
 2. Crea un proyecto y copia `Public Key` + `Secret Key`.
-3. Pégalas en `.env` como `LANGFUSE_PUBLIC_KEY` y `LANGFUSE_SECRET_KEY`.
+3. Pegalas en `.env` como `LANGFUSE_PUBLIC_KEY` y `LANGFUSE_SECRET_KEY`.
 4. `docker compose restart backend`.
 
-A partir de ahí cada llamada a `litellm.completion()` y cada función decorada con `@trace_classifier` / `@trace_collector` / `@trace_chat` emitirá una traza automáticamente. Ver `backend/src/app/observability/` para detalles.
-
-### Activar Ollama local (modelo gratuito)
-
-```bash
-docker compose --profile ollama up -d
-docker compose exec ollama ollama pull qwen2.5:14b
-```
-
-Edita `.env`: `MODEL_BACKEND=ollama:qwen2.5:14b`. Reinicia el backend.
-
-Para usar una API comercial en su lugar, edita `MODEL_BACKEND` con `anthropic:claude-...`, `openai:gpt-...`, etc. (sintaxis canónica de [LiteLLM](https://docs.litellm.ai/docs/providers)) y añade la API key correspondiente al `.env`.
+A partir de ahi, cada decision IA (Clasificador, Recolector, Chat) emitira una traza completa en Langfuse.
 
 ## Desarrollo
 
@@ -72,7 +104,7 @@ uv sync                              # instala deps
 uv run pytest                        # tests (58/58 al cierre de F1)
 uv run ruff check .                  # lint
 uv run ruff format --check .         # format check
-uv run uvicorn app.main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --port 8000 --app-dir src
 ```
 
 Migraciones de base de datos (Alembic):
