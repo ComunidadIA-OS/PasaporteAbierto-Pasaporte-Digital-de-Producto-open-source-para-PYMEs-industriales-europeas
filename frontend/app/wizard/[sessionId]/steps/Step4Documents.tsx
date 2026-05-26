@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
 import { ApiError, api, type DocumentsListResponse, type SessionState } from "@/app/lib/api";
+import { isDemoMode } from "@/app/lib/demo-mode";
 
 const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -32,6 +33,7 @@ export function Step4Documents({
   const [uploadingType, setUploadingType] = useState<string | null>(null);
   const [uploadMsg, setUploadMsg] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [seedingDemo, setSeedingDemo] = useState(false);
 
   const refresh = useCallback(() => {
     api
@@ -70,6 +72,28 @@ export function Step4Documents({
     }
   }
 
+  async function seedDemoDocuments() {
+    setSeedingDemo(true);
+    setUploadMsg(null);
+    try {
+      const res = await api.seedDemoDocuments(session.session_id);
+      const newCount = res.seeded.filter((s) => !s.deduplicated).length;
+      const dedupCount = res.seeded.filter((s) => s.deduplicated).length;
+      setUploadMsg(
+        `✓ ${newCount} documentos generados${dedupCount > 0 ? ` (${dedupCount} ya existían)` : ""}`,
+      );
+      refresh();
+    } catch (err) {
+      setUploadMsg(
+        err instanceof ApiError
+          ? `Error ${err.status}: ${err.message}`
+          : "Error generando documentos de ejemplo",
+      );
+    } finally {
+      setSeedingDemo(false);
+    }
+  }
+
   const allMandatoryUploaded =
     docs?.required.filter((r) => r.mandatory).every((r) => r.uploaded) ?? false;
 
@@ -95,10 +119,24 @@ export function Step4Documents({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <p className="muted" style={{ margin: 0 }}>
-        Sube los documentos requeridos para tu producto. La lista se genera a partir del plugin y
-        del BOM que has introducido.
-      </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+        <p className="muted" style={{ margin: 0, flex: 1 }}>
+          Sube los documentos requeridos para tu producto. La lista se genera a partir del plugin y
+          del BOM que has introducido.
+        </p>
+        {isDemoMode && (
+          <button
+            type="button"
+            onClick={seedDemoDocuments}
+            disabled={seedingDemo || pending}
+            className="btn btn-secondary"
+            style={{ fontSize: 12, whiteSpace: "nowrap" }}
+            title="Genera y sube 4 PDFs sintéticos como certificación de ejemplo"
+          >
+            {seedingDemo ? "Generando…" : "✨ Cargar PDFs de ejemplo"}
+          </button>
+        )}
+      </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {docs.required.map((req) => (

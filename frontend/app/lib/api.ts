@@ -240,6 +240,27 @@ export interface ChatHistoryResponse {
   messages: ChatHistoryMessage[];
 }
 
+// --- Demo (opcional, solo si DEMO_MODE=true en backend) ---------------------
+
+export interface DemoSampleResponse {
+  sector: string;
+  description: string;
+  bom_fields: Record<string, unknown>;
+  documents: { doc_type: DocType; title: string; embeds_count: number }[];
+}
+
+export interface DemoSeededDoc {
+  id: number;
+  doc_type: DocType;
+  sha256: string;
+  deduplicated: boolean;
+  bytes: number;
+}
+
+export interface DemoSeedDocumentsResponse {
+  seeded: DemoSeededDoc[];
+}
+
 // --- Cliente ----------------------------------------------------------------
 
 class ApiError extends Error {
@@ -375,6 +396,16 @@ export const api = {
   // o el endpoint cambiará a GET en F3-02. Esta helper queda como referencia.
   extractStreamUrl(sessionId: string): string {
     return `${API_V1}/sessions/${sid(sessionId)}/extract`;
+  },
+
+  // --- demo (solo activos si DEMO_MODE=true en backend) ---
+
+  getDemoSample(sector: string): Promise<DemoSampleResponse> {
+    return request(`/demo/sample/${encodeURIComponent(sector)}`);
+  },
+
+  seedDemoDocuments(sessionId: string): Promise<DemoSeedDocumentsResponse> {
+    return request(`/demo/sessions/${sid(sessionId)}/seed-documents`, { method: "POST" });
   },
 };
 

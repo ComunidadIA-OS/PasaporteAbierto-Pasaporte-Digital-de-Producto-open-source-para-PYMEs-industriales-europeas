@@ -9,6 +9,7 @@
 import { useState, useTransition } from "react";
 
 import { ApiError, api, type SessionState } from "@/app/lib/api";
+import { isDemoMode } from "@/app/lib/demo-mode";
 
 const MIN_LENGTH = 20;
 
@@ -22,6 +23,24 @@ export function Step1Description({
   const [description, setDescription] = useState(session.description ?? "");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [loadingDemo, setLoadingDemo] = useState(false);
+
+  async function loadDemoExample() {
+    setLoadingDemo(true);
+    setError(null);
+    try {
+      const sample = await api.getDemoSample("batteries");
+      setDescription(sample.description);
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? `Error ${err.status} cargando ejemplo`
+          : "No se pudo cargar el ejemplo (¿DEMO_MODE activo?)",
+      );
+    } finally {
+      setLoadingDemo(false);
+    }
+  }
 
   const tooShort = description.trim().length < MIN_LENGTH;
   const remaining = Math.max(MIN_LENGTH - description.trim().length, 0);
@@ -88,7 +107,7 @@ export function Step1Description({
         </p>
       )}
 
-      <div>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <button
           type="button"
           onClick={onContinue}
@@ -97,6 +116,17 @@ export function Step1Description({
         >
           {pending ? "Guardando…" : "Continuar al paso 2 →"}
         </button>
+        {isDemoMode && (
+          <button
+            type="button"
+            onClick={loadDemoExample}
+            disabled={loadingDemo || pending}
+            className="btn btn-secondary btn-lg"
+            title="Rellena la descripción con datos de ejemplo del config demo"
+          >
+            {loadingDemo ? "Cargando…" : "✨ Cargar ejemplo"}
+          </button>
+        )}
       </div>
     </div>
   );
