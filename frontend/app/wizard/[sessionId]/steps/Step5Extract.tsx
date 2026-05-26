@@ -306,7 +306,7 @@ export function Step5Extract({
           >
             <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
               <div>
-                <h3 id="excerpt-title" className="h-3" style={{ margin: 0 }}>
+                <h3 id="excerpt-title" className="typ-3" style={{ margin: 0 }}>
                   Fragmento fuente · <code className="mono">{excerpt.field_id}</code>
                 </h3>
                 <p className="muted" style={{ marginTop: 6, marginBottom: 0, fontSize: 12 }}>
@@ -357,7 +357,7 @@ export function Step5Extract({
       {/* Resumen final */}
       {done && (
         <div className="status-panel is-success">
-          <h3 className="h-3" style={{ margin: 0 }}>
+          <h3 className="typ-3" style={{ margin: 0 }}>
             Extracción completada
           </h3>
           <div

@@ -125,7 +125,7 @@ export function Step3Bom({
       style={{ display: "flex", flexDirection: "column", gap: 24 }}
     >
       <header>
-        <h2 className="h-3" style={{ margin: 0 }}>
+        <h2 className="typ-3" style={{ margin: 0 }}>
           BOM · {plugin.name}{" "}
           <span className="muted" style={{ fontWeight: 400 }}>
             ({plugin.regulation})

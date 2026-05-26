@@ -92,7 +92,7 @@ export function Step6Verify({
 
       {verify.missing_fields.length > 0 && (
         <section>
-          <h3 className="h-3" style={{ margin: 0 }}>
+          <h3 className="typ-3" style={{ margin: 0 }}>
             Campos faltantes ({verify.missing_fields.length})
           </h3>
           <ul
@@ -115,7 +115,7 @@ export function Step6Verify({
 
       {verify.warnings.length > 0 && (
         <section>
-          <h3 className="h-3" style={{ margin: 0 }}>
+          <h3 className="typ-3" style={{ margin: 0 }}>
             Advertencias ({verify.warnings.length})
           </h3>
           <ul

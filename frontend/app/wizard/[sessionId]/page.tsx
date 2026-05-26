@@ -28,13 +28,29 @@ export default async function WizardPage({ params }: { params: Promise<{ session
       <>
         <header className="appbar">
           <Link href="/" className="appbar-brand">
-            <div className="appbar-logo">P</div>
+            <div className="appbar-logo">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M6 2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" />
+                <circle cx="12" cy="10" r="3" />
+                <path d="M7 17a5 5 0 0 1 10 0" />
+              </svg>
+            </div>
             <span>PasaporteAbierto</span>
           </Link>
         </header>
         <main className="wizard-entry-main fade-in">
           <div className="eyebrow">404</div>
-          <h1 className="h-1" style={{ marginTop: 12 }}>
+          <h1 className="typ-1" style={{ marginTop: 12 }}>
             Sesión no <em>encontrada</em>.
           </h1>
           <p className="muted" style={{ marginTop: 16, maxWidth: 540 }}>

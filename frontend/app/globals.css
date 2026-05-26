@@ -18,11 +18,11 @@
   --text:         #0a0a0a;
   --text-muted:   #71717a;
   --text-faint:   #a1a1aa;
-  --accent:       #00b14f;
-  --accent-strong:#008f3a;
+  --accent:       #003399;
+  --accent-strong:#002266;
   --accent-text:  #ffffff;
-  --accent-soft:  rgba(0, 177, 79, 0.10);
-  --accent-glow:  rgba(0, 177, 79, 0.28);
+  --accent-soft:  rgba(0, 51, 153, 0.10);
+  --accent-glow:  rgba(0, 51, 153, 0.28);
   --eu-blue:      #003399;
   --eu-gold:      #ffcc00;
   --success:      #00b14f;
@@ -80,35 +80,35 @@ body {
 }
 
 /* ---------- Type ---------- */
-.h-display {
+.typ-display {
   font-family: var(--font-head);
   font-weight: 700;
   letter-spacing: -0.045em;
   font-size: clamp(44px, 7.5vw, 92px);
   line-height: 0.95;
 }
-.h-display em,
-.h-1 em,
-.h-2 em {
+.typ-display em,
+.typ-1 em,
+.typ-2 em {
   font-style: normal;
   color: var(--accent);
   font-weight: 700;
 }
-.h-1 {
+.typ-1 {
   font-family: var(--font-head);
   font-weight: 700;
   letter-spacing: -0.03em;
   font-size: clamp(32px, 4.5vw, 52px);
   line-height: 1.0;
 }
-.h-2 {
+.typ-2 {
   font-family: var(--font-head);
   font-weight: 600;
   letter-spacing: -0.02em;
   font-size: 24px;
   line-height: 1.2;
 }
-.h-3 {
+.typ-3 {
   font-family: var(--font-head);
   font-weight: 600;
   letter-spacing: -0.005em;
@@ -116,12 +116,12 @@ body {
   line-height: 1.3;
 }
 .eyebrow {
-  font-family: var(--font-mono);
-  font-weight: 500;
-  font-size: 11px;
-  letter-spacing: 0.14em;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--text);
+  color: var(--text-muted);
 }
 .eyebrow::before {
   content: "→ ";
@@ -190,11 +190,9 @@ body {
   display: grid;
   place-items: center;
   border-radius: 4px;
-  background: var(--text);
+  background: #fff;
+  border: 1.5px solid var(--text);
   color: var(--accent);
-  font-family: var(--font-head);
-  font-weight: 700;
-  font-size: 14px;
 }
 .appbar-nav {
   display: flex;
@@ -203,12 +201,12 @@ body {
 }
 .appbar-nav a,
 .appbar-nav button {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
   color: var(--text-muted);
-  padding: 6px 10px;
+  padding: 6px 12px;
   border-radius: var(--radius);
   position: relative;
   transition: color .15s, background .15s;
@@ -243,10 +241,11 @@ body {
   border-radius: 4px;
   background: var(--bg);
   border: 1px solid var(--border);
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
 }
 .appbar-pill .dot {
   width: 6px; height: 6px;
@@ -338,13 +337,13 @@ body {
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 9px;
-  border-radius: 3px;
-  font-family: var(--font-mono);
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 100px;
+  font-family: var(--font-body);
   font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
+  font-weight: 600;
+  letter-spacing: 0;
   border: 1px solid currentColor;
   background: transparent;
 }
@@ -413,15 +412,15 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid var(--text);
+  border: 1px solid var(--border);
   background: var(--bg);
-  border-radius: 0;
-  padding: 6px 10px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text);
+  border-radius: 100px;
+  padding: 6px 14px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--text-muted);
 }
 .hero-tag .dot {
   width: 6px; height: 6px;
@@ -451,13 +450,13 @@ body {
   margin-top: 48px;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  border: 1px solid var(--text);
-  border-radius: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   background: var(--bg);
 }
 .hero-strip > div {
   padding: 20px 24px;
-  border-right: 1px solid var(--text);
+  border-right: 1px solid var(--border);
 }
 .hero-strip > div:last-child { border-right: none; }
 .hero-strip .n {
@@ -594,25 +593,25 @@ body {
 .feature-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  border: 1px solid var(--text);
-  border-radius: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   background: var(--panel);
   overflow: hidden;
 }
 .feature-grid > div {
   padding: 40px 32px;
-  border-right: 1px solid var(--text);
+  border-right: 1px solid var(--border);
   position: relative;
   transition: background .2s ease;
 }
 .feature-grid > div:last-child { border-right: none; }
 .feature-grid > div:hover { background: var(--panel-2); }
 .feature-grid .num {
-  font-family: var(--font-mono);
-  font-weight: 500;
-  font-size: 11px;
-  color: var(--text);
-  letter-spacing: 0.1em;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
 }
 .feature-grid .glyph {
   margin-top: 24px;
@@ -640,31 +639,30 @@ body {
 /* ---------- Steps list (7 pasos) ---------- */
 .steps-list {
   display: grid;
-  border: 1px solid var(--text);
-  border-radius: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   background: var(--panel);
   overflow: hidden;
 }
 .step-item {
   display: grid;
-  grid-template-columns: 100px 1fr 200px;
+  grid-template-columns: 80px 1fr 200px;
   align-items: center;
   gap: 16px;
   padding: 20px 24px;
-  border-bottom: 1px solid var(--text);
-  transition: background .15s, padding .25s ease;
+  border-bottom: 1px solid var(--border);
+  transition: background .15s;
 }
 .step-item:last-child { border-bottom: none; }
 .step-item:hover {
   background: var(--panel-2);
-  padding-left: 32px;
 }
 .step-item .si-num {
-  font-family: var(--font-mono);
-  font-weight: 500;
-  font-size: 12px;
-  color: var(--text);
-  letter-spacing: 0.08em;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-muted);
+  letter-spacing: 0;
 }
 .step-item .si-title {
   font-family: var(--font-head);
@@ -678,10 +676,10 @@ body {
   margin-top: 4px;
 }
 .step-item .si-kind {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
   text-align: right;
 }
 .step-item .si-kind.ai  { color: var(--accent); }
@@ -744,11 +742,11 @@ body {
 }
 .footer p { margin: 0; max-width: 360px; }
 .footer h4 {
-  font-family: var(--font-mono);
-  font-weight: 500;
-  font-size: 11px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.04em;
   color: var(--text);
   margin: 0 0 16px;
 }
@@ -834,10 +832,10 @@ body {
   align-items: center;
   gap: 6px;
   padding: 4px;
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-weight: 500;
-  font-size: 10px;
-  letter-spacing: 0.04em;
+  font-size: 11px;
+  letter-spacing: 0;
   color: var(--text-muted);
   background: transparent;
   transition: color .2s;
@@ -845,21 +843,19 @@ body {
 .h-stepper-dot:not([disabled]):hover { color: var(--text); }
 .h-stepper-dot[disabled] { cursor: not-allowed; }
 .h-stepper-dot .dot-n {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  border: 1px solid var(--text);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
   background: var(--bg);
   display: grid;
   place-items: center;
-  font-family: var(--font-mono);
-  font-weight: 500;
-  font-size: 11px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 12px;
 }
 .h-stepper-dot .dot-l {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-size: 10px;
   text-align: center;
   line-height: 1.2;
   max-width: 84px;
@@ -880,11 +876,12 @@ body {
   border-bottom: 1px solid var(--border);
 }
 .wm-head .label {
-  font-family: var(--font-mono);
-  font-size: 11px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  color: var(--accent);
 }
 .wm-head h1 {
   font-family: var(--font-head);
@@ -1071,13 +1068,13 @@ body {
   border-collapse: collapse;
 }
 .tbl thead th {
-  background: var(--text);
-  color: var(--bg);
-  font-family: var(--font-mono);
-  font-weight: 500;
-  font-size: 10px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.02em;
   padding: 12px 16px;
   text-align: left;
 }
@@ -1161,8 +1158,8 @@ body {
    RESPONSIVE
    ============================================================ */
 @media (max-width: 1000px) {
-  .h-display { font-size: clamp(34px, 9vw, 64px); line-height: 1.0; }
-  .h-1       { font-size: clamp(26px, 6vw, 40px); }
+  .typ-display { font-size: clamp(34px, 9vw, 64px); line-height: 1.0; }
+  .typ-1     { font-size: clamp(26px, 6vw, 40px); }
 
   .hero { padding: 56px 0 56px; }
   .hero-grid { grid-template-columns: 1fr; gap: 40px; }

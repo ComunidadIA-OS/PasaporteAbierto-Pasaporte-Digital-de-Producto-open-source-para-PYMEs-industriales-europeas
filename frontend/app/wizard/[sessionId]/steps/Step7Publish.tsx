@@ -42,7 +42,7 @@ export function Step7Publish({ session }: { session: SessionState }) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         <div className="status-panel is-success">
-          <h2 className="h-3" style={{ margin: 0 }}>
+          <h2 className="typ-3" style={{ margin: 0 }}>
             Listo para publicar
           </h2>
           <p className="muted" style={{ marginTop: 8, marginBottom: 0 }}>
@@ -78,7 +78,7 @@ export function Step7Publish({ session }: { session: SessionState }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       <div className="status-panel is-success">
-        <h2 className="h-2" style={{ margin: 0 }}>
+        <h2 className="typ-2" style={{ margin: 0 }}>
           DPP <em>publicado</em> ✓
         </h2>
         <p className="muted" style={{ marginTop: 8, marginBottom: 0 }}>

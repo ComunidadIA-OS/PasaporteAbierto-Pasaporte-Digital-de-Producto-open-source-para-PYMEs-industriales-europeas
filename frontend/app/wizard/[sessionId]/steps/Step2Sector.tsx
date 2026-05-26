@@ -151,7 +151,7 @@ export function Step2Sector({
 function NoClassification({ onClassify, pending }: { onClassify: () => void; pending: boolean }) {
   return (
     <div className="status-panel">
-      <h2 className="h-2" style={{ margin: 0 }}>
+      <h2 className="typ-2" style={{ margin: 0 }}>
         Clasificar el <em>producto</em>
       </h2>
       <p className="muted" style={{ marginTop: 8, marginBottom: 0 }}>
@@ -192,7 +192,7 @@ function ClassificationBadge({
     <div className={`status-panel ${toneClass}`}>
       <span className="eyebrow">Sector clasificado</span>
       <h2
-        className="h-1"
+        className="typ-1"
         style={{
           marginTop: 8,
           marginBottom: 0,
@@ -266,7 +266,7 @@ function OverrideForm({
         onSubmit(sector, sector, reason.trim());
       }}
     >
-      <h3 className="h-3" style={{ margin: 0 }}>
+      <h3 className="typ-3" style={{ margin: 0 }}>
         Override manual del sector
       </h3>
 
