@@ -44,22 +44,22 @@ const TRUST_POINTS = [
     icon: "§",
     title: "Conforme a ESPR",
     body: "Cada campo cita el artículo del reglamento que lo exige.",
-    color: "var(--accent)",
-    bg: "var(--accent-soft)",
+    color: "#6ea8fe",
+    bg: "rgba(110, 168, 254, 0.12)",
   },
   {
     icon: "⛨",
     title: "Auditoría inmutable",
     body: "Hash chain verificable. Preparado para inspecciones.",
-    color: "var(--success)",
-    bg: "var(--success-soft)",
+    color: "#4ade80",
+    bg: "rgba(74, 222, 128, 0.12)",
   },
   {
     icon: "⚿",
     title: "Firma criptográfica",
     body: "Ed25519 + JSON-LD CIRPASS-2 + QR por producto.",
-    color: "var(--eu-blue)",
-    bg: "rgba(0, 51, 153, 0.08)",
+    color: "#99bbff",
+    bg: "rgba(153, 187, 255, 0.1)",
   },
 ];
 
@@ -138,13 +138,20 @@ export default async function Home() {
       <main className="fade-in">
         {/* ── HERO ── */}
         <section className="v-hero">
-          <div className="v-hero-glow" aria-hidden />
-          <div className="container container-narrow" style={{ position: "relative", zIndex: 1 }}>
+          {/* Decoración de fondo */}
+          <div className="v-hero-bg" aria-hidden>
+            <div className="v-hero-grid" />
+            <div className="v-hero-orb v-hero-orb-1" />
+            <div className="v-hero-orb v-hero-orb-2" />
+            <div className="v-hero-orb v-hero-orb-3" />
+          </div>
+
+          <div className="v-hero-content container container-narrow">
             <Reveal>
-              <div className="hero-tag">
-                <span className="dot" />
+              <div className="hero-tag hero-tag-dark">
+                <span className="dot dot-glow" />
                 <span>ESPR · Reg. UE 2024/1781</span>
-                <span aria-hidden style={{ opacity: 0.4 }}>
+                <span aria-hidden style={{ opacity: 0.3 }}>
                   ·
                 </span>
                 <span>Open Source · Apache 2.0</span>
@@ -168,14 +175,14 @@ export default async function Home() {
 
             <Reveal delay={340}>
               <div className="v-hero-actions">
-                <Link href="/wizard" className="btn btn-primary btn-lg">
+                <Link href="/wizard" className="btn btn-primary btn-lg btn-glow">
                   Crear mi primer DPP →
                 </Link>
                 <a
                   href={REPO_URL}
                   target="_blank"
                   rel="noreferrer"
-                  className="btn btn-ghost btn-lg"
+                  className="btn btn-ghost-light btn-lg"
                 >
                   Ver en GitHub
                 </a>
@@ -198,17 +205,22 @@ export default async function Home() {
               </div>
             </Reveal>
           </div>
+
+          {/* Flecha scroll indicator */}
+          <div className="v-hero-scroll" aria-hidden>
+            <div className="v-hero-scroll-line" />
+          </div>
         </section>
 
         {/* ── CÓMO FUNCIONA (con línea conectora) ── */}
-        <section className="v-section v-section-dark">
+        <section className="v-section v-section-light">
           <div className="container">
             <div className="v-section-head">
               <Reveal>
-                <span className="eyebrow eyebrow-light">Cómo funciona</span>
+                <span className="eyebrow">Cómo funciona</span>
               </Reveal>
               <Reveal delay={80}>
-                <h2 className="typ-1 typ-light">
+                <h2 className="typ-1">
                   De la descripción al DPP firmado
                   <br />
                   en <em>tres pasos</em>
@@ -237,14 +249,14 @@ export default async function Home() {
         </section>
 
         {/* ── CONFIANZA ── */}
-        <section className="v-section v-section-alt">
+        <section className="v-section v-section-dark">
           <div className="container">
             <div className="v-section-head">
               <Reveal>
-                <span className="eyebrow">Diseñado para cumplir</span>
+                <span className="eyebrow eyebrow-light">Diseñado para cumplir</span>
               </Reveal>
               <Reveal delay={80}>
-                <h2 className="typ-1">Tres garantías para tu equipo de compliance</h2>
+                <h2 className="typ-1 typ-light">Tres garantías para tu equipo de compliance</h2>
               </Reveal>
             </div>
 
@@ -275,10 +287,10 @@ export default async function Home() {
           <div className="container">
             <div className="v-section-head">
               <Reveal>
-                <span className="eyebrow eyebrow-light">Roadmap normativo</span>
+                <span className="eyebrow">Roadmap normativo</span>
               </Reveal>
               <Reveal delay={80}>
-                <h2 className="typ-1 typ-light">
+                <h2 className="typ-1">
                   La ventana para prepararse es <em>ahora</em>
                 </h2>
               </Reveal>
@@ -340,7 +352,7 @@ export default async function Home() {
             </Reveal>
 
             <Reveal delay={500}>
-              <p className="v-roadmap-note v-roadmap-note-light">
+              <p className="v-roadmap-note">
                 Las marcas que piloten ahora evitarán la avalancha de 2027. Los retailers ya
                 preguntan a proveedores por su preparación DPP.
               </p>
