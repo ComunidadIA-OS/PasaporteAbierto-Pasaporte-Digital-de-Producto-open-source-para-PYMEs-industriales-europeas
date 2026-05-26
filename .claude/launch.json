@@ -3,8 +3,9 @@
   "configurations": [
     {
       "name": "frontend",
-      "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "cd frontend && npx next dev"],
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["next", "dev"],
+      "cwd": "frontend",
       "port": 3000
     }
   ]

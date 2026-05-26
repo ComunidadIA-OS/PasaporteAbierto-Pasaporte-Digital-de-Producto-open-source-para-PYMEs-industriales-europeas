@@ -57,7 +57,6 @@ from app.api.v1.schemas import (
 )
 from app.audit import append_entry as append_audit
 from app.classifier import classify as run_classifier
-from app.config import settings
 from app.db.session import get_session
 from app.dpp import (
     build_gs1_uri,
@@ -78,6 +77,10 @@ from app.plugins.conditions import evaluate_when
 from app.plugins.loader import Plugin, PluginField, load_all_plugins
 from app.time_utils import utcnow
 from app.verifier import verify_session as run_verifier
+
+# Resolver del directorio de plugins. Centralizado en config.py para soportar
+# tanto el layout del host como el del contenedor.
+from app.config import settings  # noqa: E402
 
 _PLUGINS_DIR: Path = settings.plugins_dir
 

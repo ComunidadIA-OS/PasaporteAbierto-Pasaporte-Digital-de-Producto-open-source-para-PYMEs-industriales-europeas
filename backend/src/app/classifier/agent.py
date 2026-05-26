@@ -29,13 +29,15 @@ from pathlib import Path
 
 from langfuse.decorators import langfuse_context
 
-from app.config import settings
 from app.llm import LLMBackendError, complete
 from app.observability.decorators import trace_classifier
 from app.plugins.loader import Plugin, load_all_plugins
 from app.rag import search_corpus
 from app.rag.schema import Result
 
+from app.config import settings
+
+# Resuelto en config.py para soportar host (parents=5) y contenedor (/app/plugins).
 PLUGINS_DIR: Path = settings.plugins_dir
 TOP_K: int = 5
 CONFIDENCE_THRESHOLD: float = 0.7
