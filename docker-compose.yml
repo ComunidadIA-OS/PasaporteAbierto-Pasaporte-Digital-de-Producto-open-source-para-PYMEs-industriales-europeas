@@ -6,13 +6,23 @@ services:
     env_file: .env
     volumes:
       - ./plugins:/app/plugins:ro
+      # Monta scripts/ para que el endpoint /api/v1/demo/* (gated por
+      # DEMO_MODE) pueda leer scripts/e2e_demo/config.yaml — misma fuente
+      # de verdad que el runner E2E CLI.
+      - ./scripts:/app/scripts:ro
       - backend_data:/app/data
     depends_on:
       langfuse:
         condition: service_started
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        # Next inlinea NEXT_PUBLIC_* en build time. Cambiar DEMO_MODE en
+        # .env exige `docker compose up --build frontend` para que se
+        # propague al bundle del cliente.
+        NEXT_PUBLIC_DEMO_MODE: ${DEMO_MODE:-false}
     ports:
       - "3000:3000"
     environment:

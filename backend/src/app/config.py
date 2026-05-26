@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
     plugins_dir: Path = _discover_plugins_dir()
+    # Modo demo: activa endpoints /api/v1/demo/* (sample data + seed-documents).
+    # El frontend espeja este flag en NEXT_PUBLIC_DEMO_MODE para mostrar/ocultar
+    # los botones "Cargar ejemplo" sin recompilar.
+    demo_mode: bool = False
 
 
 settings = Settings()

@@ -23,6 +23,7 @@ import {
   type PluginFieldDefinition,
   type SessionState,
 } from "@/app/lib/api";
+import { isDemoMode } from "@/app/lib/demo-mode";
 
 type FormValues = Record<string, unknown>;
 
@@ -37,6 +38,8 @@ export function Step3Bom({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [serverErrors, setServerErrors] = useState<BomValidationError[]>([]);
   const [pending, startTransition] = useTransition();
+  const [loadingDemo, setLoadingDemo] = useState(false);
+  const [demoMsg, setDemoMsg] = useState<string | null>(null);
 
   const { register, handleSubmit, reset } = useForm<FormValues>({
     defaultValues: session.bom as FormValues,
@@ -82,6 +85,38 @@ export function Step3Bom({
     return m;
   }, [serverErrors]);
 
+  async function loadDemoBom() {
+    if (!plugin) return;
+    setLoadingDemo(true);
+    setDemoMsg(null);
+    try {
+      const sample = await api.getDemoSample("batteries");
+      // El backend devuelve repeaters como arrays; el form los muestra como
+      // JSON en un textarea, así que los stringificamos antes de `reset`.
+      const values: FormValues = {};
+      for (const f of plugin.fields) {
+        const v = sample.bom_fields[f.id];
+        if (v === undefined) {
+          values[f.id] = defaultFor(f);
+        } else if (f.type === "repeater") {
+          values[f.id] = JSON.stringify(v);
+        } else {
+          values[f.id] = v;
+        }
+      }
+      reset(values);
+      setDemoMsg(`✓ ${Object.keys(sample.bom_fields).length} campos precargados`);
+    } catch (err) {
+      setDemoMsg(
+        err instanceof ApiError
+          ? `Error ${err.status} cargando ejemplo`
+          : "No se pudo cargar el ejemplo",
+      );
+    } finally {
+      setLoadingDemo(false);
+    }
+  }
+
   function onSubmit(values: FormValues) {
     if (!plugin) return;
     const coerced = coerceForBackend(values, plugin.fields);
@@ -124,18 +159,44 @@ export function Step3Bom({
       onSubmit={handleSubmit(onSubmit)}
       style={{ display: "flex", flexDirection: "column", gap: 24 }}
     >
-      <header>
-        <h2 className="typ-3" style={{ margin: 0 }}>
-          BOM · {plugin.name}{" "}
-          <span className="muted" style={{ fontWeight: 400 }}>
-            ({plugin.regulation})
-          </span>
-        </h2>
-        <p className="muted" style={{ margin: "6px 0 0", fontSize: 12 }}>
-          {plugin.fields.length} campos · marcados con{" "}
-          <span style={{ color: "var(--danger)" }}>*</span> son obligatorios. Los datos se guardan
-          con <code className="mono">provenance=self_declared</code>.
-        </p>
+      <header
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 16,
+        }}
+      >
+        <div>
+          <h2 className="typ-3" style={{ margin: 0 }}>
+            BOM · {plugin.name}{" "}
+            <span className="muted" style={{ fontWeight: 400 }}>
+              ({plugin.regulation})
+            </span>
+          </h2>
+          <p className="muted" style={{ margin: "6px 0 0", fontSize: 12 }}>
+            {plugin.fields.length} campos · marcados con{" "}
+            <span style={{ color: "var(--danger)" }}>*</span> son obligatorios. Los datos se guardan
+            con <code className="mono">provenance=self_declared</code>.
+          </p>
+          {demoMsg && (
+            <p className="mono" style={{ margin: "8px 0 0", fontSize: 11, color: "var(--accent)" }}>
+              {demoMsg}
+            </p>
+          )}
+        </div>
+        {isDemoMode && (
+          <button
+            type="button"
+            onClick={loadDemoBom}
+            disabled={loadingDemo || pending}
+            className="btn btn-secondary"
+            style={{ fontSize: 12, whiteSpace: "nowrap" }}
+            title="Rellena los 47 campos con datos de ejemplo del config demo"
+          >
+            {loadingDemo ? "Cargando…" : "✨ Cargar ejemplo"}
+          </button>
+        )}
       </header>
 
       <div

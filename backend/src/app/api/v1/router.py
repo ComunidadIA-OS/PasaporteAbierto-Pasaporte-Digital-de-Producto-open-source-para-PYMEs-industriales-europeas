@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1 import audit, chat, health, plugins, wizard
+from app.api.v1 import audit, chat, demo, health, plugins, wizard
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(health.router, tags=["health"])
@@ -12,3 +12,5 @@ api_router.include_router(chat.router)
 api_router.include_router(chat.history_router)
 api_router.include_router(plugins.router)
 api_router.include_router(audit.router)
+# Endpoints de demo precargada (gated por settings.demo_mode → 404 si false).
+api_router.include_router(demo.router)
