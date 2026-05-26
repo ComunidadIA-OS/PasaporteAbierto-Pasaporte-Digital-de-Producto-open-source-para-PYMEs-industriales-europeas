@@ -14,7 +14,11 @@ app = FastAPI(title="PasaporteAbierto", version="0.1.0")
 # fallan en el preflight OPTIONS antes de llegar al handler.
 # CORS_ALLOW_ORIGINS admite lista separada por comas; default cubre dev local.
 _default_origins = "http://localhost:3000,http://127.0.0.1:3000"
-_origins = [o.strip() for o in os.environ.get("CORS_ALLOW_ORIGINS", _default_origins).split(",") if o.strip()]
+_origins = [
+    o.strip()
+    for o in os.environ.get("CORS_ALLOW_ORIGINS", _default_origins).split(",")
+    if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
