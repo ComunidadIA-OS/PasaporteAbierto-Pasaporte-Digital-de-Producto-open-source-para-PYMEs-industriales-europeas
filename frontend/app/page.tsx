@@ -21,19 +21,16 @@ async function getHealth() {
 const HOW_STEPS = [
   {
     n: "01",
-    icon: "📋",
     title: "Describe tu producto",
     body: "Introduce los datos de tu producto. La IA clasifica el sector ESPR y carga los campos normativos.",
   },
   {
     n: "02",
-    icon: "📄",
     title: "Sube tus documentos",
     body: "Datasheets, LCA, declaración CE. La IA extrae automáticamente los campos del DPP.",
   },
   {
     n: "03",
-    icon: "✅",
     title: "Publica con firma",
     body: "Verifica la completitud, firma con Ed25519 y publica el DPP con QR resoluble.",
   },
@@ -48,14 +45,14 @@ const TRUST_POINTS = [
     bg: "rgba(110, 168, 254, 0.12)",
   },
   {
-    icon: "⛨",
+    icon: "#",
     title: "Auditoría inmutable",
     body: "Hash chain verificable. Preparado para inspecciones.",
     color: "#4ade80",
     bg: "rgba(74, 222, 128, 0.12)",
   },
   {
-    icon: "⚿",
+    icon: "K",
     title: "Firma criptográfica",
     body: "Ed25519 + JSON-LD CIRPASS-2 + QR por producto.",
     color: "#99bbff",
@@ -71,7 +68,6 @@ const ROADMAP = [
     glow: "rgba(0, 177, 79, 0.4)",
     sectors: ["Baterías"],
     label: "Ya obligatorio",
-    icon: "⚡",
   },
   {
     year: "2027",
@@ -80,7 +76,6 @@ const ROADMAP = [
     glow: "rgba(0, 51, 153, 0.35)",
     sectors: ["Textil", "Electrónica"],
     label: "Acto delegado finalizado",
-    icon: "🧵",
   },
   {
     year: "2028",
@@ -89,7 +84,6 @@ const ROADMAP = [
     glow: "rgba(234, 88, 12, 0.3)",
     sectors: ["Mobiliario", "Construcción", "Neumáticos"],
     label: "En preparación",
-    icon: "🏗️",
   },
 ];
 
@@ -234,7 +228,7 @@ export default async function Home() {
                 <Reveal key={s.n} delay={i * 180}>
                   <div className="v-step">
                     <div className="v-step-dot" aria-hidden>
-                      <span>{s.icon}</span>
+                      <span className="v-step-dot-num">{s.n}</span>
                     </div>
                     <div className="v-step-content">
                       <div className="v-step-num">Paso {s.n}</div>
@@ -319,7 +313,7 @@ export default async function Home() {
                       {/* Nodo circular animado */}
                       <div className="v-rm-circle">
                         <div className="v-rm-ring" aria-hidden />
-                        <span className="v-rm-icon">{phase.icon}</span>
+                        <div className="v-rm-dot-inner" aria-hidden />
                         {phase.status === "live" && <div className="v-rm-glow-ring" aria-hidden />}
                       </div>
 

@@ -1070,6 +1070,13 @@ body {
   transform: scale(1.08);
   box-shadow: 0 4px 20px rgba(0,51,153,0.12);
 }
+.v-step-dot-num {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.02em;
+}
 .v-step-content { flex: 1; }
 .v-step-num {
   font-family: var(--font-mono);
@@ -1126,7 +1133,9 @@ body {
   display: grid;
   place-items: center;
   border-radius: 12px;
-  font-size: 22px;
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
 }
 .v-trust-pill strong {
   display: block;
@@ -1248,10 +1257,12 @@ body {
   border: 1px solid var(--rm-color);
   opacity: 0.25;
 }
-.v-rm-icon {
-  font-size: 28px;
-  line-height: 1;
-  filter: drop-shadow(0 0 8px var(--rm-glow));
+.v-rm-dot-inner {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--rm-color);
+  box-shadow: 0 0 12px var(--rm-glow);
 }
 
 /* Anillo animado de glow para "live" */
