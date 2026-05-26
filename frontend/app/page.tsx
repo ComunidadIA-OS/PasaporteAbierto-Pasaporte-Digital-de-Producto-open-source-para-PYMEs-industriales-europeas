@@ -24,9 +24,9 @@ async function getHealth() {
 
 const HERO_STATS = [
   { n: "7", l: "pasos guiados" },
-  { n: "≤15min", l: "por pasaporte" },
-  { n: "2", l: "sectores activos" },
-  { n: "100%", l: "on-premise" },
+  { n: "≤15'", l: "por pasaporte" },
+  { n: "6", l: "sectores cubiertos" },
+  { n: "0€", l: "licencia open source" },
 ];
 
 const REGULATION = [
@@ -125,6 +125,69 @@ const PLUGINS = [
   },
 ];
 
+const ROADMAP = [
+  {
+    year: "2026",
+    active: true,
+    items: [
+      {
+        sector: "Baterías",
+        regulation: "Reg. UE 2023/1542",
+        status: "enforced",
+        statusLabel: "Ya obligatorio",
+        detail: "Química, capacidad, contenido reciclado, huella de carbono",
+      },
+    ],
+  },
+  {
+    year: "2027",
+    active: false,
+    items: [
+      {
+        sector: "Textil y confección",
+        regulation: "Acto delegado ESPR",
+        status: "finalized",
+        statusLabel: "Acto delegado finalizado",
+        detail: "Composición fibras, origen, huella carbono, reciclabilidad",
+      },
+      {
+        sector: "Electrónica e ICT",
+        regulation: "Acto delegado ESPR",
+        status: "finalized",
+        statusLabel: "Acto delegado finalizado",
+        detail: "Composición materiales, índice reparabilidad, repuestos",
+      },
+    ],
+  },
+  {
+    year: "2028",
+    active: false,
+    items: [
+      {
+        sector: "Mobiliario",
+        regulation: "Acto delegado ESPR",
+        status: "progress",
+        statusLabel: "Acto delegado en curso",
+        detail: "Composición materiales, durabilidad, desensamblaje",
+      },
+      {
+        sector: "Productos construcción",
+        regulation: "Acto delegado ESPR",
+        status: "progress",
+        statusLabel: "Acto delegado en curso",
+        detail: "Contenido material, rendimiento ambiental",
+      },
+      {
+        sector: "Neumáticos",
+        regulation: "Acto delegado ESPR",
+        status: "progress",
+        statusLabel: "Acto delegado en curso",
+        detail: "Composición, resistencia rodadura, fin de vida",
+      },
+    ],
+  },
+];
+
 export default async function Home() {
   const health = await getHealth();
 
@@ -185,17 +248,17 @@ export default async function Home() {
 
                 <Reveal delay={120}>
                   <h1 className="typ-display">
-                    Compliance <em>auditable</em>
+                    Tu DPP <em>conforme</em>,
                     <br />
-                    end-to-end.
+                    en 15 minutos.
                   </h1>
                 </Reveal>
 
                 <Reveal delay={260}>
                   <p className="hero-lede">
-                    Aplicación auto-hospedable que ayuda a fabricantes PYME a generar el DPP exigido
-                    por el Reglamento UE 2024/1781 en menos de 15 minutos. Trazabilidad inmutable,
-                    citas normativas en cada decisión, código abierto.
+                    Baterías ya obligatorio. Textil en 2027. Electrónica después. PasaporteAbierto
+                    genera el Pasaporte Digital de Producto que exige el Reglamento ESPR —
+                    auto-hospedable, con firma criptográfica, y sin depender de ningún SaaS.
                   </p>
                 </Reveal>
 
@@ -394,16 +457,69 @@ export default async function Home() {
 
         <section className="section">
           <div className="container">
+            <div className="section-head">
+              <div className="lead">
+                <Reveal>
+                  <span className="eyebrow">Roadmap normativo</span>
+                </Reveal>
+                <Reveal delay={80}>
+                  <h2 className="typ-1">
+                    La ventana para prepararse
+                    <br />
+                    es <em>ahora</em>.
+                  </h2>
+                </Reveal>
+              </div>
+              <Reveal delay={200}>
+                <p className="lede-aside">
+                  Las marcas que piloten ahora evitarán la avalancha de 2027. Los retailers ya
+                  preguntan a proveedores por su preparación DPP.
+                </p>
+              </Reveal>
+            </div>
+
+            <Reveal>
+              <div className="roadmap">
+                {ROADMAP.map((phase) => (
+                  <div
+                    key={phase.year}
+                    className={`roadmap-phase${phase.active ? " is-active" : ""}`}
+                  >
+                    <div className="roadmap-year">
+                      <span className="year-n">{phase.year}</span>
+                      {phase.active && <span className="badge badge-success">activo</span>}
+                    </div>
+                    <div className="roadmap-items">
+                      {phase.items.map((it) => (
+                        <div key={it.sector} className="roadmap-card">
+                          <div className="rc-head">
+                            <span className="rc-sector">{it.sector}</span>
+                            <span className={`rc-status is-${it.status}`}>{it.statusLabel}</span>
+                          </div>
+                          <p className="rc-reg">{it.regulation}</p>
+                          <p className="rc-detail">{it.detail}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
+        <section className="section">
+          <div className="container">
             <Reveal>
               <div className="cta-card">
                 <span className="eyebrow">Empieza ahora</span>
-                <h2 className="typ-1">Tu primer DPP en menos de 15 minutos.</h2>
+                <h2 className="typ-1">Baterías ya es obligatorio. ¿Tu producto es el siguiente?</h2>
                 <p>
-                  Sin login. Sin dependencias SaaS. Levanta toda la solución con{" "}
+                  Empieza hoy sin coste. Levanta toda la solución con{" "}
                   <code className="mono" style={{ color: "var(--accent)" }}>
                     docker compose up
                   </code>{" "}
-                  y empieza a generar pasaportes.
+                  y genera tu primer pasaporte antes de que lo exija la ley.
                 </p>
                 <div className="hero-cta">
                   <Link href="/wizard" className="btn btn-primary btn-lg">
