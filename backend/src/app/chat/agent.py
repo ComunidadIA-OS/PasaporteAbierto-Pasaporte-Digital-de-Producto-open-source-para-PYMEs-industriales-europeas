@@ -21,6 +21,7 @@ from langfuse.decorators import langfuse_context
 
 from app.llm import LLMBackendError, complete
 from app.observability.decorators import trace_chat
+from app.plugins.loader import Plugin, PluginField, RequiredDocument
 from app.rag import search_corpus
 from app.rag.schema import Filters, Result
 
@@ -32,19 +33,58 @@ SYSTEM_PROMPT = """\
 Eres un asistente experto en regulación europea de productos sostenibles (ESPR, \
 Reglamento UE 2024/1781) y reglamentos sectoriales (baterías UE 2023/1542, etc.).
 
-Tu tarea es responder preguntas del fabricante sobre requisitos normativos para su \
-Pasaporte Digital de Producto (DPP).
+Acompañas al fabricante a lo largo del wizard de generación del Pasaporte Digital de \
+Producto (DPP). Puedes responder CINCO tipos de mensajes:
+
+  A. Normativas — basadas en los fragmentos del corpus normativo proporcionados.
+  B. Sobre un CAMPO concreto del plugin sectorial cargado — basadas en los \
+metadatos del plugin (cada campo tiene su propia cita validada contra el \
+reglamento sectorial).
+  C. Sobre un DOCUMENTO requerido por el plugin (datasheet, certificate, lca, \
+sds, ce_declaration) — basadas en `required_documents` del plugin.
+  D. De contexto del wizard — en qué paso está el usuario, qué clasificación \
+recibió, qué plugin está activo. Se responden con el contexto provisto.
+  E. De cortesía conversacional — saludos ("hola"), agradecimientos ("gracias", \
+"entiendo", "perfecto"), despedidas, confirmaciones cortas. Responde con UNA frase \
+amable y, si procede, invita a seguir preguntando sobre el DPP. Sin cita.
+
+Cuando el usuario use referencias deícticas ("ese valor", "lo anterior", "ese \
+campo", "ese documento"), resuélvelas usando el histórico de la conversación.
 
 REGLAS ESTRICTAS:
 1. Responde en el mismo idioma que la pregunta del usuario.
-2. Basa tu respuesta EXCLUSIVAMENTE en los fragmentos del corpus proporcionados.
-3. Al final de tu respuesta, incluye SIEMPRE la cita normativa entre corchetes: \
-[Reglamento X, Art. Y].
-4. Si los fragmentos no contienen información relevante para la pregunta, responde \
-EXACTAMENTE: "No tengo información suficiente para responder con base normativa."
-5. No inventes información ni cites artículos que no aparezcan en los fragmentos.
-6. Sé conciso: máximo 3-4 frases.
-7. Responde en JSON estricto: {"answer": "<respuesta con cita>", "fragment_index": <int>}"""
+2. Para preguntas normativas (A), basa tu respuesta EXCLUSIVAMENTE en los fragmentos.
+3. Para preguntas sobre un campo del plugin (B), basa tu respuesta en los metadatos
+   del plugin. Indica el id del campo y para qué sirve, usando su cita. Si te
+   preguntan por «valores aceptados», «rango», «formato» o «reglas de validación»
+   del campo: úsa `type`, `enum_values` y `validation` del campo. Si el campo
+   solo tiene `type` (sin enum ni validation), responde explícitamente que es
+   un valor del tipo indicado sin restricciones adicionales en el plugin. Si la
+   pregunta involucra a varios campos, consulta `cross_validations` del plugin.
+4. Para preguntas sobre un documento requerido (C), basa tu respuesta en
+   `required_documents` del plugin. Indica el tipo de documento exactamente como
+   aparece en el plugin (datasheet, certificate, lca, sds, ce_declaration). Solo
+   uses esta ruta si el documento del plugin tiene cita; si no, usa la ruta A.
+5. Para preguntas de contexto del wizard (D), responde con el paso/sector/plugin
+   proporcionados. No necesitas cita normativa (no es respuesta regulatoria).
+6. Para cortesía conversacional (E), una frase breve sin cita. No la uses para
+   preguntas reales; solo para mensajes que claramente no piden información.
+7. Para A, B y C, incluye SIEMPRE al final de la respuesta la cita normativa
+   entre corchetes: [Reglamento X, Art. Y].
+8. Si no tienes información suficiente para responder UNA PREGUNTA REAL (A/B/C),
+   responde EXACTAMENTE: "No tengo información suficiente para responder con
+   base normativa." NUNCA uses esa negativa para saludos o agradecimientos —
+   en ese caso usa ruta E.
+9. No inventes información, citas, artículos, ids de campo ni tipos de documento.
+10. Sé conciso: máximo 3-4 frases.
+11. Responde en JSON estricto:
+    {
+      "answer": "<respuesta>",
+      "source": "rag" | "plugin_field" | "plugin_document" | "wizard_context" | "smalltalk" | "none",
+      "fragment_index": <int o null>,         // sólo si source == "rag"
+      "field_id": "<id exacto>" | null,       // sólo si source == "plugin_field"
+      "document_type": "<tipo exacto>" | null // sólo si source == "plugin_document"
+    }"""
 
 
 @dataclass(frozen=True)
@@ -72,21 +112,34 @@ def _negative_result(fragments: list[Result]) -> ChatResult:
     )
 
 
-def _citation_matches_fragment(answer_text: str, fragment_regulation: str) -> bool:
-    """True si TODAS las citas inline del cuerpo coinciden con el reglamento del fragmento.
+def _select_fragment_by_citations(
+    answer_text: str,
+    fragments: list[Result],
+    fallback_index: int,
+) -> int | None:
+    """Alinea el `fragment_index` con la cita inline real del cuerpo.
 
-    El objetivo es detectar alucinaciones de cita: si el LLM mete "[Reglamento UE
-    2009/125, Art. 99]" pero el fragmento RAG real es "UE 2024/1781", el badge
-    estructurado dirá una cosa y el cuerpo otra — preferimos devolver la negativa
-    canónica antes que mostrar un mismatch al usuario.
+    Anti-alucinación, pero menos agresivo que descartar la respuesta entera:
 
-    Retorna True también si no hay ninguna cita inline (entonces se inyectará la real).
+    - Sin cita inline en el cuerpo → usa `fallback_index` (lo eligió el LLM).
+    - Con cita(s) inline que coincide(n) con algún fragmento del top-k → devuelve
+      el índice del primer fragmento que case. Esto cubre el caso típico de
+      "huella de carbono", donde el RAG devuelve fragmentos de varios reglamentos
+      (ESPR 2024/1781 y UE 2023/1542) y el LLM cita uno mientras eligió otro en
+      `fragment_index`; antes descartábamos la respuesta, ahora la realineamos.
+    - Con cita(s) inline pero NINGUNA coincide con ningún fragmento del top-k →
+      `None`. Eso sí es alucinación real (el LLM inventó un reglamento que no
+      está en el material recuperado) → el caller devuelve la negativa canónica.
     """
     mentions = _INLINE_CITE_RE.findall(answer_text)
     if not mentions:
-        return True
-    normalized_target = fragment_regulation.strip().lower()
-    return all(normalized_target in m.strip().lower() for m in mentions)
+        return fallback_index
+    for mention in mentions:
+        normalized = mention.strip().lower()
+        for i, frag in enumerate(fragments):
+            if frag.reglamento.strip().lower() in normalized:
+                return i
+    return None
 
 
 @trace_chat
@@ -95,21 +148,42 @@ def answer(
     session_context: dict[str, Any] | None = None,
     idioma: str = "es",
 ) -> ChatResult:
-    """Responde una pregunta del fabricante con cita normativa obligatoria.
+    """Responde una pregunta del fabricante con cita normativa obligatoria
+    cuando aplica, o información de contexto del wizard cuando no aplica.
 
-    Pipeline lineal:
-    1. RAG → fragmentos relevantes (filtrados por sector del wizard si aplica).
-    2. Si vacío → negativa canónica.
-    3. Prompt con fragmentos + contexto → LLM.
-    4. Cita extraída del fragmento real (anti-alucinación).
+    Cinco rutas posibles según el `source` que el LLM identifique:
+      - `rag`             → respuesta normativa basada en fragmentos del corpus.
+                            Cita extraída del fragmento real (anti-alucinación).
+      - `plugin_field`    → respuesta sobre un campo concreto del plugin sectorial.
+                            Cita desde el YAML del plugin (validado en arranque
+                            contra `_schema.yaml`), no del LLM.
+      - `plugin_document` → respuesta sobre un documento requerido del plugin
+                            (datasheet, lca, certificate, ...). Cita desde el
+                            YAML; solo aplica si el documento tiene `citation`.
+      - `wizard_context`  → respuesta sobre el estado del wizard (paso, sector,
+                            plugin activo). Sin cita: no es regulación.
+      - `smalltalk`       → cortesía conversacional (saludos, gracias,
+                            despedidas). Sin cita. Solo para mensajes que
+                            claramente no piden información.
+      - `none`            → negativa canónica.
+
+    El chat sigue sin escribir en el estado del wizard (CLAUDE.md §invariantes).
     """
-    # 1. Buscar fragmentos relevantes. El filtro `sector` incluye fragmentos del
-    # sector + transversales (sector=None), conforme a app.rag.schema.Filters.
     sector: str | None = None
+    plugin_def: Plugin | None = None
+    history: list[dict[str, Any]] = []
     if session_context:
         raw_sector = session_context.get("sector")
         if isinstance(raw_sector, str) and raw_sector and raw_sector != "unknown":
             sector = raw_sector
+        candidate = session_context.get("plugin_def")
+        if isinstance(candidate, Plugin):
+            plugin_def = candidate
+        raw_history = session_context.get("history")
+        if isinstance(raw_history, list):
+            history = [
+                m for m in raw_history if isinstance(m, dict) and m.get("role") and m.get("content")
+            ]
 
     try:
         fragments = search_corpus(
@@ -120,100 +194,262 @@ def answer(
     except Exception:
         fragments = []
 
-    # 2. Sin fragmentos → negativa canónica
-    if not fragments:
+    # Sin material en absoluto (ni RAG, ni plugin, ni contexto) → negativa.
+    # Si hay plugin o contexto, seguimos: el LLM puede responder ruta B o C.
+    if not fragments and plugin_def is None and not session_context:
         _publish_metadata(None, message)
         return _negative_result([])
 
-    # 3. Construir prompt y llamar al LLM
-    prompt = _build_prompt(message, fragments, session_context)
+    prompt = _build_prompt(message, fragments, plugin_def, session_context, history)
 
     try:
         response = complete(prompt, system=SYSTEM_PROMPT, timeout=20.0, max_tokens=1000)
     except LLMBackendError:
-        # LLM caído: devolver fragmento top-1 como respuesta mínima
-        frag = fragments[0]
-        fallback_answer = (
-            f"{frag.texto[:200].strip()}… " f"[{frag.reglamento}, Art. {frag.articulo}]"
-        )
-        return ChatResult(
-            answer=fallback_answer,
-            citation_regulation=f"Reglamento {frag.reglamento}",
-            citation_article=_render_article(frag.articulo, frag.apartado),
-            citation_url=str(frag.fuente_url),
-            fragments=fragments,
-        )
+        # LLM caído: si hay fragmentos, devolver top-1; si no, negativa.
+        if fragments:
+            frag = fragments[0]
+            fallback_answer = (
+                f"{frag.texto[:200].strip()}… " f"[{frag.reglamento}, Art. {frag.articulo}]"
+            )
+            return ChatResult(
+                answer=fallback_answer,
+                citation_regulation=f"Reglamento {frag.reglamento}",
+                citation_article=_render_article(frag.articulo, frag.apartado),
+                citation_url=str(frag.fuente_url),
+                fragments=fragments,
+            )
+        _publish_metadata(None, message)
+        return _negative_result(fragments)
 
-    # 4. Parsear respuesta y extraer cita del fragmento real
     parsed = _parse_llm_json(response.content)
     if parsed is None:
-        # No parseable: la invariante #3 obliga a cuerpo + cita coherentes; preferimos
-        # devolver la negativa canónica antes que adjuntar un cuerpo crudo con una cita
-        # estructurada que el usuario no puede verificar.
         _publish_metadata(None, message)
         return _negative_result(fragments)
 
     answer_text = str(parsed.get("answer", "")).strip()
-    fragment_index = int(parsed.get("fragment_index", 0) or 0)
+    source = str(parsed.get("source", "")).lower()
 
-    # Validar que no sea la negativa
-    if NEGATIVE_RESPONSE.lower() in answer_text.lower() or not answer_text:
+    if not answer_text or NEGATIVE_RESPONSE.lower() in answer_text.lower():
         _publish_metadata(None, message)
         return _negative_result(fragments)
 
-    # Anti-alucinación: fragment_index en rango
-    if not (0 <= fragment_index < len(fragments)):
-        fragment_index = 0
+    # Ruta B: campo del plugin. Cita siempre desde el YAML del plugin.
+    if source == "plugin_field" and plugin_def is not None:
+        field = _find_plugin_field(plugin_def, parsed.get("field_id"))
+        if field is None:
+            _publish_metadata(None, message)
+            return _negative_result(fragments)
+        citation_reg = f"Reglamento {field.citation.regulation}"
+        citation_art = field.citation.article
+        if field.citation.regulation not in answer_text:
+            answer_text = f"{answer_text} [{citation_reg}, {citation_art}]"
+        result = ChatResult(
+            answer=answer_text,
+            citation_regulation=citation_reg,
+            citation_article=citation_art,
+            citation_url=None,
+            fragments=fragments,
+        )
+        _publish_metadata(result, message)
+        return result
 
-    frag = fragments[fragment_index]
-    citation_reg = f"Reglamento {frag.reglamento}"
-    citation_art = _render_article(frag.articulo, frag.apartado)
+    # Ruta C: documento requerido por el plugin. Cita desde el YAML del plugin.
+    if source == "plugin_document" and plugin_def is not None:
+        doc = _find_plugin_document(plugin_def, parsed.get("document_type"))
+        if doc is None or doc.citation is None:
+            _publish_metadata(None, message)
+            return _negative_result(fragments)
+        citation_reg = f"Reglamento {doc.citation.regulation}"
+        citation_art = doc.citation.article
+        if doc.citation.regulation not in answer_text:
+            answer_text = f"{answer_text} [{citation_reg}, {citation_art}]"
+        result = ChatResult(
+            answer=answer_text,
+            citation_regulation=citation_reg,
+            citation_article=citation_art,
+            citation_url=None,
+            fragments=fragments,
+        )
+        _publish_metadata(result, message)
+        return result
 
-    # Anti-alucinación estricta: si el LLM citó algún reglamento en el cuerpo que NO
-    # coincide con el del fragmento elegido, descartamos la respuesta y devolvemos la
-    # negativa canónica. Esto evita que body y badge muestren reglamentos distintos.
-    if not _citation_matches_fragment(answer_text, frag.reglamento):
-        _publish_metadata(None, message)
-        return _negative_result(fragments)
+    # Ruta E: cortesía conversacional (saludos, gracias, despedidas). Sin cita.
+    if source == "smalltalk":
+        result = ChatResult(
+            answer=answer_text,
+            citation_regulation=None,
+            citation_article=None,
+            citation_url=None,
+            fragments=[],
+        )
+        _publish_metadata(result, message)
+        return result
 
-    # Asegurar que la cita real aparece al final del cuerpo.
-    if f"[{frag.reglamento}" not in answer_text:
-        answer_text += f" [{citation_reg}, {citation_art}]"
+    # Ruta D: contexto del wizard. Sin cita normativa (no es regulación).
+    if source == "wizard_context":
+        result = ChatResult(
+            answer=answer_text,
+            citation_regulation=None,
+            citation_article=None,
+            citation_url=None,
+            fragments=[],
+        )
+        _publish_metadata(result, message)
+        return result
 
-    result = ChatResult(
-        answer=answer_text,
-        citation_regulation=citation_reg,
-        citation_article=citation_art,
-        citation_url=str(frag.fuente_url),
-        fragments=fragments,
-    )
-    _publish_metadata(result, message)
-    return result
+    # Ruta A: respuesta normativa basada en RAG.
+    if source == "rag" and fragments:
+        fragment_index = int(parsed.get("fragment_index", 0) or 0)
+        if not (0 <= fragment_index < len(fragments)):
+            fragment_index = 0
+        chosen = _select_fragment_by_citations(answer_text, fragments, fragment_index)
+        if chosen is None:
+            _publish_metadata(None, message)
+            return _negative_result(fragments)
+        fragment_index = chosen
+        frag = fragments[fragment_index]
+        citation_reg = f"Reglamento {frag.reglamento}"
+        citation_art = _render_article(frag.articulo, frag.apartado)
+        if f"[{frag.reglamento}" not in answer_text:
+            answer_text = f"{answer_text} [{citation_reg}, {citation_art}]"
+        result = ChatResult(
+            answer=answer_text,
+            citation_regulation=citation_reg,
+            citation_article=citation_art,
+            citation_url=str(frag.fuente_url),
+            fragments=fragments,
+        )
+        _publish_metadata(result, message)
+        return result
+
+    # source == "none", desconocido, o combinación inválida (p. ej. rag sin fragmentos).
+    _publish_metadata(None, message)
+    return _negative_result(fragments)
 
 
 def _build_prompt(
     message: str,
     fragments: list[Result],
+    plugin: Plugin | None,
     context: dict[str, Any] | None,
+    history: list[dict[str, Any]] | None = None,
 ) -> str:
-    """Construye el prompt del usuario con fragmentos RAG y contexto del wizard."""
-    fragment_lines = "\n".join(
-        f"[{i}] {frag.cita} — {frag.texto[:400].strip()}" for i, frag in enumerate(fragments)
-    )
+    """Construye el prompt con cuatro bloques de contexto: histórico de la
+    conversación, fragmentos RAG, plugin sectorial activo (campos + sus citas
+    YAML) y estado del wizard.
 
-    context_section = ""
+    El LLM elige qué bloque usar mediante el campo `source` del JSON. El caller
+    inyecta la cita de la fuente correspondiente (RAG real o YAML del plugin),
+    nunca confía en la cita generada por el LLM.
+    """
+    sections: list[str] = []
+
+    if history:
+        # Truncamos cada mensaje a 300 caracteres para que 5 turnos sigan siendo
+        # ~3 KB. El LLM solo necesita la referencia, no el cuerpo completo.
+        history_lines = "\n".join(
+            f"{m.get('role', '?')}: {str(m.get('content', ''))[:300]}" for m in history
+        )
+        sections.append(
+            "Histórico reciente de la conversación (más antiguo primero, "
+            "úsalo para resolver referencias deícticas tipo «ese valor», «lo "
+            "anterior», pero NO inventes información que no esté ahí):\n"
+            f"{history_lines}"
+        )
+
+    if fragments:
+        fragment_lines = "\n".join(
+            f"[{i}] {frag.cita} — {frag.texto[:400].strip()}" for i, frag in enumerate(fragments)
+        )
+        sections.append(
+            f"Fragmentos del corpus normativo (top-{len(fragments)}):\n{fragment_lines}"
+        )
+    else:
+        sections.append("Fragmentos del corpus normativo: ninguno relevante para esta pregunta.")
+
+    if plugin is not None:
+        field_lines = "\n".join(_render_plugin_field(f) for f in plugin.fields)
+        doc_lines = "\n".join(
+            (
+                f"- {d.type} (mandatory={d.mandatory}"
+                f"{', when=' + d.when if d.when else ''}) → "
+                + (
+                    f"[Reglamento {d.citation.regulation}, {d.citation.article}]"
+                    if d.citation
+                    else "(sin cita YAML; si te preguntan por este doc, usa la ruta A=rag)"
+                )
+            )
+            for d in plugin.required_documents
+        )
+        xval_lines = (
+            "\n".join(
+                f"- {cv.id}: {cv.rule}" + (f"  // {cv.message}" if cv.message else "")
+                for cv in plugin.cross_validations
+            )
+            if plugin.cross_validations
+            else "(ninguna)"
+        )
+        sections.append(
+            f"Plugin sectorial cargado: «{plugin.name}» — {plugin.regulation}.\n"
+            f"{plugin.description}\n"
+            f"Campos del plugin (id, tipo, obligatoriedad, valores aceptados, cita):\n"
+            f"{field_lines}\n\n"
+            f"Documentos requeridos por el plugin (tipo, obligatoriedad, cita):\n{doc_lines}\n\n"
+            f"Reglas cruzadas del plugin (relacionan varios campos):\n{xval_lines}"
+        )
+
     if context:
         step = context.get("step", "?")
-        sector = context.get("sector", "desconocido")
-        context_section = f"\nContexto del wizard: paso {step}, sector {sector}.\n"
+        sector = context.get("sector") or "sin clasificar"
+        plugin_name = context.get("plugin") or "sin plugin"
+        sections.append(
+            f"Contexto del wizard: paso {step} de 7, "
+            f"sector clasificado «{sector}», plugin activo «{plugin_name}»."
+        )
 
-    return (
-        f"Fragmentos del corpus normativo (top-{len(fragments)}):\n"
-        f"{fragment_lines}\n"
-        f"{context_section}\n"
+    sections.append(
         f'Pregunta del fabricante:\n"""\n{message.strip()}\n"""\n\n'
-        "Responde con el JSON solicitado."
+        "Identifica primero el tipo de pregunta (normativa, sobre un campo del "
+        "plugin, o sobre el estado del wizard) y responde con el JSON solicitado, "
+        "rellenando `source`, `fragment_index` o `field_id` según corresponda."
     )
+
+    return "\n\n".join(sections)
+
+
+def _render_plugin_field(f: PluginField) -> str:
+    """Renderiza un campo del plugin para el prompt con toda la info necesaria
+    para responder preguntas tipo «qué valores acepta» o «hay alguna regla»."""
+    parts = [f"type={f.type}", f"req={f.required}", f"access={f.access_level}"]
+    if f.enum_values:
+        parts.append(f"enum={f.enum_values}")
+    if f.validation:
+        parts.append(f"validation=`{f.validation}`")
+    meta = ", ".join(parts)
+    return f"- {f.id} ({meta}) → " f"[Reglamento {f.citation.regulation}, {f.citation.article}]"
+
+
+def _find_plugin_field(plugin: Plugin, field_id: Any) -> PluginField | None:
+    """Busca un campo del plugin por id exacto. Devuelve None si no existe o si
+    el id no es una cadena (el LLM podría devolver null o un objeto)."""
+    if not isinstance(field_id, str) or not field_id:
+        return None
+    for f in plugin.fields:
+        if f.id == field_id:
+            return f
+    return None
+
+
+def _find_plugin_document(plugin: Plugin, doc_type: Any) -> RequiredDocument | None:
+    """Busca un documento requerido del plugin por tipo exacto. Devuelve None si
+    no existe, si el tipo no es cadena, o si el documento no tiene cita YAML
+    (esos casos los responde la ruta `rag`, no `plugin_document`)."""
+    if not isinstance(doc_type, str) or not doc_type:
+        return None
+    for d in plugin.required_documents:
+        if d.type == doc_type and d.citation is not None:
+            return d
+    return None
 
 
 def _parse_llm_json(content: str) -> dict | None:
