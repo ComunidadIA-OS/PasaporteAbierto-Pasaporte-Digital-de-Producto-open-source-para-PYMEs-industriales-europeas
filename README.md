@@ -39,12 +39,12 @@ Debe devolver `version`, `model` y `backend`.
 |---|---|---|
 | Backend FastAPI | http://localhost:8000 | OpenAPI en `/docs` |
 | Frontend Next.js | http://localhost:3000 | UI del wizard (vacía en F1, se construye en F3) |
-| Langfuse | http://localhost:3001 | Crea cuenta admin la primera vez |
+| Langfuse | http://localhost:3010 | Crea cuenta admin la primera vez |
 | Ollama (opcional) | http://localhost:11434 | Sólo con `--profile ollama` |
 
 ### Activar Langfuse para trazas IA
 
-1. Abre `http://localhost:3001` y crea la primera cuenta (queda como admin).
+1. Abre `http://localhost:3010` y crea la primera cuenta (queda como admin).
 2. Crea un proyecto y copia `Public Key` + `Secret Key`.
 3. Pégalas en `.env` como `LANGFUSE_PUBLIC_KEY` y `LANGFUSE_SECRET_KEY`.
 4. `docker compose restart backend`.
@@ -137,13 +137,40 @@ Exit codes:
 
 Cada sector ESPR se modela como un YAML en `plugins/`. Para añadir un sector nuevo, crea `plugins/<sector>.yaml` siguiendo `plugins/_schema.yaml`. El loader valida en arranque: un plugin que no cumpla el schema no se carga y aparece en logs con cita del error.
 
-Cobertura al cierre de F1:
+Cobertura al cierre de F6:
 
 - **`batteries.yaml`** — Reglamento UE 2023/1542. Cubre las 3 secciones estáticas del Anexo XIII (1 pública, 2 interés legítimo, 3 autoridades) con ~48 campos. La Sección 4 (datos individuales dinámicos: SoH operativo, ciclos consumidos, accidentes) queda fuera del alcance del wizard — corresponde a telemetría post-registro.
+- **`textile.yaml`** — Plugin beta para textil técnico (~22 campos). Prueba de extensibilidad: valida que añadir un sector nuevo es solo un YAML, sin tocar el core.
 
-Próximos sectores (fases futuras):
+## Diagrama de arquitectura
 
-- `textile.yaml` (F6-04) — ejemplo de contribución comunitaria, plugin sin acto delegado específico todavía.
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        docker compose up                        │
+├──────────────┬──────────────┬──────────────┬────────────────────┤
+│   Frontend   │   Backend    │   Langfuse   │  Ollama (opcional) │
+│  Next.js 16  │ FastAPI 0.115│  self-hosted │  qwen2.5:7b/14b    │
+│    :3000     │    :8000     │    :3010     │     :11434         │
+└──────┬───────┴──────┬───────┴──────┬───────┴────────┬───────────┘
+       │              │              │                │
+       │  REST/SSE    │              │                │
+       ├──────────────┤              │                │
+       │              │   @observe   │                │
+       │              ├──────────────┤                │
+       │              │                               │
+       │         ┌────┴────────────────────────┐      │
+       │         │        Backend interno       │      │
+       │         ├─────────┬─────────┬─────────┤      │
+       │         │ SQLite  │ChromaDB │ LiteLLM ├──────┤
+       │         │ (datos) │ (RAG)   │ (router) │      │
+       │         │         │ bge-m3  │         │   ┌──┴──────────┐
+       │         └─────────┴─────────┴─────────┘   │ API remota  │
+       │                                           │ Claude/GPT  │
+       │         ┌─────────────────────────────┐   └─────────────┘
+       │         │      plugins/*.yaml          │
+       │         │  batteries · textile · ...   │
+       │         └─────────────────────────────┘
+```
 
 ## Arquitectura en 60 segundos
 
@@ -164,9 +191,9 @@ Próximos sectores (fases futuras):
 | F3 | Componentes IA: Clasificador, Recolector, Verificador, Chat | ✅ cerrada |
 | F4 | Wizard de 7 pasos + persistencia + SSE | ✅ cerrada |
 | F5 | Generación y publicación del DPP + firma + audit chain | ✅ cerrada |
-| F6 | Comunidad, calidad, DPGA, plugin textil | ⏳ pendiente |
+| F6 | Comunidad, calidad, DPGA, plugin textil | ⏳ en curso |
 
-Trabajo restante en F6: `plugins/textile.yaml` como prueba de extensibilidad, `docs/plugins.md` (guía de contribución), badge DPGA, CI con GitHub Actions y test E2E del flujo completo.
+Trabajo restante en F6: CI con GitHub Actions, test E2E del flujo completo, video demo.
 
 ## Decisiones técnicas explícitas
 
