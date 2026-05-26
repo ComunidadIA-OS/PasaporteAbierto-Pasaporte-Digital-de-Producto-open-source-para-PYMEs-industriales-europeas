@@ -294,4 +294,21 @@ Para postularse como instancia oficial del ecosistema Pasaporte Abierto:
 
 ## Licencia
 
-Apache License 2.0. Ver [`LICENSE`](./LICENSE).
+El proyecto se publica bajo la **Licencia Apache 2.0** (identificador SPDX: `Apache-2.0`), una licencia permisiva aprobada por la OSI. El texto legal íntegro está en [`LICENSE`](./LICENSE) — en inglés, porque la Apache Software Foundation solo reconoce como jurídicamente válida la versión original; las traducciones son orientativas, no vinculantes.
+
+**Qué te permite** (sin pedir permiso ni pagar):
+
+- Usar el software con cualquier fin, incluido **comercial**.
+- **Modificarlo** y crear trabajos derivados.
+- **Distribuirlo** y sublicenciarlo, en abierto o dentro de un producto cerrado.
+- Incluye una **concesión expresa de patentes** por parte de los contribuidores: quien aporta código no puede luego demandarte por la patente que ese código cubre. Lleva además una cláusula de retorsión: si tú inicias un litigio de patentes contra el proyecto, pierdes la licencia.
+
+**Qué te exige:**
+
+- Conservar el **aviso de copyright y la licencia** en las copias.
+- **Indicar los cambios** relevantes en los archivos que modifiques.
+- Mantener el archivo `NOTICE` (si existe) con sus atribuciones.
+
+**No ofrece** garantía ni asume responsabilidad: el software se entrega "tal cual".
+
+**Por qué Apache 2.0 y no otra:** es permisiva (máxima adopción por PYMEs, sin fricción legal) pero, a diferencia de MIT, **añade protección de patentes** explícita — algo relevante en un proyecto de cumplimiento normativo. Cumple además el requisito del hackathon de usar una licencia reconocida por OSI/FSF. Para cualquier duda legal, prevalece el texto de [`LICENSE`](./LICENSE).
