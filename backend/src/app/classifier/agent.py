@@ -35,6 +35,7 @@ from app.observability.decorators import trace_classifier
 from app.plugins.loader import Plugin, load_all_plugins
 from app.rag import search_corpus
 from app.rag.schema import Result
+
 PLUGINS_DIR: Path = settings.plugins_dir
 TOP_K: int = 5
 CONFIDENCE_THRESHOLD: float = 0.7
