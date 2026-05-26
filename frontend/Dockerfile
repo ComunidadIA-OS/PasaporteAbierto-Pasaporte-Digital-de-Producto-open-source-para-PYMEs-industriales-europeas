@@ -9,6 +9,11 @@ WORKDIR /app
 RUN corepack enable
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Next inlinea variables NEXT_PUBLIC_* en el bundle del cliente al hacer
+# `pnpm build`. Se pasan como ARG desde docker-compose (build.args) y se
+# convierten en ENV para que Next las vea. Cambiar su valor exige rebuild.
+ARG NEXT_PUBLIC_DEMO_MODE=false
+ENV NEXT_PUBLIC_DEMO_MODE=$NEXT_PUBLIC_DEMO_MODE
 RUN pnpm build
 
 FROM node:20-alpine AS runner
