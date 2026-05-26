@@ -6,7 +6,7 @@
 
 import Link from "next/link";
 
-import { ApiError, api, type SessionState } from "@/app/lib/api";
+import { ApiError, api, type SessionState } from "@/modules/wizard/lib/wizard-api";
 
 import { WizardClient } from "./wizard-client";
 

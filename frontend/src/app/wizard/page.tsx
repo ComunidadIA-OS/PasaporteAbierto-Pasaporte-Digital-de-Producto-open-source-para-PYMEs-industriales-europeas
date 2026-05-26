@@ -13,7 +13,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { ApiError, api } from "@/app/lib/api";
+import { ApiError, api } from "@/modules/wizard/lib/wizard-api";
 
 const MIN_LENGTH = 20;
 

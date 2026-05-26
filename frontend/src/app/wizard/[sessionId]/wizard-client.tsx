@@ -16,7 +16,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
-import { api, type SessionState } from "@/app/lib/api";
+import { api, type SessionState } from "@/modules/wizard/lib/wizard-api";
 
 import { Step1Description } from "./steps/Step1Description";
 import { Step2Sector } from "./steps/Step2Sector";

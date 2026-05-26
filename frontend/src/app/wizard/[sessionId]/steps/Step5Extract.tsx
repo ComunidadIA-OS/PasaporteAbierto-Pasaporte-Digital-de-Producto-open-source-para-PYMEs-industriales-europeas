@@ -7,12 +7,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-
-import { api, type DocumentExcerptResponse, type SessionState } from "@/app/lib/api";
-import { resolveLabel, usePluginFields } from "@/app/lib/field-labels";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-const API_V1 = `${API_BASE}/api/v1`;
+import { API_V1 } from "@/lib/fetch";
+import { resolveLabel, usePluginFields } from "@/modules/wizard/lib/field-labels";
+import {
+  api,
+  type DocumentExcerptResponse,
+  type SessionState,
+} from "@/modules/wizard/lib/wizard-api";
 
 type Provenance = "verified" | "self_declared" | "required_pending";
 

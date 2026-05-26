@@ -11,7 +11,12 @@
 import Image from "next/image";
 import { useState, useTransition } from "react";
 
-import { ApiError, api, type DppResponse, type SessionState } from "@/app/lib/api";
+import {
+  ApiError,
+  api,
+  type DppResponse,
+  type SessionState,
+} from "@/modules/wizard/lib/wizard-api";
 
 const API_BASE = typeof process !== "undefined" ? (process.env.NEXT_PUBLIC_API_URL ?? "") : "";
 

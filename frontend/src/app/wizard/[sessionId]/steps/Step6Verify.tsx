@@ -11,7 +11,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-
+import { resolveLabel, usePluginFields } from "@/modules/wizard/lib/field-labels";
 import {
   ApiError,
   api,
@@ -20,8 +20,7 @@ import {
   type SessionState,
   type VerifyResponse,
   type VerifyWarning,
-} from "@/app/lib/api";
-import { resolveLabel, usePluginFields } from "@/app/lib/field-labels";
+} from "@/modules/wizard/lib/wizard-api";
 
 export function Step6Verify({
   session,
