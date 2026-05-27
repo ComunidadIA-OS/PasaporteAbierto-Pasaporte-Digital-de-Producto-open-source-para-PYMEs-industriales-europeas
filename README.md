@@ -1,10 +1,30 @@
 # PasaporteAbierto
 
+[![CI](https://github.com/ComunidadIA-OS/PasaporteAbierto-Pasaporte-Digital-de-Producto-open-source-para-PYMEs-industriales-europeas/actions/workflows/ci.yml/badge.svg)](https://github.com/ComunidadIA-OS/PasaporteAbierto-Pasaporte-Digital-de-Producto-open-source-para-PYMEs-industriales-europeas/actions/workflows/ci.yml)
+[![Licencia: Apache 2.0](https://img.shields.io/badge/licencia-Apache--2.0-blue.svg)](./LICENSE)
+![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)
+![Next.js 16](https://img.shields.io/badge/Next.js-16-black.svg)
+[![Código de conducta: Contributor Covenant](https://img.shields.io/badge/c%C3%B3digo%20de%20conducta-Contributor%20Covenant%202.1-ff69b4.svg)](./CODE_OF_CONDUCT.md)
 <!-- RAG_QUALITY_BADGE:START -->
 ![RAG quality](https://img.shields.io/badge/RAG_quality-activo-brightgreen)
 <!-- RAG_QUALITY_BADGE:END -->
 
 Aplicación web auto-hospedable para que fabricantes PYME generen el **Pasaporte Digital de Producto (DPP)** exigido por el Reglamento UE 2024/1781 (ESPR). Open source, Apache 2.0.
+
+## Tabla de contenidos
+
+- [Documentación](#documentación)
+- [Requisitos](#requisitos)
+- [Quickstart (≤30 minutos)](#quickstart-30-minutos)
+- [Desarrollo](#desarrollo)
+- [Plugins regulatorios](#plugins-regulatorios)
+- [Diagrama de arquitectura](#diagrama-de-arquitectura)
+- [Arquitectura en 60 segundos](#arquitectura-en-60-segundos)
+- [Estado del proyecto](#estado-del-proyecto-fases-del-hackathon)
+- [Decisiones técnicas explícitas](#decisiones-técnicas-explícitas)
+- [Contribuir](#contribuir)
+- [Pasaporte Abierto](#pasaporte-abierto)
+- [Licencia](#licencia)
 
 ## Documentación
 
@@ -265,7 +285,7 @@ PasaporteAbierto es la primera implementación de referencia open source del Pas
 
 Para postularse como instancia oficial del ecosistema Pasaporte Abierto:
 
-1. Desplegar la instancia siguiendo el [quickstart](#setup-en-30-minutos).
+1. Desplegar la instancia siguiendo el [quickstart](#quickstart-30-minutos).
 2. Contribuir un plugin de tu sector si todavía no está cubierto. Ver [guía de plugins](./docs/plugins.md).
 3. Cumplir los criterios de [`docs/dpga.md`](./docs/dpga.md) (licencia, privacidad, no recopilación de PII).
 4. Abrir issue en el repositorio principal con la URL pública de tu instancia.
@@ -274,4 +294,21 @@ Para postularse como instancia oficial del ecosistema Pasaporte Abierto:
 
 ## Licencia
 
-Apache License 2.0. Ver [`LICENSE`](./LICENSE).
+El proyecto se publica bajo la **Licencia Apache 2.0** (identificador SPDX: `Apache-2.0`), una licencia permisiva aprobada por la OSI. El texto legal íntegro está en [`LICENSE`](./LICENSE) — en inglés, porque la Apache Software Foundation solo reconoce como jurídicamente válida la versión original; las traducciones son orientativas, no vinculantes.
+
+**Qué te permite** (sin pedir permiso ni pagar):
+
+- Usar el software con cualquier fin, incluido **comercial**.
+- **Modificarlo** y crear trabajos derivados.
+- **Distribuirlo** y sublicenciarlo, en abierto o dentro de un producto cerrado.
+- Incluye una **concesión expresa de patentes** por parte de los contribuidores: quien aporta código no puede luego demandarte por la patente que ese código cubre. Lleva además una cláusula de retorsión: si tú inicias un litigio de patentes contra el proyecto, pierdes la licencia.
+
+**Qué te exige:**
+
+- Conservar el **aviso de copyright y la licencia** en las copias.
+- **Indicar los cambios** relevantes en los archivos que modifiques.
+- Mantener el archivo `NOTICE` (si existe) con sus atribuciones.
+
+**No ofrece** garantía ni asume responsabilidad: el software se entrega "tal cual".
+
+**Por qué Apache 2.0 y no otra:** es permisiva (máxima adopción por PYMEs, sin fricción legal) pero, a diferencia de MIT, **añade protección de patentes** explícita — algo relevante en un proyecto de cumplimiento normativo. Cumple además el requisito del hackathon de usar una licencia reconocida por OSI/FSF. Para cualquier duda legal, prevalece el texto de [`LICENSE`](./LICENSE).

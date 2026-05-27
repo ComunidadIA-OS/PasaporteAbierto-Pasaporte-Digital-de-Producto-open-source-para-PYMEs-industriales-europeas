@@ -1,0 +1,50 @@
+name: 🔌 Nuevo plugin sectorial
+description: Propón cobertura de un sector ESPR (un YAML en plugins/, sin tocar el núcleo).
+title: "[plugin]: "
+labels: ["plugin", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Cada sector ESPR se modela como un YAML en `plugins/` siguiendo
+        [`plugins/_schema.yaml`](../../plugins/_schema.yaml). Mira
+        [`plugins/batteries.yaml`](../../plugins/batteries.yaml) como referencia y la
+        [guía de plugins](../../docs/plugins.md).
+  - type: input
+    id: sector
+    attributes:
+      label: Sector
+      placeholder: p. ej. electrónica de consumo, mobiliario, juguetes…
+    validations:
+      required: true
+  - type: textarea
+    id: base-legal
+    attributes:
+      label: Base legal
+      description: Reglamento / acto delegado ESPR aplicable y artículos relevantes. Conserva el idioma original de la norma.
+      placeholder: "Reg. UE 2023/1542, Art. 77.3, Anexo XIII…"
+    validations:
+      required: true
+  - type: dropdown
+    id: identificador
+    attributes:
+      label: Esquema de identificador único
+      description: Lo declara el plugin (ver ADR 0001). ¿Hay acto delegado que imponga uno?
+      options:
+        - GS1 Digital Link (default genérico)
+        - ISO/IEC 15459 (si lo exige un acto delegado del sector)
+        - Otro / por determinar
+    validations:
+      required: true
+  - type: textarea
+    id: campos
+    attributes:
+      label: Campos obligatorios y niveles de acceso
+      description: Lista preliminar. Cada campo necesita provenance y access_level (public / legitimate_interest / authorities_only / individual).
+  - type: checkboxes
+    id: disposicion
+    attributes:
+      label: Disposición a contribuir
+      options:
+        - label: Puedo aportar el YAML del plugin y sus tests de contrato.
+        - label: Solo propongo el sector; necesito ayuda para implementarlo.
