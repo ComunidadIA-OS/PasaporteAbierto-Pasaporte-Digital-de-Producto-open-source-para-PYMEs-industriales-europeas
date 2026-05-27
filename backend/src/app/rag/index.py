@@ -27,10 +27,22 @@ _COLLECTION_NAME = "corpus_normativo"
 def _fragment_id(fragment: Fragment) -> str:
     """ID determinista de 16 chars hex para un fragmento.
 
-    Garantiza que el mismo (reglamento, articulo, apartado, idioma)
-    produce siempre el mismo ID — base de la idempotencia del reindexado.
+    El ID deriva de (reglamento, artículo, apartado, idioma, **texto**).
+    Incluir el texto es necesario porque las coordenadas estructurales no
+    son únicas: dentro de un mismo anexo la numeración de apartado se
+    reinicia por cada parte (p. ej. el Annex VIII del Reg. UE 2023/1542
+    tiene varias partes con apartado "1."), así que (anexo, apartado) se
+    repite. Sin el texto, esos fragmentos colapsarían al mismo ID y el
+    upsert perdería contenido.
+
+    Sigue siendo idempotente para el criterio F2-02: el mismo corpus
+    produce siempre los mismos IDs, de modo que reindexar dos veces
+    sobrescribe en lugar de duplicar.
     """
-    key = f"{fragment.reglamento}|{fragment.articulo}|{fragment.apartado or ''}|{fragment.idioma}"
+    key = (
+        f"{fragment.reglamento}|{fragment.articulo}|{fragment.apartado or ''}"
+        f"|{fragment.idioma}|{fragment.texto}"
+    )
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
 
 
@@ -78,8 +90,34 @@ def get_collection(path: Path | None = None) -> Collection:
     client = chromadb.PersistentClient(path=str(chroma_path))
     return client.get_or_create_collection(
         name=_COLLECTION_NAME,
-        metadata={"hnsw:space": "cosine"},
+        # `hnsw:search_ef` por defecto es 10, demasiado bajo: con el corpus
+        # completo la búsqueda aproximada llegaba a saltarse el vecino más
+        # cercano real y el top-3 variaba entre reconstrucciones del índice.
+        # Subirlo a 100 da recall casi exacto sobre un corpus de este tamaño
+        # (unos miles de vectores) sin coste perceptible, y hace el retrieval
+        # determinista frente a reindexados.
+        metadata={"hnsw:space": "cosine", "hnsw:search_ef": 100},
     )
+
+
+def reset_collection(path: Path | None = None) -> None:
+    """Borra la colección del corpus para reconstruirla desde cero.
+
+    El `upsert` es idempotente cuando el corpus no cambia, pero si cambia el
+    chunking o el texto de un fragmento su ID (hash de contenido) cambia y el
+    upsert dejaría vectores antiguos huérfanos. Un reindexado completo debe
+    empezar por vaciar la colección para no acumular residuos.
+    """
+    import contextlib
+
+    import chromadb
+
+    chroma_path = path or _DEFAULT_PATH
+    chroma_path.mkdir(parents=True, exist_ok=True)
+    client = chromadb.PersistentClient(path=str(chroma_path))
+    # La colección puede no existir todavía (primer reindexado): es benigno.
+    with contextlib.suppress(Exception):
+        client.delete_collection(_COLLECTION_NAME)
 
 
 def upsert_fragments(

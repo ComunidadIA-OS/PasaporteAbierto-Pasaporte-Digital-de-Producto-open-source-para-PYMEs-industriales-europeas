@@ -31,7 +31,7 @@ if [ "$EMPTY" = "1" ]; then
     echo "[entrypoint] ChromaDB vacío — hidratando corpus en segundo plano (5-15 min)."
     (
         cd /app
-        echo "[hydrate] Iniciando ingesta del corpus (EUR-Lex + CIRPASS + GS1 + ISO)..."
+        echo "[hydrate] Iniciando ingesta del corpus normativo (reglamentos UE vía EUR-Lex/Cellar)..."
         uv run python -m app.rag.ingest 2>&1 | sed 's/^/[ingest] /' \
             || echo "[hydrate] ⚠ ingesta terminó con avisos (revisa logs)."
 

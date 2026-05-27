@@ -12,7 +12,6 @@ from typing import Literal
 import httpx
 
 from app.rag.ingest.http_cache import CachedHttpClient
-from app.rag.ingest.sources import cirpass, gs1, iso_15459
 from app.rag.ingest.sources.eurlex import (
     KNOWN_DELEGATED_ACTS,
     IngestParseError,
@@ -63,31 +62,16 @@ def _actos_delegados(
     return fetch_delegated_acts_fragments(client, force_refresh=force_refresh, languages=(lang,))
 
 
-def _cirpass(client: CachedHttpClient, lang: Language, force_refresh: bool) -> Iterable[Fragment]:
-    if lang != "en":
-        return iter(())  # CIRPASS-2 solo tiene versión en
-    return cirpass.fetch_fragments(client, force_refresh=force_refresh)
-
-
-def _gs1(client: CachedHttpClient, lang: Language, force_refresh: bool) -> Iterable[Fragment]:
-    if lang != "en":
-        return iter(())  # GS1 solo en
-    return gs1.fetch_fragments(client, force_refresh=force_refresh)
-
-
-def _iso_15459(
-    _client: CachedHttpClient, lang: Language, _force_refresh: bool
-) -> Iterable[Fragment]:
-    return iso_15459.fetch_fragments(idioma=lang)
-
-
+# El corpus RAG es exclusivamente normativo: solo texto citable como ley
+# (reglamentos UE y sus actos delegados). El esquema del identificador
+# (ISO/IEC 15459, GS1 Digital Link) y el vocabulario del DPP (CIRPASS-2 Core)
+# NO viven aquí: los declara el plugin sectorial (`identifier_scheme`, campos)
+# y los consume de forma determinista la generación del DPP y el Chat. Ver
+# docs/tickets/F2.md y ARCHITECTURE.md §"Identificador único…".
 SOURCES: list[tuple[str, SourceFn]] = [
     ("ue-2024-1781", _eurlex_espr),
     ("ue-2023-1542", _eurlex_baterias),
     ("actos-delegados", _actos_delegados),
-    ("cirpass-2-core", _cirpass),
-    ("gs1-digital-link", _gs1),
-    ("iso-15459", _iso_15459),
 ]
 
 

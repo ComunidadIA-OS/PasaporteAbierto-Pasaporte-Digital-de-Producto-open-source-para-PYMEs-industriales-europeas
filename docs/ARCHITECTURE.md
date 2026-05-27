@@ -20,7 +20,7 @@ El flujo del usuario consta de siete pasos en cadena. Cada paso es un endpoint d
 
 Paso 1, descripción libre. Determinista. El fabricante escribe en lenguaje natural una descripción del producto que quiere registrar.
 
-Paso 2, clasificación. IA. El agente Clasificador analiza la descripción contra el corpus regulatorio europeo (RAG sobre ESPR, actos delegados publicados y ontología CIRPASS-2) y devuelve el sector identificado, el plugin aplicable, los campos requeridos y la cita regulatoria que justifica la clasificación.
+Paso 2, clasificación. IA. El agente Clasificador analiza la descripción contra el corpus regulatorio europeo (RAG sobre los reglamentos ESPR y baterías y los actos delegados publicados) y devuelve el sector identificado, el plugin aplicable, los campos requeridos y la cita regulatoria que justifica la clasificación.
 
 Paso 3, formulario BOM. Determinista. El frontend renderiza dinámicamente un formulario adaptado al sector según los campos definidos en el plugin YAML. Los datos se validan con Pydantic y se persisten.
 
@@ -46,7 +46,9 @@ Si el RAG no devuelve fragmentos relevantes, el chat responde "no tengo informac
 
 ## Capa de datos y conocimiento
 
-El corpus RAG contiene el Reglamento UE 2024/1781 (ESPR), el Reglamento UE 2023/1542 (baterías), los actos delegados publicados a fecha de despliegue, la ontología CIRPASS-2 Core (marzo 2025, indexada como referencia conceptual; el `@context` JSON-LD del DPP emitido es local hasta que el consorcio publique uno HTTP-resolvable estable — ver `docs/adr/0002-jsonld-vocabulario-local.md`) y la especificación GS1 Digital Link. El corpus se chunca semánticamente, se embebe con bge-m3 (modelo multilingüe que permite consulta en castellano, inglés, francés, portugués y alemán) y se indexa en ChromaDB embebido.
+El corpus RAG es **exclusivamente normativo**: contiene el Reglamento UE 2024/1781 (ESPR), el Reglamento UE 2023/1542 (baterías) y los actos delegados publicados a fecha de despliegue, descargados como texto oficial vía el repositorio Cellar de la Oficina de Publicaciones (`publications.europa.eu/resource/celex/{celex}` con content negotiation; el endpoint `legal-content` de EUR-Lex aplica anti-scraping y responde 202 vacío a clientes no-navegador). El corpus se chunca por estructura legal (artículo y apartado, con el epígrafe del artículo como contexto), se embebe con bge-m3 (modelo multilingüe que permite consulta en castellano, inglés, francés, portugués y alemán) y se indexa en ChromaDB embebido. Su única razón de ser es dar **cita normativa**: cada fragmento es citable como "Reglamento X, Art. Y".
+
+El esquema del identificador único (ISO/IEC 15459, GS1 Digital Link) y el vocabulario del DPP (modelo conceptual CIRPASS-2 Core) **no** forman parte del corpus RAG —no son texto citable como ley—: los declara el plugin sectorial (`identifier_scheme`, campos con su cita) y los consume de forma determinista la generación del DPP (paso 7). El `@context` JSON-LD emitido es local hasta que el consorcio publique uno HTTP-resolvable estable (ver `docs/adr/0002-jsonld-vocabulario-local.md`).
 
 El directorio `plugins/` contiene un archivo YAML por sector. Cada plugin describe los campos del DPP, los documentos requeridos, las validaciones adicionales y las citas regulatorias asociadas. El formato del plugin está documentado en `plugins/_schema.yaml`.
 
