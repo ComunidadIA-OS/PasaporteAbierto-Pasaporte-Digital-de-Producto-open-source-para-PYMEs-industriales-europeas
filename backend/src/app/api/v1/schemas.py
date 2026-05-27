@@ -325,3 +325,49 @@ class ChatHistoryResponse(_Base):
     """Histórico completo del chat para una sesión, ordenado cronológicamente."""
 
     messages: list[ChatHistoryMessage] = Field(default_factory=list)
+
+
+# --- Autenticación (ADR-0004) -----------------------------------------------
+
+
+class RegisterRequest(_Base):
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(min_length=8, max_length=200)
+
+
+class LoginRequest(_Base):
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(min_length=1, max_length=200)
+
+
+class UserResponse(_Base):
+    """Identidad pública del usuario autenticado. Nunca incluye el hash."""
+
+    id: str
+    email: str
+    created_at: datetime
+
+
+# --- GET /sessions (lista del usuario para reanudar) ------------------------
+
+
+class SessionSummary(_Base):
+    """Resumen de una sesión del usuario para el panel de reanudación.
+
+    Lo justo para listar conversaciones y DPP empezados sin cargar el estado
+    completo: paso actual, sector, si ya hubo chat y si el DPP está publicado.
+    """
+
+    session_id: str
+    description: str | None = None
+    sector: str | None = None
+    plugin: str | None = None
+    current_step: int = Field(ge=1, le=7)
+    has_chat: bool = False
+    published: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+
+class SessionListResponse(_Base):
+    sessions: list[SessionSummary] = Field(default_factory=list)

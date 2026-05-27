@@ -1,22 +1,25 @@
 import type { Metadata } from "next";
-import { Atkinson_Hyperlegible, JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { Atkinson_Hyperlegible, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 
+// Iconografía: Material Symbols (self-hosted vía paquete npm, sin CDN).
+import "material-symbols/outlined.css";
 import { AccessibilityWidget } from "@/core/ui/AccessibilityWidget";
 import "./globals.css";
 
-// Tema Compliance OS: Space Grotesk (head + body) y JetBrains Mono (mono).
-// Pesos según specs del bundle de diseño.
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
+// Tipografía institucional: IBM Plex Sans (titulares + cuerpo) e IBM Plex Mono
+// (identificadores, citas y código). Familia de ingeniería diseñada por IBM:
+// transmite seriedad técnica y encaja con un producto de cumplimiento UE.
+const ibmPlexSans = IBM_Plex_Sans({
+  variable: "--font-ibm-plex-sans",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
+const ibmPlexMono = IBM_Plex_Mono({
+  variable: "--font-ibm-plex-mono",
   subsets: ["latin"],
-  weight: ["400", "500", "700"],
+  weight: ["400", "500", "600"],
   display: "swap",
 });
 
@@ -47,9 +50,7 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} ${atkinsonHyperlegible.variable}`}
-      // El script de arranque añade clases de modo a <html> antes de hidratar
-      // (igual que next-themes); evita el aviso de desajuste de hidratación.
+      className={`${ibmPlexSans.variable} ${ibmPlexMono.variable} ${atkinsonHyperlegible.variable}`}
       suppressHydrationWarning
     >
       <body>

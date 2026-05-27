@@ -10,12 +10,14 @@ import type {
   CreateSessionRequest,
   CreateSessionResponse,
   DemoSampleResponse,
+  DemoSeedDashboardResponse,
   DemoSeedDocumentsResponse,
   DocumentExcerptResponse,
   DocumentsListResponse,
   DppResponse,
   PluginDetail,
   PluginsListResponse,
+  SessionListResponse,
   SessionState,
   UpdateProgressRequest,
   UploadDocumentResponse,
@@ -36,6 +38,9 @@ export const api = {
   },
   getSession(sessionId: string): Promise<SessionState> {
     return serverFetch(`/sessions/${sid(sessionId)}`);
+  },
+  listSessions(): Promise<SessionListResponse> {
+    return serverFetch("/sessions");
   },
   updateProgress(sessionId: string, body: UpdateProgressRequest): Promise<SessionState> {
     return serverFetch(`/sessions/${sid(sessionId)}`, {
@@ -84,7 +89,8 @@ export const api = {
     form.append("file", file);
     const res = await fetch(
       `${API_V1}/sessions/${sid(sessionId)}/documents?doc_type=${encodeURIComponent(docType)}`,
-      { method: "POST", body: form },
+      // credentials: incluye la cookie de sesión (auth) en la subida multipart.
+      { method: "POST", body: form, credentials: "include" },
     );
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
@@ -116,5 +122,8 @@ export const api = {
   },
   seedDemoDocuments(sessionId: string): Promise<DemoSeedDocumentsResponse> {
     return serverFetch(`/demo/sessions/${sid(sessionId)}/seed-documents`, { method: "POST" });
+  },
+  seedDemoDashboard(): Promise<DemoSeedDashboardResponse> {
+    return serverFetch("/demo/seed-dashboard", { method: "POST" });
   },
 };

@@ -14,6 +14,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
+import { Icon } from "@/core/ui/Icon";
 import { isDemoMode } from "@/lib/demo-mode";
 import { humanizeId } from "@/modules/wizard/lib/field-labels";
 import {
@@ -284,7 +285,8 @@ export function Step3Bom({
 
       <div>
         <button type="submit" disabled={pending} className="btn btn-primary btn-lg">
-          {pending ? "Guardando…" : "Guardar y continuar al paso 4 →"}
+          {pending ? "Guardando…" : "Guardar y continuar al paso 4"}
+          {!pending && <Icon name="arrow_forward" size={18} />}
         </button>
       </div>
     </form>
@@ -332,21 +334,13 @@ function FieldRow({
           style={{
             display: "inline-flex",
             alignItems: "center",
-            justifyContent: "center",
-            width: 18,
-            height: 18,
-            borderRadius: "50%",
-            border: "1px solid var(--border-strong)",
-            fontSize: 10,
             color: "var(--accent)",
             cursor: "help",
-            fontFamily: "var(--font-head)",
-            fontStyle: "italic",
           }}
           tabIndex={0}
           role="tooltip"
         >
-          i
+          <Icon name="info" size={16} label={`Cita: ${citation}`} />
         </span>
       </span>
 

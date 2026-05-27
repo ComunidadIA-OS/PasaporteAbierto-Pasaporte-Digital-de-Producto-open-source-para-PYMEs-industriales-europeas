@@ -1,9 +1,10 @@
 from fastapi import APIRouter
 
-from app.api.v1 import audit, chat, demo, health, plugins, wizard
+from app.api.v1 import audit, auth, chat, demo, health, plugins, wizard
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(health.router, tags=["health"])
+api_router.include_router(auth.router)
 api_router.include_router(wizard.router)
 api_router.include_router(chat.router)
 # Histórico del chat por sesión bajo /sessions/{id}/chat (F3-04 criterio 3).

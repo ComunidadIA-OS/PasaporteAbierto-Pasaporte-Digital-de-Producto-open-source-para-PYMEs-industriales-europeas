@@ -11,6 +11,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { Icon } from "@/core/ui/Icon";
 import { resolveLabel, usePluginFields } from "@/modules/wizard/lib/field-labels";
 import {
   ApiError,
@@ -156,7 +157,8 @@ export function Step6Verify({
           disabled={!verify.can_publish || pending}
           className="btn btn-primary btn-lg"
         >
-          {pending ? "Avanzando…" : "Continuar a publicar →"}
+          {pending ? "Avanzando…" : "Continuar a publicar"}
+          {!pending && <Icon name="arrow_forward" size={18} />}
         </button>
         {!verify.can_publish && (
           <p style={{ marginTop: 8, fontSize: 12, color: "var(--danger)" }}>

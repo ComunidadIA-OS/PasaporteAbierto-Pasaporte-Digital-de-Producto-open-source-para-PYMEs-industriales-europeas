@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      material-symbols:
+        specifier: ^0.44.10
+        version: 0.44.10
       next:
         specifier: 16.2.6
         version: 16.2.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -908,6 +911,9 @@ packages:
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
+
+  material-symbols@0.44.10:
+    resolution: {integrity: sha512-N/sAHC6C6s/cBG+o64tjosppMw2sC/rqo4AhANG4GTpH2E0X1VaIy5P77Rehk1NcPg22JRIbr9aKQkbX/a8REQ==}
 
   mdn-data@2.27.1:
     resolution: {integrity: sha512-9Yubnt3e8A0OKwxYSXyhLymGW4sCufcLG6VdiDdUGVkPhpqLxlvP5vl1983gQjJl3tqbrM731mjaZaP68AgosQ==}
@@ -1888,6 +1894,8 @@ snapshots:
   magic-string@0.30.21:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  material-symbols@0.44.10: {}
 
   mdn-data@2.27.1: {}
 
