@@ -43,9 +43,9 @@ class Citation(_Base):
 
 class CreateSessionRequest(_Base):
     description: str = Field(
-        min_length=20,
+        default="",
         max_length=2000,
-        description="Paso 1 — texto libre del fabricante",
+        description="Paso 1 — texto libre del fabricante (opcional al crear, obligatorio antes de clasificar)",
     )
 
 

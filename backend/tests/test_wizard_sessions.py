@@ -81,7 +81,19 @@ def test_patch_empty_body_is_idempotent_noop(client: TestClient) -> None:
     assert after["description"] == before["description"]
 
 
-def test_create_session_rejects_too_short_description(client: TestClient) -> None:
-    """El schema exige min_length=20 para forzar texto significativo."""
-    r = client.post("/api/v1/sessions", json={"description": "corto"})
+def test_create_session_accepts_empty_description(client: TestClient) -> None:
+    """POST /sessions acepta description vacía — la validación de longitud
+    mínima se aplica al avanzar (PATCH description + step 2), no al crear."""
+    r = client.post("/api/v1/sessions", json={"description": ""})
+    assert r.status_code == 201
+    sid = r.json()["session_id"]
+    state = client.get(f"/api/v1/sessions/{sid}").json()
+    assert state["current_step"] == 1
+    assert state["description"] == ""
+
+
+def test_patch_description_rejects_too_short(client: TestClient) -> None:
+    """PATCH con description < 20 chars es rechazado (min_length en UpdateProgressRequest)."""
+    sid = _create_session(client)
+    r = client.patch(f"/api/v1/sessions/{sid}", json={"description": "corto"})
     assert r.status_code == 422
