@@ -40,40 +40,38 @@ function ProductCard({ s }: { s: SessionSummary }) {
   return (
     <li>
       <Link href={`/wizard/${s.session_id}`} className={`product-card${done ? " is-done" : ""}`}>
-        <div className="pc-row">
-          <span className="pc-mark">
-            <Icon name={done ? "verified" : "edit_document"} size={20} fill={done} />
-          </span>
-          <div className="pc-body">
-            <p className="pc-title">{s.description?.trim() || "Sin descripción todavía"}</p>
-            <p className="pc-meta">
-              {s.sector ? `${s.sector} · ` : ""}
-              {done ? "Publicado" : `Paso ${s.current_step} de ${TOTAL_STEPS}`} · actualizado{" "}
-              {formatDate(s.updated_at)}
-            </p>
-            {!done && (
-              <div
-                className="product-progress"
-                role="progressbar"
-                aria-valuenow={pct}
-                aria-valuemin={0}
-                aria-valuemax={100}
-              >
-                <span style={{ width: `${pct}%` }} />
-              </div>
-            )}
-          </div>
-          <div className="pc-aside">
-            <span className={`badge ${done ? "badge-success" : "badge-warn"}`}>
-              {done ? "publicado" : "en curso"}
-            </span>
-            {s.has_chat && <span className="badge badge-neutral">con chat</span>}
-            <span className="pc-cta">
-              {done ? "Ver DPP" : "Continuar"}
-              <Icon name="chevron_right" size={15} />
-            </span>
-          </div>
+        <span className="pc-mark">
+          <Icon name={done ? "verified" : "edit_document"} size={20} fill={done} />
+        </span>
+        <div className="pc-body">
+          <p className="pc-title">{s.description?.trim() || "Sin descripción todavía"}</p>
+          <p className="pc-meta">
+            {s.sector ? `${s.sector} · ` : ""}
+            {done ? "Publicado" : `Paso ${s.current_step} de ${TOTAL_STEPS}`} · actualizado{" "}
+            {formatDate(s.updated_at)}
+          </p>
+          {!done && (
+            <div
+              className="product-progress"
+              role="progressbar"
+              aria-valuenow={pct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <span style={{ width: `${pct}%` }} />
+            </div>
+          )}
         </div>
+        <div className="pc-tags">
+          <span className={`badge ${done ? "badge-success" : "badge-warn"}`}>
+            {done ? "publicado" : "en curso"}
+          </span>
+          {s.has_chat && <span className="badge badge-neutral">con chat</span>}
+        </div>
+        <span className="pc-cta">
+          {done ? "Ver DPP" : "Continuar"}
+          <Icon name="chevron_right" size={15} />
+        </span>
       </Link>
     </li>
   );

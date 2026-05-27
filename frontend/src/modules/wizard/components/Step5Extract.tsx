@@ -45,6 +45,24 @@ const PROVENANCE_BADGE: Record<Provenance, { className: string; label: string }>
   required_pending: { className: "badge badge-danger", label: "pendiente" },
 };
 
+// Formatea un valor extraído para mostrarlo legible. Algunos campos del plugin
+// (sustancias peligrosas, materias primas) llegan como arrays de objetos: hay
+// que aplanarlos en lugar de dejar que String() devuelva "[object Object]".
+function formatValue(value: unknown): string {
+  if (value == null) return "";
+  if (Array.isArray(value)) {
+    return value.map(formatValue).filter(Boolean).join(", ");
+  }
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    for (const key of ["name", "label", "value", "substance", "material", "cas"]) {
+      if (obj[key] != null) return formatValue(obj[key]);
+    }
+    return Object.values(obj).map(formatValue).filter(Boolean).join(" · ");
+  }
+  return String(value);
+}
+
 export function Step5Extract({
   session,
   onSessionChange,
@@ -251,63 +269,43 @@ export function Step5Extract({
         </div>
       )}
 
-      {/* Tabla de campos extraídos */}
+      {/* Campos extraídos — rejilla de tarjetas (cada valor parte de línea, no
+          desborda hacia el panel lateral). */}
       {fields.length > 0 && (
-        <table className="tbl">
-          <caption className="sr-only">
-            Campos extraídos del DPP — {fields.length} campos procesados
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">Campo</th>
-              <th scope="col">Valor</th>
-              <th scope="col">Procedencia</th>
-              <th scope="col">Confianza</th>
-              <th scope="col">Fuente</th>
-            </tr>
-          </thead>
-          <tbody>
-            {fields.map((f) => {
-              const badge = PROVENANCE_BADGE[f.provenance];
-              const fieldLabel = fieldsMap ? resolveLabel(f.field_id, fieldsMap) : f.field_id;
-              // F4-05 criterio 2: cada fila verified/self_declared enlaza al
-              // fragmento del PDF fuente. required_pending no tiene fuente.
-              const canShowSource =
-                f.source_document_id != null && f.provenance !== "required_pending";
-              return (
-                <tr key={f.field_id}>
-                  <td style={{ fontSize: 13 }}>{fieldLabel}</td>
-                  <td>{f.value != null ? String(f.value) : <span className="faint">—</span>}</td>
-                  <td>
-                    <span className={badge.className}>{badge.label}</span>
-                  </td>
-                  <td className="mono" style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                    {Math.round(f.confidence * 100)}%
-                  </td>
-                  <td>
-                    {canShowSource ? (
-                      <button
-                        type="button"
-                        onClick={(e) => showExcerpt(f, e.currentTarget)}
-                        disabled={excerptLoading === f.field_id}
-                        aria-label={`Ver fuente del campo ${fieldLabel}`}
-                        style={{
-                          color: "var(--accent)",
-                          textDecoration: "underline",
-                          fontSize: 12,
-                        }}
-                      >
-                        {excerptLoading === f.field_id ? "Cargando…" : "Ver fuente"}
-                      </button>
-                    ) : (
-                      <span className="faint">—</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <ul className="xf-grid" aria-label={`Campos extraídos del DPP — ${fields.length} campos`}>
+          {fields.map((f) => {
+            const badge = PROVENANCE_BADGE[f.provenance];
+            const fieldLabel = fieldsMap ? resolveLabel(f.field_id, fieldsMap) : f.field_id;
+            const formatted = formatValue(f.value);
+            // F4-05 criterio 2: cada campo verified/self_declared enlaza al
+            // fragmento del PDF fuente. required_pending no tiene fuente.
+            const canShowSource =
+              f.source_document_id != null && f.provenance !== "required_pending";
+            return (
+              <li key={f.field_id} className={`xf-card is-${f.provenance}`}>
+                <div className="xf-card-head">
+                  <span className="xf-label">{fieldLabel}</span>
+                  <span className={badge.className}>{badge.label}</span>
+                </div>
+                <p className="xf-value">{formatted || <span className="faint">—</span>}</p>
+                <div className="xf-card-foot">
+                  <span className="xf-conf mono">{Math.round(f.confidence * 100)}% confianza</span>
+                  {canShowSource && (
+                    <button
+                      type="button"
+                      onClick={(e) => showExcerpt(f, e.currentTarget)}
+                      disabled={excerptLoading === f.field_id}
+                      aria-label={`Ver fuente del campo ${fieldLabel}`}
+                      className="xf-source"
+                    >
+                      {excerptLoading === f.field_id ? "Cargando…" : "Ver fuente"}
+                    </button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       )}
 
       {/* Modal del fragmento del PDF fuente (F4-05 criterio 2) */}
