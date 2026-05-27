@@ -7,6 +7,7 @@
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { CSSProperties } from "react";
 
 import { ApiError } from "@/core/errors";
 import type { SessionSummary } from "@/core/responses";
@@ -25,38 +26,28 @@ async function loadDashboard(): Promise<{ email: string; sessions: SessionSummar
   return { email: user.email, sessions };
 }
 
-function StatCard({
+function MiniStat({
   variant,
   icon,
   fill,
   value,
   label,
-  sub,
-  rate,
 }: {
   variant?: "progress" | "done";
   icon: string;
   fill?: boolean;
   value: string | number;
   label: string;
-  sub?: string;
-  rate?: number;
 }) {
   return (
-    <div className={`stat-card${variant ? ` is-${variant}` : ""}`}>
-      <div className="stat-top">
-        <span className="stat-icon">
-          <Icon name={icon} size={20} fill={fill} />
-        </span>
+    <div className="mini-stat">
+      <span className={`mini-stat-icon${variant ? ` is-${variant}` : ""}`}>
+        <Icon name={icon} size={18} fill={fill} />
+      </span>
+      <div>
+        <div className="mini-stat-num">{value}</div>
+        <div className="mini-stat-label">{label}</div>
       </div>
-      <div className="stat-num">{value}</div>
-      <div className="stat-label">{label}</div>
-      {sub && <div className="stat-sub">{sub}</div>}
-      {rate !== undefined && (
-        <div className="stat-rate-bar">
-          <span style={{ width: `${rate}%` }} />
-        </div>
-      )}
     </div>
   );
 }
@@ -110,50 +101,57 @@ export async function DashboardPage() {
 
       <main className="dashboard fade-in">
         <div className="dash-head">
-          <div>
-            <div className="eyebrow">Mi cuenta</div>
-            <h1 className="typ-2" style={{ marginTop: 10, marginBottom: 6 }}>
-              Tus <em>pasaportes</em>
-            </h1>
-            <p className="muted" style={{ margin: 0 }}>
-              Un vistazo a tus DPP. Reanuda los que están en curso o consulta los publicados.
-            </p>
-          </div>
-          <div className="dash-actions">
-            {isDemoMode && <SeedDemoButton />}
-            <Link href="/wizard" className="btn btn-primary btn-lg">
-              <Icon name="add" size={18} />
-              Nuevo DPP
-            </Link>
-          </div>
+          <div className="eyebrow">Mi cuenta</div>
+          <h1 className="typ-2" style={{ marginTop: 10, marginBottom: 6 }}>
+            Tus <em>pasaportes</em>
+          </h1>
+          <p className="muted" style={{ margin: 0 }}>
+            Un vistazo a tus DPP. Reanuda los que están en curso o consulta los publicados.
+          </p>
         </div>
 
-        <div className="stat-grid">
-          <StatCard icon="inventory_2" value={total} label="TOTAL" sub="productos creados" />
-          <StatCard
-            variant="progress"
-            icon="pending"
-            value={inProgress}
-            label="EN CURSO"
-            sub="sin publicar aún"
-          />
-          <StatCard
-            variant="done"
-            icon="verified"
-            fill
-            value={done}
-            label="FINALIZADOS"
-            sub="publicados con QR"
-          />
-          <StatCard
-            icon="trending_up"
-            value={`${rate}%`}
-            label="TASA DE FINALIZACIÓN"
-            rate={rate}
-          />
-        </div>
+        <div className="dash-cols">
+          <aside className="dash-panel">
+            <div className="dash-donut-wrap">
+              <div
+                className="dash-donut"
+                style={{ "--p": rate } as CSSProperties}
+                role="img"
+                aria-label={`Tasa de finalización: ${rate}%`}
+              >
+                <span className="dash-donut-num">{rate}%</span>
+              </div>
+              <span className="dash-donut-cap">finalización</span>
+            </div>
 
-        <ProductBrowser sessions={sessions} />
+            <div className="dash-mini">
+              <MiniStat icon="inventory_2" value={total} label="total · productos creados" />
+              <MiniStat
+                variant="progress"
+                icon="pending"
+                value={inProgress}
+                label="en curso · sin publicar"
+              />
+              <MiniStat
+                variant="done"
+                icon="verified"
+                fill
+                value={done}
+                label="finalizados · con QR"
+              />
+            </div>
+
+            <div className="dash-panel-actions">
+              <Link href="/wizard" className="btn btn-primary btn-lg">
+                <Icon name="add" size={18} />
+                Nuevo DPP
+              </Link>
+              {isDemoMode && <SeedDemoButton />}
+            </div>
+          </aside>
+
+          <ProductBrowser sessions={sessions} />
+        </div>
       </main>
     </>
   );
