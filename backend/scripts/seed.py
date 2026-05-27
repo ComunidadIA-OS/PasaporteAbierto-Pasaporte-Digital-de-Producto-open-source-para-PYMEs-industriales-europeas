@@ -1,6 +1,7 @@
 """Seed mínimo: una sesión demo en estado paso 1."""
 
 import sys
+from datetime import datetime
 from pathlib import Path
 
 # Permite ejecutar `uv run python -m scripts.seed` desde backend/ sin instalar el paquete.
@@ -12,7 +13,6 @@ from sqlmodel import Session  # noqa: E402
 
 from app.db.session import engine, init_db  # noqa: E402
 from app.models import WizardSession  # noqa: E402
-from app.time_utils import utcnow  # noqa: E402
 
 
 def main() -> None:
@@ -21,8 +21,8 @@ def main() -> None:
         demo = WizardSession(
             id="demo-session-001",
             progress={"step": 1, "description": "Batería industrial de demo"},
-            created_at=utcnow(),
-            updated_at=utcnow(),
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
         )
         s.merge(demo)
         s.commit()

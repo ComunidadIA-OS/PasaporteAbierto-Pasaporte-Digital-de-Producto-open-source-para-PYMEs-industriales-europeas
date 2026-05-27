@@ -1,9 +1,0 @@
-# CODEOWNERS — al abrir un PR, GitHub solicita automáticamente revisión de los
-# propietarios cuyas rutas se hayan tocado. Requiere que estos usuarios tengan
-# permiso de escritura en el repositorio.
-#
-# Para que la revisión sea OBLIGATORIA (no solo solicitada), activa la branch
-# protection de `develop` y `main` con la opción "Require review from Code Owners".
-
-# Propietarios por defecto de todo el repositorio:
-* @luiscbravo94 @MalenAguirre2024 @menciaglezhaba

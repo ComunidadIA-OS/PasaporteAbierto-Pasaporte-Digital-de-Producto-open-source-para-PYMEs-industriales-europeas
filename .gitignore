@@ -5,7 +5,6 @@ backend/.pytest_cache/
 backend/.ruff_cache/
 backend/*.db
 backend/data/
-**/*.egg-info/
 
 # Node
 frontend/node_modules/

@@ -25,7 +25,6 @@ class PluginField(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str
-    label: str | None = None
     type: FieldType
     required: bool
     citation: Citation
@@ -40,7 +39,6 @@ class RequiredDocument(BaseModel):
     type: DocType
     mandatory: bool
     when: str | None = None
-    citation: Citation | None = None
 
 
 class CrossValidation(BaseModel):
