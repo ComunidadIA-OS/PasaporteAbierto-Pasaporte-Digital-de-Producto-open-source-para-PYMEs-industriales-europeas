@@ -6,7 +6,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { ApiError, authApi } from "@/modules/auth/lib/auth-api";
@@ -29,7 +29,6 @@ function messageForError(err: unknown, mode: Mode): string {
 }
 
 export function LoginPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/panel";
 
@@ -54,9 +53,12 @@ export function LoginPage() {
       } else {
         await authApi.register(body);
       }
-      // La cookie ya está fijada por el backend; vamos al destino solicitado.
-      router.replace(next);
-      router.refresh();
+      // Navegación DURA (no el router de Next) a propósito: fuerza una carga
+      // completa de `next` con la cookie del usuario recién autenticado y
+      // descarta cualquier RSC cacheado de un usuario anterior (Router Cache).
+      // Sin esto, tras logout+login con otra cuenta podía verse el /panel
+      // cacheado de la cuenta previa.
+      window.location.replace(next);
     } catch (err) {
       setError(messageForError(err, mode));
       setPending(false);

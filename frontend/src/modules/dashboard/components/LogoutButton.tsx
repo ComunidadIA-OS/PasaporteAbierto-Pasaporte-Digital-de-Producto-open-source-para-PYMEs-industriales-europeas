@@ -4,13 +4,11 @@
 
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { authApi } from "@/modules/auth/lib/auth-api";
 
 export function LogoutButton() {
-  const router = useRouter();
   const [pending, setPending] = useState(false);
 
   async function onLogout() {
@@ -20,8 +18,10 @@ export function LogoutButton() {
     } catch {
       // El logout es best-effort: aunque falle la llamada, mandamos a /login.
     }
-    router.replace("/login");
-    router.refresh();
+    // Navegación DURA (no el router de Next): además de borrar la cookie en el
+    // backend, descarta el Router Cache del cliente para que el próximo login
+    // no muestre el /panel cacheado de esta cuenta.
+    window.location.replace("/login");
   }
 
   return (
