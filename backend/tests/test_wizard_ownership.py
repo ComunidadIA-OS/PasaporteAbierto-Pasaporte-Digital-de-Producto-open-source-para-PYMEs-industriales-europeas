@@ -54,7 +54,9 @@ def test_other_user_cannot_mutate_session(two_users) -> None:
 def test_other_user_cannot_chat_or_read_history(two_users) -> None:
     user_a, user_b = two_users
     sid = _create(user_a)
-    assert user_b.post("/api/v1/chat", json={"session_id": sid, "message": "hola"}).status_code == 404
+    assert (
+        user_b.post("/api/v1/chat", json={"session_id": sid, "message": "hola"}).status_code == 404
+    )
     assert user_b.get(f"/api/v1/sessions/{sid}/chat").status_code == 404
 
 

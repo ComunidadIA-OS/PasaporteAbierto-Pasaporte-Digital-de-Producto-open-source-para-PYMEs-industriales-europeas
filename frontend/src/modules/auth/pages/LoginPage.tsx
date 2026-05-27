@@ -20,7 +20,8 @@ function messageForError(err: unknown, mode: Mode): string {
     if (err.status === 401) return "Email o contraseña incorrectos.";
     if (err.status === 409) return "Ya existe una cuenta con ese email. Inicia sesión.";
     if (err.status === 403) return "El alta de cuentas está deshabilitada en esta instancia.";
-    if (err.status === 422) return "Revisa el email y que la contraseña tenga al menos 8 caracteres.";
+    if (err.status === 422)
+      return "Revisa el email y que la contraseña tenga al menos 8 caracteres.";
     return `Error ${err.status}. Inténtalo de nuevo.`;
   }
   return mode === "login"
@@ -166,7 +167,12 @@ export function LoginPage() {
               {mode === "register" && (
                 <span
                   className="mono"
-                  style={{ marginTop: 6, display: "block", fontSize: 11, color: "var(--text-muted)" }}
+                  style={{
+                    marginTop: 6,
+                    display: "block",
+                    fontSize: 11,
+                    color: "var(--text-muted)",
+                  }}
                 >
                   {passwordTooShort
                     ? `Mínimo ${MIN_PASSWORD} caracteres`
@@ -182,11 +188,7 @@ export function LoginPage() {
             )}
 
             <button type="submit" className="btn btn-primary btn-lg" disabled={!canSubmit}>
-              {pending
-                ? "Procesando…"
-                : mode === "login"
-                  ? "Entrar"
-                  : "Crear cuenta y entrar"}
+              {pending ? "Procesando…" : mode === "login" ? "Entrar" : "Crear cuenta y entrar"}
             </button>
           </form>
         </div>

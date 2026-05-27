@@ -427,9 +427,7 @@ def seed_dashboard(db: DbSession, user: CurrentUser) -> SeedDashboardResponse:
     for desc in _DEMO_DESCRIPTIONS_PUBLISHED:
         _seed_published_dpp(db, plugin, user.id, desc)
 
-    total = len(
-        db.exec(select(WizardSession).where(WizardSession.user_id == user.id)).all()
-    )
+    total = len(db.exec(select(WizardSession).where(WizardSession.user_id == user.id)).all())
     return SeedDashboardResponse(
         created_in_progress=len(_DEMO_DESCRIPTIONS_IN_PROGRESS),
         created_published=len(_DEMO_DESCRIPTIONS_PUBLISHED),

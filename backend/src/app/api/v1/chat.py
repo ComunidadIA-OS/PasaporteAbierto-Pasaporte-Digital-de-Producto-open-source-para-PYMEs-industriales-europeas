@@ -177,9 +177,7 @@ history_router = APIRouter(prefix="/sessions", tags=["chat"])
 
 
 @history_router.get("/{session_id}/chat", response_model=ChatHistoryResponse)
-def get_chat_history(
-    session_id: str, db: DbSession, user: CurrentUser
-) -> ChatHistoryResponse:
+def get_chat_history(session_id: str, db: DbSession, user: CurrentUser) -> ChatHistoryResponse:
     """Devuelve el histórico del chat persistido por sesión (F3-04 criterio 3).
 
     Orden estable por `created_at` ascendente + `id` ascendente para empates

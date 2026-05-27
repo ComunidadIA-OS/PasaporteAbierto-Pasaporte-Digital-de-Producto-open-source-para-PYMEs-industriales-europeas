@@ -49,9 +49,12 @@ def test_register_sets_httponly_cookie_and_returns_user(anon_client: TestClient)
 
 
 def test_register_normalizes_email_and_blocks_duplicates(anon_client: TestClient) -> None:
-    assert anon_client.post(
-        "/api/v1/auth/register", json={"email": EMAIL, "password": PASSWORD}
-    ).status_code == 201
+    assert (
+        anon_client.post(
+            "/api/v1/auth/register", json={"email": EMAIL, "password": PASSWORD}
+        ).status_code
+        == 201
+    )
     # Mismo email con otra capitalización/espacios → conflicto (normalizado).
     r = anon_client.post(
         "/api/v1/auth/register", json={"email": f"  {EMAIL.upper()} ", "password": PASSWORD}
@@ -60,12 +63,18 @@ def test_register_normalizes_email_and_blocks_duplicates(anon_client: TestClient
 
 
 def test_register_rejects_invalid_email_and_short_password(anon_client: TestClient) -> None:
-    assert anon_client.post(
-        "/api/v1/auth/register", json={"email": "sin-arroba", "password": PASSWORD}
-    ).status_code == 422
-    assert anon_client.post(
-        "/api/v1/auth/register", json={"email": EMAIL, "password": "corta"}
-    ).status_code == 422
+    assert (
+        anon_client.post(
+            "/api/v1/auth/register", json={"email": "sin-arroba", "password": PASSWORD}
+        ).status_code
+        == 422
+    )
+    assert (
+        anon_client.post(
+            "/api/v1/auth/register", json={"email": EMAIL, "password": "corta"}
+        ).status_code
+        == 422
+    )
 
 
 def test_register_disabled_returns_403(anon_client: TestClient, monkeypatch) -> None:
