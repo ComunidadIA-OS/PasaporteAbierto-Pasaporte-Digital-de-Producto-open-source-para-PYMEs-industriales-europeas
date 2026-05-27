@@ -16,6 +16,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
+import { Icon } from "@/core/ui/Icon";
 import { Step1Description } from "@/modules/wizard/components/Step1Description";
 import { Step2Sector } from "@/modules/wizard/components/Step2Sector";
 import { Step3Bom } from "@/modules/wizard/components/Step3Bom";
@@ -110,19 +111,7 @@ export function WizardContent({ initialSession }: { initialSession: SessionState
         onClick={() => setChatOpen(true)}
         aria-label="Abrir chat normativo"
       >
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-        </svg>
+        <Icon name="forum" size={24} />
       </button>
 
       {chatOpen && <ChatDrawer sessionId={session.session_id} onClose={() => setChatOpen(false)} />}
@@ -193,7 +182,8 @@ function StepSlot({
             className="btn btn-ghost"
             style={{ marginBottom: 8, fontSize: 13, padding: "6px 0", color: "var(--text-muted)" }}
           >
-            ← Volver al paso {session.current_step - 1}
+            <Icon name="arrow_back" size={16} />
+            Volver al paso {session.current_step - 1}
           </button>
         )}
         <div className="label">
@@ -323,7 +313,7 @@ function ChatDrawer({ sessionId, onClose }: { sessionId: string; onClose: () => 
             <p>Pregunta sobre requisitos del DPP. Cada respuesta cita el Art.</p>
           </div>
           <button type="button" className="chat-close" onClick={onClose} aria-label="Cerrar chat">
-            ✕
+            <Icon name="close" size={20} />
           </button>
         </div>
 

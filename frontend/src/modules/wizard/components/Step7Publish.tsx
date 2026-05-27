@@ -10,6 +10,7 @@
 
 import { useState, useTransition } from "react";
 
+import { Icon } from "@/core/ui/Icon";
 import {
   ApiError,
   api,
@@ -71,6 +72,7 @@ export function Step7Publish({ session }: { session: SessionState }) {
               disabled={pending}
               className="btn btn-primary btn-lg"
             >
+              <Icon name="lock" size={18} />
               {pending ? "Publicando…" : "Publicar DPP"}
             </button>
           </div>
@@ -122,8 +124,12 @@ export function Step7Publish({ session }: { session: SessionState }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       <div className="status-panel is-success">
-        <h2 className="typ-2" style={{ margin: 0 }}>
-          DPP <em>publicado</em> ✓
+        <h2
+          className="typ-2"
+          style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: 8 }}
+        >
+          <Icon name="verified" size={26} fill style={{ color: "var(--success)" }} />
+          DPP <em>publicado</em>
         </h2>
         <p className="muted" style={{ marginTop: 8, marginBottom: 0 }}>
           Firmado con Ed25519. Identificador conforme a{" "}
