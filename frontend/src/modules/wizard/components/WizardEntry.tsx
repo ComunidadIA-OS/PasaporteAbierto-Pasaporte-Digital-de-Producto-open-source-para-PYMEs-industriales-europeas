@@ -59,7 +59,9 @@ export function WizardEntry() {
     <main className="wizard-entry">
       <div className="wizard-entry-main fade-in" style={{ textAlign: "center", paddingTop: 120 }}>
         <span className="spinner" />
-        <p className="muted" style={{ marginTop: 16 }}>Creando sesión…</p>
+        <p className="muted" style={{ marginTop: 16 }}>
+          Creando sesión…
+        </p>
       </div>
     </main>
   );
