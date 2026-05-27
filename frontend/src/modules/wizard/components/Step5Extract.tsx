@@ -241,7 +241,11 @@ export function Step5Extract({
           >
             <span style={{ width: `${pct}%` }} />
           </div>
-          <p className="mono" style={{ marginTop: 6, fontSize: 11, color: "var(--text-muted)" }} aria-hidden="true">
+          <p
+            className="mono"
+            style={{ marginTop: 6, fontSize: 11, color: "var(--text-muted)" }}
+            aria-hidden="true"
+          >
             {progress.processed} / {progress.total} documentos · {pct}%
           </p>
         </div>

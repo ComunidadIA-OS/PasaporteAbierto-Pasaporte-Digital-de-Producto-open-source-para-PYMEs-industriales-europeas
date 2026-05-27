@@ -209,7 +209,11 @@ export function Step4Documents({
       )}
 
       {uploadMsg && (
-        <p className="status-panel" style={{ margin: 0, padding: 12, fontSize: 13 }} aria-hidden="true">
+        <p
+          className="status-panel"
+          style={{ margin: 0, padding: 12, fontSize: 13 }}
+          aria-hidden="true"
+        >
           {uploadMsg}
         </p>
       )}

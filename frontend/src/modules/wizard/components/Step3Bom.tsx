@@ -325,7 +325,9 @@ function FieldRow({
         <span>
           {displayLabel}
           {field.required && (
-            <span style={{ marginLeft: 2, color: "var(--danger)" }} aria-hidden="true">*</span>
+            <span style={{ marginLeft: 2, color: "var(--danger)" }} aria-hidden="true">
+              *
+            </span>
           )}
         </span>
         <span
@@ -337,7 +339,6 @@ function FieldRow({
             color: "var(--accent)",
             cursor: "help",
           }}
-          tabIndex={0}
           role="tooltip"
         >
           <Icon name="info" size={16} label={`Cita: ${citation}`} />

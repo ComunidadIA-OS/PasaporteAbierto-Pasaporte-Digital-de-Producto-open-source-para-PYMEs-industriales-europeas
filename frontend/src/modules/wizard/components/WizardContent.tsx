@@ -504,9 +504,9 @@ function ChatDrawer({ sessionId, onClose }: { sessionId: string; onClose: () => 
       }
       if (e.key !== "Tab") return;
       const focusable = Array.from(
-        drawer!.querySelectorAll<HTMLElement>(
-          "button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex=\"-1\"])",
-        ),
+        drawer?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
       );
       if (focusable.length === 0) return;
       const first = focusable[0];
@@ -556,7 +556,6 @@ function ChatDrawer({ sessionId, onClose }: { sessionId: string; onClose: () => 
 
   return (
     <>
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: overlay actúa de fondo clicable */}
       <div className="chat-overlay" onClick={onClose} aria-hidden="true" tabIndex={-1} />
       <aside
         ref={drawerRef}
@@ -605,7 +604,11 @@ function ChatDrawer({ sessionId, onClose }: { sessionId: string; onClose: () => 
               )}
             </div>
           ))}
-          {sending && <div className="chat-typing" aria-live="polite">Pensando…</div>}
+          {sending && (
+            <div className="chat-typing" aria-live="polite">
+              Pensando…
+            </div>
+          )}
         </div>
 
         <div className="chat-input">
