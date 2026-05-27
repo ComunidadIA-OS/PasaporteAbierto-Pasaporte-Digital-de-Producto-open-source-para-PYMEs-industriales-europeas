@@ -8,7 +8,6 @@
 
 "use client";
 
-import Image from "next/image";
 import { useState, useTransition } from "react";
 
 import {
@@ -18,7 +17,7 @@ import {
   type SessionState,
 } from "@/modules/wizard/lib/wizard-api";
 
-const API_BASE = typeof process !== "undefined" ? (process.env.NEXT_PUBLIC_API_URL ?? "") : "";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export function Step7Publish({ session }: { session: SessionState }) {
   const [dpp, setDpp] = useState<DppResponse | null>(null);
@@ -145,7 +144,8 @@ export function Step7Publish({ session }: { session: SessionState }) {
         <div className="qr-card">
           <h3 className="eyebrow">QR del producto</h3>
           <div className="qr-frame" style={{ marginTop: 16 }}>
-            <Image src={qrPngUrl} alt="QR del DPP" width={192} height={192} unoptimized />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={qrPngUrl} alt="QR del DPP" width={192} height={192} />
           </div>
           <div
             style={{
