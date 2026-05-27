@@ -7,6 +7,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Icon } from "@/core/ui/Icon";
 import { API_V1 } from "@/lib/fetch";
 import { resolveLabel, usePluginFields } from "@/modules/wizard/lib/field-labels";
 import {
@@ -330,7 +331,7 @@ export function Step5Extract({
                 className="btn btn-ghost"
                 aria-label="Cerrar"
               >
-                ✕
+                <Icon name="close" size={20} />
               </button>
             </div>
             {!excerpt.match_found && (
@@ -377,9 +378,27 @@ export function Step5Extract({
               fontSize: 13,
             }}
           >
-            <span className="provenance-verified">✓ {done.fields_verified} verificados</span>
-            <span className="provenance-self">◐ {done.fields_self_declared} autodeclarados</span>
-            <span className="provenance-pending">✗ {done.fields_pending} pendientes</span>
+            <span
+              className="provenance-verified"
+              style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+            >
+              <Icon name="check_circle" size={15} fill />
+              {done.fields_verified} verificados
+            </span>
+            <span
+              className="provenance-self"
+              style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+            >
+              <Icon name="contrast" size={15} fill />
+              {done.fields_self_declared} autodeclarados
+            </span>
+            <span
+              className="provenance-pending"
+              style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+            >
+              <Icon name="cancel" size={15} fill />
+              {done.fields_pending} pendientes
+            </span>
           </div>
           {done.fields_pending > 0 && (
             <p className="muted" style={{ marginTop: 8, marginBottom: 0, fontSize: 12 }}>
@@ -401,7 +420,8 @@ export function Step5Extract({
       {done && (
         <div>
           <button type="button" onClick={onContinue} className="btn btn-primary btn-lg">
-            Continuar al paso 6 →
+            Continuar al paso 6
+            <Icon name="arrow_forward" size={18} />
           </button>
         </div>
       )}
