@@ -16,6 +16,9 @@ Aplicación web auto-hospedable para que fabricantes PYME generen el **Pasaporte
 - [Documentación](#documentación)
 - [Requisitos](#requisitos)
 - [Quickstart (≤30 minutos)](#quickstart-30-minutos)
+- [Probar en modo demo](#probar-en-modo-demo)
+- [Autenticación (login / logout)](#autenticación-login--logout)
+- [Accesibilidad](#accesibilidad)
 - [Desarrollo](#desarrollo)
 - [Plugins regulatorios](#plugins-regulatorios)
 - [Diagrama de arquitectura](#diagrama-de-arquitectura)
@@ -113,6 +116,110 @@ Debe devolver `version`, `model` y `backend`.
 4. `docker compose restart backend`.
 
 A partir de ahi, cada decision IA (Clasificador, Recolector, Chat) emitira una traza completa en Langfuse.
+
+## Probar en modo demo
+
+El **modo demo** precarga datos de ejemplo en el wizard para que recorras el flujo completo sin teclear la descripción, sin rellenar los ~47 campos del BOM y sin preparar PDFs. Se controla con el flag `DEMO_MODE`.
+
+### Activarlo
+
+```bash
+make demo-ui
+```
+
+Pone `DEMO_MODE=true` en `.env` (si no estaba), re-arranca el stack para aplicarlo y abre `http://localhost:3000/wizard`. Equivale a editarlo a mano y reconstruir:
+
+```bash
+# en .env
+DEMO_MODE=true
+
+docker compose up -d --build   # o `make up`
+```
+
+> Con `DEMO_MODE=false` (valor por defecto y recomendado en producción) los botones desaparecen y los endpoints `/api/v1/demo/*` devuelven `404`.
+
+### Qué carga
+
+Con el modo activo y **sesión iniciada** ([login](#autenticación-login--logout)), aparecen botones de ejemplo a lo largo del flujo:
+
+| Dónde | Botón | Qué hace |
+|---|---|---|
+| Paso 1 · descripción | **Cargar ejemplo** | Rellena la descripción del producto (una batería). |
+| Paso 3 · BOM | **✨ Cargar ejemplo** | Rellena los ~47 campos del plugin de baterías. |
+| Paso 4 · documentos | **Cargar PDFs de ejemplo** | Genera e inserta 4 PDFs sintéticos (certificados/datasheets). |
+| Panel (`/panel`) | **Generar ejemplos** | Siembra DPP de ejemplo (en curso y publicados) para probar el panel sin Ollama. |
+
+Los datos salen de un único origen, `scripts/e2e_demo/config.yaml`. Los botones del frontend se gobiernan con `NEXT_PUBLIC_DEMO_MODE`, que `docker compose` espeja desde el `DEMO_MODE` del backend — por eso hay que **reconstruir** el stack al cambiar el flag, no basta con reiniciar.
+
+## Autenticación (login / logout)
+
+Desde [ADR-0004](./docs/adr/0004-login-sesion-server-side-cookie-httponly.md) la app tiene **login propio de email + contraseña**. No es OAuth ni multi-tenant: son cuentas dentro de la misma instancia auto-hospedada (una instancia = un fabricante). Protege los datos de la PYME (BOM, PDFs, chat, DPP en curso) y permite reanudar "mis sesiones" por persona, no por URL.
+
+Cómo funciona:
+
+- **Hash de contraseña** con `scrypt` (stdlib, sin dependencias nuevas) y salt por contraseña.
+- **Sesión server-side** persistida en SQLite (`auth_sessions`); en BD solo se guarda el **SHA-256** del token, así una fuga de BD no entrega sesiones reutilizables. Es revocable (logout) y caduca a los 30 días por defecto.
+- **Cookie `httpOnly` + `SameSite=Lax`:** inaccesible desde JS (mitiga XSS). No se guarda nada de auth en `localStorage`.
+- **Propiedad de sesiones:** `POST /sessions` exige login y graba `user_id`; una sesión ajena devuelve `404` sin confirmar su existencia.
+
+### En la UI
+
+1. Abre **http://localhost:3000** → te redirige a **`/login`** si no hay sesión activa.
+2. Regístrate (si `ALLOW_REGISTRATION=true`) o inicia sesión con email + contraseña.
+3. El panel **`/panel`** lista tus sesiones y DPP empezados, listos para reanudar.
+4. **Cerrar sesión** revoca la sesión en el servidor y borra la cookie.
+
+> El `proxy.ts` de Next 16 protege `/wizard` y `/panel`: sin cookie de sesión, redirige a `/login`.
+
+### Endpoints (`/api/v1/auth`)
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/auth/register` | Alta de cuenta (solo si `ALLOW_REGISTRATION=true`). |
+| `POST` | `/auth/login` | Inicia sesión y fija la cookie. Error genérico `401` (no distingue email de contraseña). |
+| `POST` | `/auth/logout` | Revoca la sesión server-side y borra la cookie. |
+| `GET` | `/auth/me` | Devuelve el usuario autenticado. |
+
+### Configuración (`.env`)
+
+| Variable | Por defecto | Para qué |
+|---|---|---|
+| `ALLOW_REGISTRATION` | `true` | Permite el alta self-service. Ponlo a `false` para cerrar el registro tras dar de alta a los operarios. |
+| `AUTH_COOKIE_SECURE` | `false` | La cookie solo viaja por HTTPS si es `true`. **Obligatorio `true` tras HTTPS.** |
+| `AUTH_COOKIE_SAMESITE` | `lax` | `lax` si front y back son same-site; `none` (exige `Secure=true`) entre dominios distintos. |
+| `AUTH_COOKIE_NAME` | `pa_session` | Nombre de la cookie (espéjalo en `NEXT_PUBLIC_AUTH_COOKIE_NAME` del frontend). |
+| `AUTH_SESSION_TTL_DAYS` | `30` | Vida de la sesión en días. |
+
+## Accesibilidad
+
+El frontend cumple **WCAG 2.1 nivel AA** ([PR #61](https://github.com/ComunidadIA-OS/PasaporteAbierto-Pasaporte-Digital-de-Producto-open-source-para-PYMEs-industriales-europeas/pull/61)). Son dos capas: ajustes estructurales siempre activos y un widget para que cada persona adapte la interfaz a su necesidad.
+
+### Widget de accesibilidad
+
+Botón flotante en la esquina inferior izquierda (no se solapa con el chat, que vive a la derecha) que abre un panel con **6 modos conmutables**, persistidos en `localStorage`. Un script inline en `layout.tsx` los reaplica antes de pintar, sin parpadeo al recargar:
+
+| Modo | Qué hace |
+|---|---|
+| **Modo daltónico** | Paleta segura Okabe-Ito; los avisos usan símbolos (✓ / ⚠ / ✕), no solo color. |
+| **Modo dislexia** | Tipografía Atkinson Hyperlegible y más espacio entre letras, palabras y líneas. |
+| **Alto contraste** | Refuerza el contraste de texto y bordes, y subraya los enlaces. |
+| **Texto más grande** | Aumenta el tamaño de todo el contenido. |
+| **Subrayar enlaces** | Distingue los enlaces sin depender del color. |
+| **Reducir animaciones** | Desactiva transiciones y movimientos de la interfaz. |
+
+El panel se maneja por teclado (Escape para cerrar, foco al primer control al abrir y devolución del foco al botón al salir) e incluye un **"Restablecer todo"**.
+
+### Cumplimiento WCAG 2.1 AA (siempre activo)
+
+Sin tocar ningún interruptor, el frontend ya incorpora:
+
+- **Skip-link** "Saltar al contenido principal" como primer elemento del `<body>` (WCAG 2.4.1); cada ruta marca su `<main id="main-content">`.
+- **Anillo de foco** `:focus-visible` en todos los elementos interactivos (2.4.7 / 2.4.11).
+- **Barras de progreso** con `role="progressbar"` y `aria-valuenow/min/max/text`: stepper del wizard, completitud del BOM, extracción SSE (paso 5) y verificación (paso 6).
+- **Formularios accesibles**: `aria-required`, `aria-invalid` y `aria-describedby` en los inputs del BOM.
+- **Regiones dinámicas**: `role="log"` + `aria-live` en el historial del chat; `role="status"` para los avisos de subida de PDFs y mensajes dinámicos.
+- **Focus trap** en el chat lateral y en los modales (p. ej. "ver fuente" del extracto), devolviendo el foco al elemento que los abrió al cerrarlos.
+- Respeto de `prefers-reduced-motion` y texto `sr-only` para contexto (p. ej. "(abre en nueva pestaña)" en los enlaces externos).
 
 ## Desarrollo
 
