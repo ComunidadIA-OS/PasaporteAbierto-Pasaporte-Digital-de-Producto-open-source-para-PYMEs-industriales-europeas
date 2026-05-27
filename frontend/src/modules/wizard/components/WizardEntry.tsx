@@ -27,6 +27,11 @@ export function WizardEntry() {
       })
       .catch((err) => {
         creating.current = false;
+        // 401: sin sesión válida (cookie caducada) → al login conservando destino.
+        if (err instanceof ApiError && err.status === 401) {
+          router.replace("/login?next=/wizard");
+          return;
+        }
         setError(
           err instanceof ApiError
             ? `Error ${err.status} al crear la sesión.`

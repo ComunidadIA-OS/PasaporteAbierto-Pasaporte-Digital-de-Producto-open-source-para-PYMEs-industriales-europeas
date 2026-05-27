@@ -119,6 +119,7 @@ export async function LandingPage() {
             Inicio
           </Link>
           <Link href="/wizard">Wizard</Link>
+          <Link href="/login">Acceder</Link>
           <a href={REPO_URL} target="_blank" rel="noreferrer">
             GitHub
           </a>
