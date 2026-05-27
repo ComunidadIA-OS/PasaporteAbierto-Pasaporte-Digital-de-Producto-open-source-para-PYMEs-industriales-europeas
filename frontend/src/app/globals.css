@@ -2326,7 +2326,7 @@ body {
    ============================================================ */
 .a11y-fab {
   position: fixed;
-  right: 24px;
+  left: 24px;
   bottom: 24px;
   width: 56px;
   height: 56px;
@@ -2366,7 +2366,7 @@ body {
 
 .a11y-panel {
   position: fixed;
-  right: 24px;
+  left: 24px;
   bottom: 92px;
   width: 340px;
   max-width: calc(100vw - 48px);
