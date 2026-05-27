@@ -14,7 +14,8 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
-
+import { isDemoMode } from "@/lib/demo-mode";
+import { humanizeId } from "@/modules/wizard/lib/field-labels";
 import {
   ApiError,
   api,
@@ -22,9 +23,7 @@ import {
   type PluginDetail,
   type PluginFieldDefinition,
   type SessionState,
-} from "@/app/lib/api";
-import { isDemoMode } from "@/app/lib/demo-mode";
-import { humanizeId } from "@/app/lib/field-labels";
+} from "@/modules/wizard/lib/wizard-api";
 
 type FormValues = Record<string, unknown>;
 

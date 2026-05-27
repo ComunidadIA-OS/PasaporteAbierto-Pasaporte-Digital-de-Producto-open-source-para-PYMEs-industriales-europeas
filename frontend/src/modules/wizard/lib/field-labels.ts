@@ -5,8 +5,8 @@
 // `humanizeId` convierte el id snake_case a texto capitalizado.
 
 import { useEffect, useState } from "react";
-
-import { api, type PluginFieldDefinition } from "./api";
+import type { PluginFieldDefinition } from "@/core/responses";
+import { api } from "@/modules/wizard/lib/wizard-api";
 
 /** Convierte un id snake_case en texto legible: battery_mass_kg → Battery mass kg */
 export function humanizeId(id: string): string {

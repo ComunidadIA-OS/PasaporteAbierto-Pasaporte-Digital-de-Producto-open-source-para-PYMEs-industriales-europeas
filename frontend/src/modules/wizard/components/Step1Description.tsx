@@ -7,9 +7,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-
-import { ApiError, api, type SessionState } from "@/app/lib/api";
-import { isDemoMode } from "@/app/lib/demo-mode";
+import { isDemoMode } from "@/lib/demo-mode";
+import { ApiError, api, type SessionState } from "@/modules/wizard/lib/wizard-api";
 
 const MIN_LENGTH = 20;
 

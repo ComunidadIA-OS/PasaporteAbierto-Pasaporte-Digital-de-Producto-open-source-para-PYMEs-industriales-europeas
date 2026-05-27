@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { Reveal } from "./components/Reveal";
+import { Reveal } from "@/modules/landing/components/Reveal";
 
 const REPO_URL =
   "https://github.com/ComunidadIA-OS/PasaporteAbierto-Pasaporte-Digital-de-Producto-open-source-para-PYMEs-industriales-europeas";
@@ -87,7 +87,7 @@ const ROADMAP = [
   },
 ];
 
-export default async function Home() {
+export async function LandingPage() {
   const health = await getHealth();
 
   return (

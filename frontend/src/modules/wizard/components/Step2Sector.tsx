@@ -17,7 +17,13 @@
 
 import { useEffect, useState, useTransition } from "react";
 
-import { ApiError, api, type Citation, type PluginSummary, type SessionState } from "@/app/lib/api";
+import {
+  ApiError,
+  api,
+  type Citation,
+  type PluginSummary,
+  type SessionState,
+} from "@/modules/wizard/lib/wizard-api";
 
 const CONFIDENCE_THRESHOLD = 0.7;
 

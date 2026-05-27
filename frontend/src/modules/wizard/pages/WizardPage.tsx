@@ -2,13 +2,12 @@
 //
 // Server Component: hace el fetch inicial de la sesión en SSR. Si no
 // existe, muestra 404. Si existe, delega toda la interactividad a
-// `WizardClient` para que la navegación entre pasos sea client-side.
+// `WizardContent` para que la navegación entre pasos sea client-side.
 
 import Link from "next/link";
 
-import { ApiError, api, type SessionState } from "@/app/lib/api";
-
-import { WizardClient } from "./wizard-client";
+import { WizardContent } from "@/modules/wizard/components/WizardContent";
+import { ApiError, api, type SessionState } from "@/modules/wizard/lib/wizard-api";
 
 async function loadSession(sessionId: string): Promise<SessionState | null> {
   try {
@@ -19,8 +18,7 @@ async function loadSession(sessionId: string): Promise<SessionState | null> {
   }
 }
 
-export default async function WizardPage({ params }: { params: Promise<{ sessionId: string }> }) {
-  const { sessionId } = await params;
+export async function WizardPage({ sessionId }: { sessionId: string }) {
   const session = await loadSession(sessionId);
 
   if (!session) {
@@ -65,5 +63,5 @@ export default async function WizardPage({ params }: { params: Promise<{ session
     );
   }
 
-  return <WizardClient initialSession={session} />;
+  return <WizardContent initialSession={session} />;
 }

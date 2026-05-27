@@ -7,9 +7,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-
-import { ApiError, api, type DocumentsListResponse, type SessionState } from "@/app/lib/api";
-import { isDemoMode } from "@/app/lib/demo-mode";
+import { isDemoMode } from "@/lib/demo-mode";
+import {
+  ApiError,
+  api,
+  type DocumentsListResponse,
+  type SessionState,
+} from "@/modules/wizard/lib/wizard-api";
 
 const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 
