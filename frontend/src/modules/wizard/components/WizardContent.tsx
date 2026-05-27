@@ -232,7 +232,7 @@ function StepSlot({
 // Chat — drawer modal abierto desde el FAB
 // ============================================================
 
-let chatMsgId = 0;
+let chatMsgId = 1;
 
 interface ChatMessage {
   id: number;
@@ -241,31 +241,29 @@ interface ChatMessage {
   citation: { regulation: string; article: string; url: string | null } | null;
 }
 
+const MSG_BIENVENIDA: ChatMessage = {
+  id: 0,
+  role: "assistant",
+  text: "¡Hola! Soy tu asistente normativo. ¿En qué puedo ayudarte?",
+  citation: null,
+};
+
 function ChatDrawer({ sessionId, onClose }: { sessionId: string; onClose: () => void }) {
   // Invariante: el chat NUNCA escribe en el estado del wizard. Sí persiste su
   // propio histórico en chat_messages (canal independiente, F3-04 criterio 3).
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([MSG_BIENVENIDA]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const BIENVENIDA: ChatMessage = {
-    id: 0,
-    role: "assistant",
-    text: "¡Hola! Soy tu asistente normativo. ¿En qué puedo ayudarte?",
-    citation: null,
-  };
-
-  // Carga el histórico persistido al montar.
+  // Carga el histórico persistido al montar; si existe, reemplaza el saludo inicial.
   useEffect(() => {
     let cancelled = false;
     api
       .chatHistory(sessionId)
       .then((res) => {
         if (cancelled) return;
-        if (res.messages.length === 0) {
-          setMessages([BIENVENIDA]);
-        } else {
+        if (res.messages.length > 0) {
           setMessages(
             res.messages.map((m) => ({
               id: ++chatMsgId,
@@ -278,7 +276,7 @@ function ChatDrawer({ sessionId, onClose }: { sessionId: string; onClose: () => 
         }
       })
       .catch(() => {
-        setMessages([BIENVENIDA]);
+        // Sin histórico accesible → mantiene el saludo inicial ya visible.
       });
     return () => {
       cancelled = true;
