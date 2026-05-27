@@ -10,7 +10,9 @@ PasaporteAbierto es una aplicación web auto-hospedable que ayuda a fabricantes 
 
 ```
 backend/          FastAPI + SQLModel + RAG. Código en backend/src/app/, tests en backend/tests/.
-  src/app/api/v1/    rutas /api/v1 (wizard, chat, audit, plugins, health, demo) + public_dpp.py (GET /dpp/{uri})
+  src/app/api/v1/    rutas /api/v1 (auth, wizard, chat, audit, plugins, health, demo)
+  src/app/api/       public_dpp.py (GET /dpp/{slug}, fuera del prefijo /api/v1)
+  src/app/auth/      login propio: scrypt + sesión server-side en cookie httpOnly (ADR-0004)
   src/app/{classifier,collector,chat}/  agentes IA (agent.py)
   src/app/{verifier,dpp,audit}/          pasos deterministas del pipeline
   src/app/rag/       ingest (solo eurlex: corpus normativo), chunking, embeddings, index, retrieval, eval
@@ -30,7 +32,7 @@ Antes de tocar nada, consulta en este orden:
 1. **`.claude/HACKATHON.md`** — reglas duras del hackathon (deadlines, licencia OSS, TRL, criterios de evaluación). Si una decisión técnica entra en conflicto con estas reglas, **la regla del hackathon gana**.
 2. `docs/ARCHITECTURE.md` — arquitectura técnica, contratos entre componentes, stack, decisiones explícitas y descartes razonados.
 3. `docs/FUNCIONAL.md` — especificación funcional, UX paso a paso, reglas duras del producto y criterios globales de aceptación.
-4. `docs/adr/` — decisiones de arquitectura ya cerradas (0001 identificador declarado por el plugin, 0002 vocabulario JSON-LD local, 0003 slug opaco en la URL pública). Un ADR aceptado pesa lo mismo que `ARCHITECTURE.md`.
+4. `docs/adr/` — decisiones de arquitectura ya cerradas (0001 identificador declarado por el plugin, 0002 vocabulario JSON-LD local, 0003 slug opaco en la URL pública, 0004 login con sesión server-side en cookie httpOnly). Un ADR aceptado pesa lo mismo que `ARCHITECTURE.md`.
 5. `docs/tickets/F1.md` … `docs/tickets/F6.md` — tickets de cada fase con historia de usuario, descripción y criterios de aceptación.
 
 Apoyo: `README.md` es la referencia operativa más completa (quickstart, comandos). `docs/handoffs/` guarda el estado al cierre de cada sesión.
@@ -53,10 +55,32 @@ Estas reglas vienen del diseño y se aplican siempre, salvo que se actualice el 
 - **El chat lateral nunca escribe en el estado del wizard.** El dato lo introduce siempre el fabricante. El chat es un endpoint independiente del pipeline.
 - **Toda respuesta del chat exige cita normativa concreta** (`[Reglamento X, Art. Y]`). Si el RAG no devuelve fragmentos relevantes, la respuesta canónica es "No tengo información suficiente para responder con base normativa".
 - **El corpus RAG es exclusivamente normativo**: solo reglamentos UE (ESPR, baterías) y actos delegados — texto citable como ley. El esquema del identificador (ISO/IEC 15459, GS1 Digital Link) y el vocabulario del DPP (CIRPASS-2 Core) **no** están en el RAG: los declara el plugin sectorial y los aplica la generación determinista del DPP. La descarga de EUR-Lex usa el repositorio **Cellar** (`publications.europa.eu/resource/celex/{celex}`), porque el endpoint `legal-content` responde `202` vacío a clientes no-navegador. El chat se alimenta de tres entradas separadas: RAG (cita la ley), plugin `.yaml` (guía por campos/documentos del paso) y estado de la sesión (dónde estás).
-- **El Recolector no dialoga con el usuario.** Termina, escribe estado en `extracted_fields` y devuelve control al wizard. Los tres estados de provenance (`verified` / `self_declared` / `required_pending`) son canon — ver §9.1 de `FUNCIONAL.md`. **Cada campo del plugin tiene además un `access_level` ortogonal** (`public` / `legitimate_interest` / `authorities_only` / `individual`) conforme a las 4 secciones del Annex XIII del Reg. UE 2023/1542 — ver §9.2 de `FUNCIONAL.md`. El endpoint público `GET /dpp/{gs1_uri}` solo expone campos con `access_level = public`.
+- **El Recolector no dialoga con el usuario.** Termina, escribe estado en `extracted_fields` y devuelve control al wizard. Los tres estados de provenance (`verified` / `self_declared` / `required_pending`) son canon — ver §9.1 de `FUNCIONAL.md`. **Cada campo del plugin tiene además un `access_level` ortogonal** (`public` / `legitimate_interest` / `authorities_only` / `individual`) conforme a las 4 secciones del Annex XIII del Reg. UE 2023/1542 — ver §9.2 de `FUNCIONAL.md`. El endpoint público `GET /dpp/{slug}` (slug opaco derivado del `session_id`; el `gs1_uri` canónico va en el cuerpo del DPP — ADR-0003) solo expone campos con `access_level = public`.
 - **No se puede emitir un DPP parcial conforme.** Si falta cualquier campo obligatorio del plugin, la publicación queda bloqueada en el paso 6 (Verificador).
 - **Extensibilidad por configuración**: añadir un sector ESPR significa añadir un YAML en `plugins/`, no modificar el núcleo. Cada plugin se valida contra `plugins/_schema.yaml` al arrancar; un plugin que no cumpla el schema no se carga.
 - **Audit log con hash chain:** cada operación significativa escribe en `audit_log` con `prev_hash`. El endpoint `GET /audit/verify` recorre la cadena.
+
+## Reglas de trabajo del asistente (no negociables)
+
+Estas reglas gobiernan **cómo** opera el asistente en este repo. Pesan lo mismo que las invariantes arquitectónicas.
+
+### Git y commits
+
+- **Pregunta SIEMPRE antes de hacer `commit`, `push`, `merge` o `rebase`.** No los ejecutes por iniciativa propia: muestra el diff, espera confirmación explícita y solo entonces commitea. No hagas `git add` "preparatorio" masivo sin avisar de qué entra en el commit.
+- **Nunca trabajes ni commitees directamente sobre `main`.** Rama desde `develop` (rama de trabajo por defecto) con prefijo de tipo (`feat/`, `fix/`, `docs/`…). Las PR van contra `main` solo cuando el usuario lo pida.
+- **No reescribas historia ya publicada** (`push --force`, `rebase` de ramas compartidas) salvo petición explícita.
+- El mensaje sigue la **Convención de commits** de más abajo (un commit = un cambio lógico, cuerpo con el porqué, sin trailers de co-autoría de IA).
+
+### Seguridad
+
+- **Nunca subas secretos al repo.** Ni `.env`, ni claves de API de LLM (Claude/GPT/Gemini), ni credenciales de Langfuse, ni la clave privada Ed25519 del fabricante (`backend/data/keys/*.ed25519`). Estos paths ya están en `.gitignore` (`.env`, `backend/data/`, `backend/*.db`); verifícalo antes de cualquier `add`. Si detectas un secreto ya commiteado, **avisa de inmediato** — no lo "arregles" en silencio borrando solo el último commit.
+- **El endpoint público solo expone `access_level = public`.** Cualquier cambio en `dpp/` o `api/public_dpp.py` debe preservar el filtrado por `access_level` (§9.2 `FUNCIONAL.md`): no añadas campos `legitimate_interest`, `authorities_only` ni `individual` al JSON-LD público ni a la página HTML.
+- **Propiedad blanda de sesiones (ADR-0004):** los datos sensibles del fabricante (BOM, PDFs, chat) no pueden quedar accesibles solo por adivinar el UUID de la sesión. Todo endpoint nuevo que lea una sesión comprueba la pertenencia (`user_id`) antes de devolver datos, devolviendo `404` —no `403`— para no filtrar la existencia de sesiones ajenas.
+- **Contraseñas con `scrypt`** (KDF memory-hard, salt aleatorio por contraseña); en BD se guarda solo el hash. El token de sesión viaja en cookie `httpOnly`; en `auth_sessions` se guarda su SHA-256, nunca el token en claro. No introduzcas JWT en claro ni rebajes estas garantías.
+- **Nunca `eval`/`exec` sobre datos de entrada.** Las `cross_validations` de los plugins se evalúan con el AST seguro de `app.plugins.conditions` (sin `eval()`); cualquier regla nueva pasa por ahí.
+- **Audit log inmutable:** las operaciones se *añaden*, nunca se editan. No modifiques filas de `audit_log` ni rompas el `prev_hash`; `GET /audit/verify` debe seguir pasando.
+- **Subidas validadas:** PDFs con límite de tamaño (10 MB) y dedupe por SHA-256 (§Paso 4 `FUNCIONAL.md`). No relajes estos límites sin justificarlo en el doc.
+- **No filtres datos del fabricante en logs ni en trazas.** Langfuse traza prompts/respuestas de los agentes; mantén fuera de los logs en claro credenciales, tokens de sesión y PII.
 
 ## Decisiones descartadas (no reabrir sin justificación nueva)
 
@@ -64,7 +88,7 @@ Estas reglas vienen del diseño y se aplican siempre, salvo que se actualice el 
 
 - **No LangGraph / LangChain.** Pipeline lineal con FastAPI endpoints + `asyncio.gather` para el paralelismo del Recolector.
 - **No PostgreSQL ni Redis.** Una instancia = un fabricante PYME, SQLite + FastAPI BackgroundTasks bastan.
-- **No multi-tenant ni OAuth** en el alcance del hackathon. Basic auth si hace falta exponer en red local.
+- **No multi-tenant, OAuth ni SSO** en el alcance del hackathon (sin IdP externo, sin aislamiento por organización). Sí hay un **login propio mínimo** (email + contraseña con scrypt, sesión server-side en SQLite, cookie `httpOnly`) que liga las sesiones del wizard y el chat a un `user_id` para que los datos sensibles no queden accesibles por adivinar el UUID de la sesión — ver `docs/adr/0004-login-sesion-server-side-cookie-httponly.md`. Sustituye al "basic auth" que antes se contemplaba aquí; no reintroduce OAuth ni multi-tenant.
 
 ## Pipeline del wizard (7 pasos)
 
@@ -78,7 +102,9 @@ Estas reglas vienen del diseño y se aplican siempre, salvo que se actualice el 
 | 6 · verificación | det | `GET /sessions/{id}/verify` |
 | 7 · generación DPP | det | `POST /sessions/{id}/dpp` |
 
-Endpoint público del DPP (`GET /dpp/{gs1_uri}`) usa **content negotiation**: `application/ld+json` devuelve JSON-LD CIRPASS-2 Core; `text/html` devuelve la página renderizada (con distinción visual entre `verified` y `self_declared`).
+Endpoint público del DPP (`GET /dpp/{slug}`, slug opaco derivado del `session_id`) usa **content negotiation**: `application/ld+json` devuelve JSON-LD con vocabulario local `urn:pasaporte-abierto:dpp:v1#` alineado con CIRPASS-2 Core (ADR-0002); `text/html` devuelve la página renderizada (con distinción visual entre `verified` y `self_declared`).
+
+El **chat lateral** no es un paso del wizard: es `POST /api/v1/chat` (con `session_id` en el cuerpo) más `GET /api/v1/sessions/{id}/chat` para recuperar el histórico persistido en la tabla `chat_messages`.
 
 ## Convenciones del proyecto
 

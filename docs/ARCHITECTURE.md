@@ -58,7 +58,7 @@ La observabilidad se construye con Langfuse self-hosted. Cada decisión del Clas
 
 ## API
 
-Todas las rutas usan el prefijo `/api/v1`.
+Casi todas las rutas usan el prefijo `/api/v1`; la excepción es la ruta pública `/dpp/{slug}`, que se monta directamente en la app (es la URL navegable que codifica el QR).
 
 | Paso | Método | Endpoint | Tipo |
 |---|---|---|---|
@@ -70,8 +70,16 @@ Todas las rutas usan el prefijo `/api/v1`.
 | 5 · extracción | POST | /sessions/{id}/extract | IA |
 | 6 · verificación | GET | /sessions/{id}/verify | det |
 | 7 · DPP | POST | /sessions/{id}/dpp | det |
-| chat | POST | /sessions/{id}/chat | IA |
+| chat | POST | /chat | IA |
+| chat · histórico | GET | /sessions/{id}/chat | det |
+| auth · registro | POST | /auth/register | det |
+| auth · login | POST | /auth/login | det |
+| auth · logout | POST | /auth/logout | det |
+| auth · identidad | GET | /auth/me | det |
+| audit | GET | /audit/verify | det |
 | pública | GET | /dpp/{slug} | det |
+
+El chat lateral recibe el `session_id` en el cuerpo de la petición (no en la ruta), de modo que el endpoint es `POST /chat` y no `POST /sessions/{id}/chat`; el histórico persistido se recupera con `GET /sessions/{id}/chat`. La ruta pública `/dpp/{slug}` queda **fuera** del prefijo `/api/v1` (se monta directamente en la app) porque es la URL navegable que codifica el QR.
 
 El endpoint público de DPP usa content negotiation: si el cliente envía `Accept: application/ld+json` devuelve el JSON-LD, si envía `Accept: text/html` devuelve la página renderizada para humanos. El segmento `{slug}` es un identificador opaco derivado del `session_id` (primeros 8 caracteres del UUID); el `gs1_uri` canónico declarado por el plugin sectorial aparece dentro del cuerpo del DPP (campo `@id` del JSON-LD) y en la página HTML, no en la URL. La motivación —URN ISO/IEC 15459 no resoluble por HTTP, GS1 Digital Link apunta a un dominio externo— está documentada en `docs/adr/0003-url-publica-slug-opaco.md`.
 
@@ -79,9 +87,9 @@ Para operaciones largas (extracción de PDFs grandes, indexado de nuevos documen
 
 ## Persistencia
 
-Una única base SQLite por instancia, con cinco tablas.
+Una única base SQLite por instancia, con ocho tablas: las cinco del pipeline (`sessions`, `documents`, `extracted_fields`, `audit_log`, `published_dpps`), la del histórico de chat (`chat_messages`) y las dos del login (`users`, `auth_sessions`, añadidas por el ADR-0004).
 
-La tabla `sessions` guarda el estado del wizard: identificador único, JSON con el progreso paso a paso, sector clasificado, plugin aplicable, timestamps de creación y última modificación.
+La tabla `sessions` guarda el estado del wizard: identificador único, JSON con el progreso paso a paso, sector clasificado, plugin aplicable, timestamps de creación y última modificación. Incluye un `user_id` **nullable** (FK a `users`) que implementa la propiedad blanda de sesiones del ADR-0004: una sesión sin dueño es accesible, pero una con dueño solo la lee su propietario.
 
 La tabla `documents` guarda los PDFs subidos: referencia a la sesión, tipo de documento (datasheet, certificado, LCA, SDS, declaración CE), ruta al blob y hash SHA-256 del archivo.
 
@@ -90,6 +98,12 @@ La tabla `extracted_fields` guarda los campos que el Recolector ha extraído: re
 La tabla `audit_log` implementa el hash chain: identificador incremental, hash de la entrada anterior, hash del contenido actual, timestamp, operación y payload JSON. La integridad se verifica recorriendo la cadena desde la primera entrada.
 
 La tabla `published_dpps` guarda los DPPs ya emitidos: la columna `gs1_uri` almacena el URI canónico del pasaporte —cuya forma sigue el esquema declarado por el plugin sectorial (ISO/IEC 15459 para baterías, GS1 Digital Link como fallback genérico, u otro esquema registrado por un plugin futuro)—, blob JSON-LD, firma Ed25519, fecha de publicación y referencia a la clave pública del fabricante. La URL pública del DPP no usa la columna `gs1_uri` como segmento de ruta: deriva un slug opaco del `session_id` (ver `docs/adr/0003-url-publica-slug-opaco.md`). El `gs1_uri` queda disponible para búsqueda inversa (recuperar un DPP dado su identificador canónico) y se expone dentro del cuerpo del JSON-LD.
+
+La tabla `chat_messages` guarda el histórico del chat lateral por sesión (rol `user`/`assistant`, contenido, cita normativa opcional, timestamp). Es un **canal independiente del estado del wizard**: persistir la conversación permite reanudarla tras un refresh sin que el chat escriba nunca en `sessions`, `extracted_fields` ni `documents`.
+
+La tabla `users` guarda las cuentas del login propio (ADR-0004): identificador, email único y hash de contraseña con `scrypt` (parámetros embebidos en el digest). Nunca almacena la contraseña en claro.
+
+La tabla `auth_sessions` guarda las sesiones server-side: identificador, `user_id`, **SHA-256 del token** (no el token en claro), y timestamps de creación, expiración y último acceso. El token viaja al cliente en una cookie `httpOnly`; guardar solo su hash evita que una fuga de la BD entregue sesiones reutilizables, y la fila se puede borrar para revocar (logout, expiración).
 
 ## Stack técnico
 
