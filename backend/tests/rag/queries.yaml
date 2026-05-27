@@ -1,0 +1,180 @@
+- id: espr-pasaporte-art7-1
+  query: "¿Qué productos deben tener pasaporte digital de producto?"
+  expected_citation:
+    reglamento: "UE 2024/1781"
+    articulo: "7"
+  idioma: es
+  tags: [espr, alcance]
+
+- id: espr-pasaporte-art7-en
+  query: "Which products require a digital product passport?"
+  expected_citation:
+    reglamento: "UE 2024/1781"
+    articulo: "7"
+  idioma: en
+  tags: [espr, alcance]
+
+- id: espr-informacion-actualizada-art7-3
+  query: "¿La información del pasaporte digital tiene que estar actualizada?"
+  expected_citation:
+    reglamento: "UE 2024/1781"
+    articulo: "7"
+    apartado: "3"
+  idioma: es
+  tags: [espr, calidad-datos]
+
+- id: espr-essential-requirements-art9
+  query: "What are the essential requirements for the digital product passport?"
+  expected_citation:
+    reglamento: "UE 2024/1781"
+    articulo: "9"
+  idioma: en
+  tags: [espr, requisitos]
+
+- id: espr-identificador-unico-art9
+  query: "¿Cómo se conecta el pasaporte digital con el identificador del producto?"
+  expected_citation:
+    reglamento: "UE 2024/1781"
+    articulo: "9"
+  idioma: es
+  tags: [espr, identificador]
+
+- id: espr-objeto-art1
+  query: "¿Cuál es el objeto del reglamento ESPR?"
+  expected_citation:
+    reglamento: "UE 2024/1781"
+    articulo: "1"
+  idioma: es
+  tags: [espr, objeto]
+
+- id: espr-scope-art1-en
+  query: "What is the scope of the ESPR regulation?"
+  expected_citation:
+    reglamento: "UE 2024/1781"
+    articulo: "1"
+  idioma: en
+  tags: [espr, alcance]
+
+- id: espr-ecodesign-framework
+  query: "What does the ESPR framework establish for ecodesign requirements?"
+  expected_citation:
+    reglamento: "UE 2024/1781"
+    articulo: "1"
+  idioma: en
+  tags: [espr, framework]
+
+- id: batteries-pasaporte-art77-1
+  query: "¿A partir de qué fecha es obligatorio el pasaporte de batería?"
+  expected_citation:
+    reglamento: "UE 2023/1542"
+    articulo: "77"
+    apartado: "1"
+  idioma: es
+  tags: [batteries, fecha]
+
+- id: batteries-passport-info-art77-2
+  query: "What information must the battery passport contain?"
+  expected_citation:
+    reglamento: "UE 2023/1542"
+    articulo: "77"
+    apartado: "2"
+  idioma: en
+  tags: [batteries, contenido]
+
+- id: batteries-iso-15459-art77-3
+  query: "¿Qué normas ISO debe cumplir el identificador único del pasaporte de batería?"
+  expected_citation:
+    reglamento: "UE 2023/1542"
+    articulo: "77"
+    apartado: "3"
+  idioma: es
+  tags: [batteries, identificador, iso]
+
+- id: batteries-qr-code-art77-3-en
+  query: "How is the battery passport linked to the physical battery via QR code?"
+  expected_citation:
+    reglamento: "UE 2023/1542"
+    articulo: "77"
+    apartado: "3"
+  idioma: en
+  tags: [batteries, qr]
+
+- id: batteries-annex-xiii-public
+  query: "¿Qué información del pasaporte de batería es accesible al público?"
+  expected_citation:
+    reglamento: "UE 2023/1542"
+    articulo: "Annex XIII"
+  idioma: es
+  tags: [batteries, annex-xiii, public]
+
+- id: batteries-annex-xiii-legitimate
+  query: "Which battery passport information is accessible only to those with a legitimate interest?"
+  expected_citation:
+    reglamento: "UE 2023/1542"
+    articulo: "Annex XIII"
+  idioma: en
+  tags: [batteries, annex-xiii, legitimate]
+
+- id: batteries-objeto-art1
+  query: "¿Cuál es el objeto del reglamento de baterías?"
+  expected_citation:
+    reglamento: "UE 2023/1542"
+    articulo: "1"
+  idioma: es
+  tags: [batteries, objeto]
+
+- id: batteries-scope-art1-en
+  query: "What is the subject matter of the batteries regulation?"
+  expected_citation:
+    reglamento: "UE 2023/1542"
+    articulo: "1"
+  idioma: en
+  tags: [batteries, alcance]
+
+- id: cirpass-product-class
+  query: "What is a Product in the CIRPASS-2 Core Ontology?"
+  expected_citation:
+    reglamento: "CIRPASS-2 Core"
+    articulo: "Product"
+  idioma: en
+  tags: [cirpass]
+
+- id: cirpass-material-class
+  query: "How does CIRPASS-2 define a Material?"
+  expected_citation:
+    reglamento: "CIRPASS-2 Core"
+    articulo: "Material"
+  idioma: en
+  tags: [cirpass]
+
+- id: gs1-uri-syntax
+  query: "What is the URI syntax of GS1 Digital Link?"
+  expected_citation:
+    reglamento: "GS1 Digital Link 1.3.0"
+    articulo: "sección 2"
+  idioma: en
+  tags: [gs1, uri]
+
+- id: gs1-identifier-mappings
+  query: "How does GS1 Digital Link map Application Identifiers to URIs?"
+  expected_citation:
+    reglamento: "GS1 Digital Link 1.3.0"
+    articulo: "sección 3"
+  idioma: en
+  tags: [gs1, ai]
+
+- id: iso-15459-part-4-products
+  query: "What ISO standard covers unique identification of individual products?"
+  expected_citation:
+    reglamento: "ISO/IEC 15459"
+    articulo: "Part 4"
+  idioma: en
+  tags: [iso, identificador]
+
+- id: iso-15459-parte-1-es
+  query: "¿Qué norma ISO especifica la identificación única de unidades de transporte?"
+  expected_citation:
+    reglamento: "ISO/IEC 15459"
+    articulo: "Part 1"
+  idioma: es
+  tags: [iso, identificador]

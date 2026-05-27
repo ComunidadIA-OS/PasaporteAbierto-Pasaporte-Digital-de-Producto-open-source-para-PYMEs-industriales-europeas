@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🔒 Reportar una vulnerabilidad de seguridad
+    url: https://github.com/ComunidadIA-OS/PasaporteAbierto-Pasaporte-Digital-de-Producto-open-source-para-PYMEs-industriales-europeas/security/advisories/new
+    about: No abras un issue público. Usa la divulgación privada (ver SECURITY.md).
+  - name: 💬 Preguntas, ideas y soporte
+    url: https://github.com/ComunidadIA-OS/PasaporteAbierto-Pasaporte-Digital-de-Producto-open-source-para-PYMEs-industriales-europeas/discussions
+    about: Para dudas de uso, propuestas y soporte general, usa Discusiones.
