@@ -51,20 +51,14 @@ const PROVENANCE_BADGE: Record<Provenance, { className: string; label: string }>
 function formatValue(value: unknown): string {
   if (value == null) return "";
   if (Array.isArray(value)) {
-    return value
-      .map(formatValue)
-      .filter(Boolean)
-      .join(", ");
+    return value.map(formatValue).filter(Boolean).join(", ");
   }
   if (typeof value === "object") {
     const obj = value as Record<string, unknown>;
     for (const key of ["name", "label", "value", "substance", "material", "cas"]) {
       if (obj[key] != null) return formatValue(obj[key]);
     }
-    return Object.values(obj)
-      .map(formatValue)
-      .filter(Boolean)
-      .join(" · ");
+    return Object.values(obj).map(formatValue).filter(Boolean).join(" · ");
   }
   return String(value);
 }
@@ -293,9 +287,7 @@ export function Step5Extract({
                   <span className="xf-label">{fieldLabel}</span>
                   <span className={badge.className}>{badge.label}</span>
                 </div>
-                <p className="xf-value">
-                  {formatted || <span className="faint">—</span>}
-                </p>
+                <p className="xf-value">{formatted || <span className="faint">—</span>}</p>
                 <div className="xf-card-foot">
                   <span className="xf-conf mono">{Math.round(f.confidence * 100)}% confianza</span>
                   {canShowSource && (

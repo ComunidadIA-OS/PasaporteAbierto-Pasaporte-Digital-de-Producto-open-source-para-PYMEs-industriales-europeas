@@ -91,9 +91,9 @@ export async function DashboardPage() {
           <span>PasaporteAbierto</span>
         </Link>
         <div className="appbar-spacer" />
-          <span className="mono" style={{ fontSize: 12, color: "var(--text-muted)" }}>
-            {email}
-          </span>
+        <span className="mono" style={{ fontSize: 12, color: "var(--text-muted)" }}>
+          {email}
+        </span>
         <nav className="appbar-nav">
           <LogoutButton />
         </nav>
