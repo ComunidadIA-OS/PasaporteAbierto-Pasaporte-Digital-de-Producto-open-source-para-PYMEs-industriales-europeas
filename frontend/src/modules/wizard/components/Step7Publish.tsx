@@ -20,7 +20,13 @@ import {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-export function Step7Publish({ session }: { session: SessionState }) {
+export function Step7Publish({
+  session,
+  onPublished,
+}: {
+  session: SessionState;
+  onPublished?: (dpp: DppResponse) => void;
+}) {
   const [dpp, setDpp] = useState<DppResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -33,6 +39,7 @@ export function Step7Publish({ session }: { session: SessionState }) {
       try {
         const r = await api.generateDpp(session.session_id);
         setDpp(r);
+        onPublished?.(r);
       } catch (err) {
         if (err instanceof ApiError && err.status === 409) {
           setError("No se puede publicar: rellena los campos pendientes en el paso 6.");
