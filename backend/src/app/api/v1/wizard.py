@@ -881,15 +881,14 @@ def generate_dpp(
         signature_b64 = signed.signature_b64
         public_key_b64 = signed.public_key_b64
 
-    db.add(
-        PublishedDPP(
-            gs1_uri=gs1_uri,
-            session_id=session_id,
-            jsonld=jsonld,
-            signature=signature_b64,
-            public_key=public_key_b64,
-        )
+    pdpp = PublishedDPP(
+        gs1_uri=gs1_uri,
+        session_id=session_id,
+        jsonld=jsonld,
+        signature=signature_b64,
+        public_key=public_key_b64,
     )
+    db.add(pdpp)
     append_audit(
         db,
         operation="publish",
@@ -903,16 +902,7 @@ def generate_dpp(
     )
     db.commit()
 
-    slug = session_id.split("-", 1)[0]
-    public_url = public_dpp_url(slug)
-    return DppResponse(
-        gs1_uri=gs1_uri,
-        public_url=public_url,
-        qr_png_url=f"/api/v1/sessions/{session_id}/dpp/qr.png",
-        qr_svg_url=f"/api/v1/sessions/{session_id}/dpp/qr.svg",
-        signed=sign_dpp,
-        jsonld_url=public_url,
-    )
+    return _dpp_response(pdpp)
 
 
 def _published_or_404(db: Session, session_id: str) -> PublishedDPP:
@@ -926,6 +916,37 @@ def _public_url_for(pdpp: PublishedDPP) -> str:
     """Reconstruye la URL pública absoluta del DPP para impresión en QR."""
     slug = pdpp.session_id.split("-", 1)[0]
     return public_dpp_url(slug)
+
+
+def _dpp_response(pdpp: PublishedDPP) -> DppResponse:
+    """Construye el DppResponse a partir de la fila publicada.
+
+    Fuente única para POST (publicación) y GET (rehidratación al reentrar):
+    QR y URL pública se derivan siempre del mismo sitio, y `signed` se infiere
+    de si la fila guardó firma Ed25519.
+    """
+    public_url = _public_url_for(pdpp)
+    return DppResponse(
+        gs1_uri=pdpp.gs1_uri,
+        public_url=public_url,
+        qr_png_url=f"/api/v1/sessions/{pdpp.session_id}/dpp/qr.png",
+        qr_svg_url=f"/api/v1/sessions/{pdpp.session_id}/dpp/qr.svg",
+        signed=pdpp.signature is not None,
+        jsonld_url=public_url,
+    )
+
+
+@router.get("/{session_id}/dpp", response_model=DppResponse)
+def get_dpp(session_id: str, db: DbSession, user: CurrentUser) -> DppResponse:
+    """Devuelve el DPP ya publicado de la sesión (rehidratación del paso 7).
+
+    Permite al frontend recuperar QR + URL pública al reentrar en un DPP
+    finalizado, sin re-publicar (POST devuelve 409 si ya existe). 404 si la
+    sesión no es del usuario o aún no se ha publicado.
+    """
+    _get_owned_or_404(db, session_id, user)
+    pdpp = _published_or_404(db, session_id)
+    return _dpp_response(pdpp)
 
 
 @router.get("/{session_id}/dpp/qr.png")

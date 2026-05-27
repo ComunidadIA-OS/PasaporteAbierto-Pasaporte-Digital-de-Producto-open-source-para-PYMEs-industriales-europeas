@@ -47,81 +47,193 @@ def _resolve_by_slug(db: Session, slug: str) -> PublishedDPP:
     return pdpp
 
 
-_BADGE_LABELS = {
-    "verified": ("✓ verificado", "verified"),
-    "self_declared": ("autodeclarado", "self_declared"),
+# Iconos SVG inline (la página la sirve el backend, no el bundle Next con
+# Material Symbols; SVG inline mantiene el lenguaje de diseño sin CDN ni
+# caracteres-icono, y funciona en despliegues self-hosted sin red externa).
+_SVG_CHECK = (
+    '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">'
+    '<path fill="currentColor" d="M13.5 4.2a.9.9 0 0 1 0 1.27l-6 6a.9.9 0 0 1-1.27 0'
+    'L2.5 7.74A.9.9 0 1 1 3.77 6.47l2.6 2.6 5.36-5.37a.9.9 0 0 1 1.27 0z"/></svg>'
+)
+_SVG_DECLARED = (
+    '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">'
+    '<path fill="currentColor" d="M11.7 1.4a1 1 0 0 1 1.4 0l1.5 1.5a1 1 0 0 1 0 1.4'
+    "l-8 8a1 1 0 0 1-.44.26l-3 .8a.6.6 0 0 1-.73-.74l.8-3a1 1 0 0 1 .26-.43l8-8zM11 "
+    '3.3 12.7 5 14 3.7 12.3 2 11 3.3z"/></svg>'
+)
+_SVG_EMBLEM = (
+    '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">'
+    '<path fill="currentColor" d="M12 1.5 3.5 5v6.2c0 5 3.6 9.4 8.5 10.8 4.9-1.4 8.5'
+    '-5.8 8.5-10.8V5L12 1.5z"/><path fill="#fff" d="M10.7 14.6 7.9 11.8l1.2-1.2 1.6 '
+    '1.6 4.1-4.1 1.2 1.2-5.3 5.3z"/></svg>'
+)
+_SVG_LOCK = (
+    '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">'
+    '<path fill="currentColor" d="M8 1a3 3 0 0 0-3 3v2H4.2A1.2 1.2 0 0 0 3 7.2v6.6A1.2 '
+    "1.2 0 0 0 4.2 15h7.6A1.2 1.2 0 0 0 13 13.8V7.2A1.2 1.2 0 0 0 11.8 6H11V4a3 3 0 0 "
+    '0-3-3zm1.5 5h-3V4a1.5 1.5 0 0 1 3 0v2z"/></svg>'
+)
+
+# (etiqueta, clase CSS, icono SVG) por estado de provenance.
+_BADGE_META = {
+    "verified": ("Verificado", "verified", _SVG_CHECK),
+    "self_declared": ("Autodeclarado", "self_declared", _SVG_DECLARED),
 }
 
+_CSS = """
+:root{
+  --eu-blue:#003399; --green:#00b14f;
+  --ink:#1a2230; --muted:#5b6573; --faint:#9aa3b2;
+  --line:#e6e9f0; --bg:#eef1f6; --card:#fff;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);line-height:1.5;
+  font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;}
+.topband{height:4px;background:var(--eu-blue)}
+.wrap{max-width:860px;margin:0 auto;padding:32px 20px 56px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.head{padding:28px 32px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:11px;color:var(--eu-blue)}
+.brand .emblem{flex:none;line-height:0}
+.brand .kicker{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+h1{font-size:24px;line-height:1.2;letter-spacing:-.018em;margin:14px 0 0;font-weight:600}
+h1 .sector{color:var(--eu-blue);text-transform:capitalize}
+.meta{color:var(--muted);font-size:13.5px;margin:8px 0 0}
+.legend{display:flex;flex-wrap:wrap;gap:18px;margin-top:18px}
+.legend .row{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted)}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;
+  font-size:11px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;white-space:nowrap}
+.badge svg{flex:none}
+.badge.verified{background:#e3f6ea;color:#00723a}
+.badge.self_declared{background:#eceff3;color:#566072}
+table{width:100%;border-collapse:collapse}
+tbody tr{border-bottom:1px solid var(--line)}
+tbody tr:last-child{border-bottom:0}
+td{padding:13px 16px;font-size:14px;vertical-align:top}
+td.k{width:34%;color:var(--muted);font-size:12.5px;word-break:break-word;
+  font-family:"IBM Plex Mono",ui-monospace,monospace}
+td.v{color:var(--ink);word-break:break-word}
+td.v a{color:var(--eu-blue);text-decoration:none;border-bottom:1px solid #b9c7ec}
+td.v a:hover{border-bottom-color:var(--eu-blue)}
+td.p{width:1%;text-align:right;white-space:nowrap}
+.vlist{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px}
+.vlist li{padding-left:13px;position:relative}
+.vlist li::before{content:"";position:absolute;left:0;top:8px;width:5px;height:5px;
+  border-radius:50%;background:var(--eu-blue);opacity:.5}
+.muted{color:var(--faint)}
+.verify{padding:22px 32px;background:#fafbfd;border-top:1px solid var(--line)}
+.verify h2{display:flex;align-items:center;gap:8px;margin:0 0 14px;font-size:13px;
+  text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.verify h2 svg{color:var(--green)}
+.kv{margin:0 0 10px}.kv:last-child{margin:0}
+.kv .lbl{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--faint);margin-bottom:3px}
+.kv code{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;
+  color:var(--ink);word-break:break-all}
+.foot{margin-top:18px;text-align:center;color:var(--faint);font-size:11.5px}
+@media(max-width:560px){
+  .head,.verify{padding-left:18px;padding-right:18px}
+  td{padding:11px 10px}td.k{width:42%}h1{font-size:20px}
+}
+"""
 
-def _field_value_and_provenance(raw: Any) -> tuple[str, str]:
-    """Extrae (valor_renderizable, provenance) de un campo del JSON-LD.
+
+def _badge(prov: str) -> str:
+    label, css_class, icon = _BADGE_META.get(prov, ("Desconocido", "self_declared", _SVG_DECLARED))
+    return f'<span class="badge {css_class}">{icon}{_h(label)}</span>'
+
+
+def _field_value_and_provenance(raw: Any) -> tuple[Any, str]:
+    """Extrae (valor, provenance) de un campo del JSON-LD.
 
     Soporta los dos shapes:
       - nuevo (F5-01 #2): `{"value": v, "provenance": "verified"|"self_declared"}`
       - legacy (pre-provenance): valor escalar plano
 
-    Para DPPs legacy persistidos antes de la migración, asumimos
+    Devuelve el valor sin convertir a `str` para que `_format_value` pueda
+    renderizar listas/objetos de forma legible. Para DPPs legacy asumimos
     `self_declared` (la opción más conservadora).
     """
     if isinstance(raw, dict) and "value" in raw:
-        return str(raw["value"]), str(raw.get("provenance", "self_declared"))
-    return str(raw), "self_declared"
+        return raw["value"], str(raw.get("provenance", "self_declared"))
+    return raw, "self_declared"
+
+
+def _format_value(value: Any) -> str:
+    """Renderiza el valor de un campo como HTML legible y escapado.
+
+    Los repeaters (materiales críticos, sustancias peligrosas) llegan como
+    lista de objetos: se muestran como una línea por elemento en vez del
+    `repr` de Python (`[{'name': ...}]`) que se veía antes. Las URLs se
+    vuelven enlaces.
+    """
+    if isinstance(value, list):
+        if not value:
+            return '<span class="muted">—</span>'
+        items: list[str] = []
+        for it in value:
+            if isinstance(it, dict):
+                parts = [_h(v) for v in it.values() if v not in (None, "")]
+                items.append(" · ".join(parts) if parts else "—")
+            else:
+                items.append(_h(it))
+        return '<ul class="vlist">' + "".join(f"<li>{x}</li>" for x in items) + "</ul>"
+    if isinstance(value, dict):
+        parts = [_h(v) for v in value.values() if v not in (None, "")]
+        return " · ".join(parts) if parts else '<span class="muted">—</span>'
+    text = str(value)
+    if text.startswith(("http://", "https://")):
+        return f'<a href="{_h(text)}" target="_blank" rel="noreferrer">{_h(text)}</a>'
+    return _h(text)
 
 
 def _render_html(pdpp: PublishedDPP) -> str:
     jsonld: dict[str, Any] = pdpp.jsonld or {}
     fields = jsonld.get("fields", {}) or {}
+    sector = _h(jsonld.get("sector", ""))
+    regulation = _h(jsonld.get("regulation", ""))
     rows: list[str] = []
     for k, raw in sorted(fields.items()):
         value, prov = _field_value_and_provenance(raw)
-        label, css_class = _BADGE_LABELS.get(prov, ("?", "self_declared"))
         rows.append(
             f'<tr><td class="k">{_h(k)}</td>'
-            f"<td>{_h(value)}</td>"
-            f'<td class="p"><span class="badge {_h(css_class)}">{_h(label)}</span></td></tr>'
+            f'<td class="v">{_format_value(value)}</td>'
+            f'<td class="p">{_badge(prov)}</td></tr>'
         )
     rows_html = "".join(rows)
-    return f"""<!doctype html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DPP · {_h(jsonld.get("sector", ""))}</title>
-<meta name="description" content="Pasaporte Digital de Producto conforme a {_h(jsonld.get("regulation", ""))}.">
-<style>
-  body {{ font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; color: #222; }}
-  header {{ border-bottom: 1px solid #ddd; padding-bottom: 1rem; }}
-  h1 {{ font-size: 1.4rem; margin: 0; }}
-  .meta {{ color: #666; font-size: 0.85rem; margin-top: 0.25rem; }}
-  table {{ width: 100%; border-collapse: collapse; margin-top: 1.5rem; }}
-  td {{ padding: 0.4rem 0.6rem; border-bottom: 1px solid #eee; font-size: 0.9rem; vertical-align: top; }}
-  td.k {{ color: #555; font-family: ui-monospace, monospace; width: 35%; }}
-  td.p {{ width: 25%; text-align: right; }}
-  .badge {{ display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }}
-  .badge.verified {{ background: #dcfce7; color: #166534; }}
-  .badge.self_declared {{ background: #ffedd5; color: #9a3412; }}
-  .legend {{ display: flex; gap: 0.75rem; margin-top: 1rem; font-size: 0.75rem; color: #555; }}
-  footer {{ margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ddd; color: #888; font-size: 0.75rem; }}
-  code {{ font-size: 0.75rem; word-break: break-all; }}
-</style>
-</head>
-<body>
-<header>
-  <h1>Pasaporte Digital de Producto · {_h(jsonld.get("sector", ""))}</h1>
-  <p class="meta">{_h(jsonld.get("regulation", ""))} · sólo campos de acceso público (Annex XIII §1).</p>
-  <p class="legend">
-    <span class="badge verified">✓ verificado</span><span>respaldado por documento subido</span>
-    <span class="badge self_declared">autodeclarado</span><span>declaración del fabricante</span>
-  </p>
-</header>
-<table>{rows_html}</table>
-<footer>
-  <p><strong>Identificador:</strong> <code>{_h(pdpp.gs1_uri)}</code></p>
-  <p><strong>Firma Ed25519 (base64):</strong> <code>{_h(pdpp.signature or "—")}</code></p>
-  <p><strong>Clave pública (base64):</strong> <code>{_h(pdpp.public_key or "—")}</code></p>
-</footer>
-</body>
-</html>"""
+    return (
+        "<!doctype html>\n"
+        '<html lang="es"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        f"<title>DPP · {sector}</title>"
+        f'<meta name="description" content="Pasaporte Digital de Producto conforme a {regulation}.">'
+        f"<style>{_CSS}</style></head><body>"
+        '<div class="topband"></div>'
+        '<div class="wrap"><div class="card">'
+        '<header class="head">'
+        f'<div class="brand"><span class="emblem">{_SVG_EMBLEM}</span>'
+        '<span class="kicker">Pasaporte Digital de Producto</span></div>'
+        f'<h1>Pasaporte Digital de Producto · <span class="sector">{sector}</span></h1>'
+        f'<p class="meta">{regulation} · sólo campos de acceso público (Annex XIII §1).</p>'
+        '<div class="legend">'
+        f'<span class="row">{_badge("verified")} respaldado por documento subido</span>'
+        f'<span class="row">{_badge("self_declared")} declaración del fabricante</span>'
+        "</div></header>"
+        f"<table><tbody>{rows_html}</tbody></table>"
+        '<section class="verify">'
+        f"<h2>{_SVG_LOCK} Verificación criptográfica</h2>"
+        f'<div class="kv"><span class="lbl">Identificador</span><code>{_h(pdpp.gs1_uri)}</code></div>'
+        '<div class="kv"><span class="lbl">Firma Ed25519 (base64)</span>'
+        f"<code>{_h(pdpp.signature or '—')}</code></div>"
+        '<div class="kv"><span class="lbl">Clave pública (base64)</span>'
+        f"<code>{_h(pdpp.public_key or '—')}</code></div>"
+        "</section></div>"
+        '<p class="foot">Generado por PasaporteAbierto · '
+        "DPP conforme al Reglamento UE 2024/1781 (ESPR)</p>"
+        "</div></body></html>"
+    )
 
 
 def _h(s: object) -> str:
