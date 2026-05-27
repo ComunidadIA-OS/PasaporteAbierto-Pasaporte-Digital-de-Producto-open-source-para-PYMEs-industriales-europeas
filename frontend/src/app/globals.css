@@ -1601,10 +1601,14 @@ body {
   flex-direction: column;
   gap: 18px;
 }
+/* min-height + center: la fila del contador del rail (NN/07) comparte altura
+   y centro vertical con la fila superior del stage (.wm-topbar), para que
+   «NN / 07» y «Volver al paso N» queden alineados en todos los pasos. */
 .rail-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
+  min-height: 28px;
 }
 .rail-kicker {
   font-family: var(--font-mono);
@@ -1622,12 +1626,13 @@ body {
   padding: 0;
   position: relative;
 }
-/* Línea conectora base + relleno de progreso (centrados en el nodo). */
+/* Línea conectora base + relleno de progreso (centrados en el nodo: el nodo
+   mide 34px y el botón tiene 8px de padding-izq → su centro cae en 25px). */
 .rail-steps::before,
 .rail-steps::after {
   content: "";
   position: absolute;
-  left: 16px;
+  left: 24px;
   top: 17px;
   width: 2px;
   border-radius: 2px;
@@ -1874,8 +1879,19 @@ body {
   padding-bottom: 22px;
   border-bottom: 1px solid var(--border);
 }
+/* Fila superior del paso: «Volver» a la izquierda y la píldora PASO empujada
+   a la derecha (margin-left:auto), ambas centradas verticalmente. El auto
+   funciona también en el paso 1 (sin botón Volver). */
+.wm-topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: 28px;
+  margin-bottom: 14px;
+}
+.wm-topbar .label { margin-left: auto; }
 .wm-back {
-  margin-bottom: 10px;
   font-size: 13px;
   padding: 4px 0;
   color: var(--text-muted);

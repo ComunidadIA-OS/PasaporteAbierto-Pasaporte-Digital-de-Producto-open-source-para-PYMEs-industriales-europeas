@@ -108,6 +108,11 @@ export const api = {
   generateDpp(sessionId: string): Promise<DppResponse> {
     return serverFetch(`/sessions/${sid(sessionId)}/dpp`, { method: "POST" });
   },
+  // Rehidrata un DPP ya publicado (QR + URL pública) al reentrar desde la
+  // lista de finalizados. 404 (ApiError.status === 404) si aún no se publicó.
+  getDpp(sessionId: string): Promise<DppResponse> {
+    return serverFetch(`/sessions/${sid(sessionId)}/dpp`);
+  },
   chat(body: ChatRequest): Promise<ChatResponse> {
     return serverFetch("/chat", { method: "POST", body: JSON.stringify(body) });
   },

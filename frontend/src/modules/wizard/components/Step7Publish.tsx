@@ -8,7 +8,7 @@
 
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import { Icon } from "@/core/ui/Icon";
 import {
@@ -22,15 +22,24 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export function Step7Publish({
   session,
+  initialDpp,
   onPublished,
 }: {
   session: SessionState;
+  initialDpp?: DppResponse | null;
   onPublished?: (dpp: DppResponse) => void;
 }) {
-  const [dpp, setDpp] = useState<DppResponse | null>(null);
+  const [dpp, setDpp] = useState<DppResponse | null>(initialDpp ?? null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // initialDpp llega de forma asíncrona (rehidratación del DPP ya publicado al
+  // reentrar desde la lista de finalizados): cuando aparece, sincroniza el
+  // estado local para mostrar el QR sin necesidad de re-publicar.
+  useEffect(() => {
+    if (initialDpp) setDpp(initialDpp);
+  }, [initialDpp]);
 
   function publish() {
     setConfirmOpen(false);
@@ -124,7 +133,10 @@ export function Step7Publish({
     );
   }
 
-  const fullPublicUrl = `${API_BASE || ""}${dpp.public_url}`;
+  // public_url ya es absoluta (backend la construye con DPP_PUBLIC_BASE_URL):
+  // no anteponer API_BASE o saldría duplicado (http://...http://.../dpp/...).
+  const fullPublicUrl = dpp.public_url;
+  // qr_*_url sí son relativas (/api/v1/...): necesitan el host del backend.
   const qrPngUrl = `${API_BASE || ""}${dpp.qr_png_url}`;
   const qrSvgUrl = `${API_BASE || ""}${dpp.qr_svg_url}`;
 

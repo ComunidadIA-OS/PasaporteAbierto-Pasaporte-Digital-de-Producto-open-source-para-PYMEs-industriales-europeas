@@ -60,6 +60,24 @@ export function WizardContent({ initialSession }: { initialSession: SessionState
   // vivo (firma + QR). Solo lectura: no es estado del pipeline.
   const [published, setPublished] = useState<DppResponse | null>(null);
 
+  // Rehidratación: al reentrar en un DPP ya finalizado (desde la lista del
+  // panel), su QR + URL pública no viven en la sesión. Los recuperamos del
+  // backend. 404 = aún no publicado → el panel se queda en "Borrador".
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getDpp(initialSession.session_id)
+      .then((dpp) => {
+        if (!cancelled) setPublished(dpp);
+      })
+      .catch(() => {
+        // No publicado todavía: sin QR que rehidratar.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [initialSession.session_id]);
+
   function navigateTo(step: number) {
     if (step === session.current_step) return;
     if (step > session.current_step) return; // no se permite saltar hacia adelante
@@ -110,6 +128,7 @@ export function WizardContent({ initialSession }: { initialSession: SessionState
               onSessionChange={setSession}
               onBack={() => navigateTo(session.current_step - 1)}
               backPending={pending}
+              publishedDpp={published}
               onPublished={setPublished}
             />
           </main>
@@ -354,12 +373,14 @@ function StepSlot({
   onSessionChange,
   onBack,
   backPending,
+  publishedDpp,
   onPublished,
 }: {
   session: SessionState;
   onSessionChange: (s: SessionState) => void;
   onBack: () => void;
   backPending: boolean;
+  publishedDpp: DppResponse | null;
   onPublished: (dpp: DppResponse) => void;
 }) {
   const meta = STEPS.find((s) => s.n === session.current_step);
@@ -367,21 +388,23 @@ function StepSlot({
   return (
     <section className="fade-up" key={session.current_step}>
       <header className="wm-head">
-        {session.current_step > 1 && (
-          <button
-            type="button"
-            onClick={onBack}
-            disabled={backPending}
-            className="btn btn-ghost wm-back"
-          >
-            <Icon name="arrow_back" size={16} />
-            Volver al paso {session.current_step - 1}
-          </button>
-        )}
-        <div className={`label${isAI ? " is-ai" : ""}`}>
-          {isAI ? <Icon name="auto_awesome" size={12} /> : null}
-          PASO {String(session.current_step).padStart(2, "0")} ·{" "}
-          {isAI ? "Componente IA" : "Determinista"}
+        <div className="wm-topbar">
+          {session.current_step > 1 && (
+            <button
+              type="button"
+              onClick={onBack}
+              disabled={backPending}
+              className="btn btn-ghost wm-back"
+            >
+              <Icon name="arrow_back" size={16} />
+              Volver al paso {session.current_step - 1}
+            </button>
+          )}
+          <div className={`label${isAI ? " is-ai" : ""}`}>
+            {isAI ? <Icon name="auto_awesome" size={12} /> : null}
+            PASO {String(session.current_step).padStart(2, "0")} ·{" "}
+            {isAI ? "Componente IA" : "Determinista"}
+          </div>
         </div>
         <h1>{meta?.label}</h1>
         <p className="subtitle">{STEP_SUBTITLES[session.current_step]}</p>
@@ -405,7 +428,9 @@ function StepSlot({
       {session.current_step === 6 && (
         <Step6Verify session={session} onSessionChange={onSessionChange} />
       )}
-      {session.current_step === 7 && <Step7Publish session={session} onPublished={onPublished} />}
+      {session.current_step === 7 && (
+        <Step7Publish session={session} initialDpp={publishedDpp} onPublished={onPublished} />
+      )}
     </section>
   );
 }
