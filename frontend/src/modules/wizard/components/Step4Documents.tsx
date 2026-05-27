@@ -123,6 +123,9 @@ export function Step4Documents({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <div role="status" className="sr-only" aria-live="polite" aria-atomic="true">
+        {uploadMsg ?? ""}
+      </div>
       <div
         style={{
           display: "flex",
@@ -203,7 +206,6 @@ export function Step4Documents({
         </div>
       )}
 
-      <div role="status" className="sr-only">{uploadMsg ?? ""}</div>
       {uploadMsg && (
         <p className="status-panel" style={{ margin: 0, padding: 12, fontSize: 13 }} aria-hidden="true">
           {uploadMsg}

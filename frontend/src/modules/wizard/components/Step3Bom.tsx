@@ -179,7 +179,7 @@ export function Step3Bom({
       onSubmit={handleSubmit(onSubmit)}
       style={{ display: "flex", flexDirection: "column", gap: 24 }}
     >
-      <div role="status" className="sr-only">
+      <div role="status" className="sr-only" aria-live="polite" aria-atomic="true">
         {demoMsg ?? (serverErrors.length > 0 ? `${serverErrors.length} avisos del backend` : "")}
       </div>
       <header
