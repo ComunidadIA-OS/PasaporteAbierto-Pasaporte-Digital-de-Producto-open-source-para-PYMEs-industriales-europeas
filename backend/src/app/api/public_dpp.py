@@ -58,7 +58,7 @@ _SVG_CHECK = (
 _SVG_DECLARED = (
     '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">'
     '<path fill="currentColor" d="M11.7 1.4a1 1 0 0 1 1.4 0l1.5 1.5a1 1 0 0 1 0 1.4'
-    'l-8 8a1 1 0 0 1-.44.26l-3 .8a.6.6 0 0 1-.73-.74l.8-3a1 1 0 0 1 .26-.43l8-8zM11 '
+    "l-8 8a1 1 0 0 1-.44.26l-3 .8a.6.6 0 0 1-.73-.74l.8-3a1 1 0 0 1 .26-.43l8-8zM11 "
     '3.3 12.7 5 14 3.7 12.3 2 11 3.3z"/></svg>'
 )
 _SVG_EMBLEM = (
@@ -70,7 +70,7 @@ _SVG_EMBLEM = (
 _SVG_LOCK = (
     '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">'
     '<path fill="currentColor" d="M8 1a3 3 0 0 0-3 3v2H4.2A1.2 1.2 0 0 0 3 7.2v6.6A1.2 '
-    '1.2 0 0 0 4.2 15h7.6A1.2 1.2 0 0 0 13 13.8V7.2A1.2 1.2 0 0 0 11.8 6H11V4a3 3 0 0 '
+    "1.2 0 0 0 4.2 15h7.6A1.2 1.2 0 0 0 13 13.8V7.2A1.2 1.2 0 0 0 11.8 6H11V4a3 3 0 0 "
     '0-3-3zm1.5 5h-3V4a1.5 1.5 0 0 1 3 0v2z"/></svg>'
 )
 
