@@ -1178,9 +1178,13 @@ body {
 /* Línea horizontal de progreso */
 .v-rm-track {
   position: absolute;
-  top: 88px;
-  left: 10%;
-  right: 10%;
+  /* Centro vertical de los círculos: padding-top (24) + radio (40) = 64px. */
+  top: 64px;
+  transform: translateY(-50%);
+  /* Extremos en los centros de la 1ª y 3ª columna (grid de 3): quedan ocultos
+     tras los círculos en vez de sobresalir. */
+  left: 16.67%;
+  right: 16.67%;
   height: 3px;
   background: rgba(0, 51, 153, 0.08);
   border-radius: 3px;
