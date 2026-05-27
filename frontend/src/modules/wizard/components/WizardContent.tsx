@@ -47,7 +47,7 @@ const STEP_SUBTITLES: Record<number, string> = {
   2: "El clasificador identifica el sector ESPR aplicable y cita el reglamento.",
   3: "Bill of Materials generado desde el plugin del sector. Cada campo cita su artículo.",
   4: "Sube los PDFs requeridos por el plugin y el BOM. SHA-256 evita duplicados.",
-  5: "El recolector cruza BOM y PDFs. Cada campo se etiqueta como verified, self-declared o pending.",
+  5: "El recolector cruza BOM y PDFs. Cada campo se etiqueta como verificado, declarado o pendiente.",
   6: "Verificación determinista contra el schema. Bloquea publicación si falta un obligatorio.",
   7: "Firma Ed25519 + JSON-LD CIRPASS-2 + QR resoluble. Identificador ISO/IEC 15459 o GS1.",
 };
