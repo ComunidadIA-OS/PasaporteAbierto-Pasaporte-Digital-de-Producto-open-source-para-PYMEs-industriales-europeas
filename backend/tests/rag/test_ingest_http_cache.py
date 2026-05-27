@@ -55,7 +55,9 @@ def test_retries_then_succeeds(tmp_path: Path) -> None:
         return httpx.Response(200, text="ok")
 
     transport = httpx.MockTransport(handler)
-    client = CachedHttpClient(cache_dir=tmp_path, transport=transport)
+    # min_size=1: este test cubre la lógica de reintentos, no la validación de
+    # tamaño; un cuerpo corto ("ok") debe considerarse contenido válido aquí.
+    client = CachedHttpClient(cache_dir=tmp_path, transport=transport, min_size=1)
     body = client.get_text("https://example.com/foo.html", cache_key="foo")
     assert body == "ok"
     assert attempts["n"] == 3
@@ -69,6 +71,26 @@ def test_raises_after_max_retries(tmp_path: Path) -> None:
     client = CachedHttpClient(cache_dir=tmp_path, transport=transport)
     with pytest.raises(httpx.ConnectError):
         client.get_text("https://example.com/foo.html", cache_key="foo")
+
+
+def test_empty_2xx_body_is_rejected_and_not_cached(tmp_path: Path) -> None:
+    """Un 2xx con cuerpo vacío (EUR-Lex responde 202 vacío por anti-scraping)
+    no es contenido válido: debe reintentarse, acabar en error y nunca cachearse
+    (regresión del bug que dejaba un .html de 0 bytes envenenando el cache)."""
+    calls = {"n": 0}
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(202, text="")  # 2xx pero sin contenido
+
+    transport = httpx.MockTransport(handler)
+    client = CachedHttpClient(cache_dir=tmp_path, transport=transport, max_retries=2)
+
+    with pytest.raises(httpx.HTTPError):
+        client.get_text("https://eur-lex.example/doc.html", cache_key="doc")
+
+    assert calls["n"] == 2, "debe reintentar hasta agotar max_retries"
+    assert not (tmp_path / "doc").exists(), "un cuerpo vacío no debe cachearse"
 
 
 def test_corrupted_cache_is_redownloaded(tmp_path: Path) -> None:

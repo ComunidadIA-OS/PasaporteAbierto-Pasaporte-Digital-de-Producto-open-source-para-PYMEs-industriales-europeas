@@ -1,41 +1,47 @@
-- id: espr-pasaporte-art7-1
+# Citas esperadas alineadas con el articulado REAL de los reglamentos
+# (verificado contra los títulos oficiales en EUR-Lex), no con los fixtures
+# de prueba. En el ESPR (UE 2024/1781): Art. 9 "Pasaporte digital del
+# producto" establece qué productos lo necesitan; Art. 10 "Requisitos
+# aplicables al pasaporte digital del producto" fija los requisitos esenciales
+# y el vínculo con el identificador único. (El Art. 7 es "Requisitos de
+# información" y no trata del DPP.)
+- id: espr-pasaporte-art9-1
   query: "¿Qué productos deben tener pasaporte digital de producto?"
   expected_citation:
     reglamento: "UE 2024/1781"
-    articulo: "7"
+    articulo: "9"
   idioma: es
   tags: [espr, alcance]
 
-- id: espr-pasaporte-art7-en
+- id: espr-pasaporte-art9-en
   query: "Which products require a digital product passport?"
   expected_citation:
     reglamento: "UE 2024/1781"
-    articulo: "7"
+    articulo: "9"
   idioma: en
   tags: [espr, alcance]
 
-- id: espr-informacion-actualizada-art7-3
+- id: espr-requisitos-dpp-art10
   query: "¿La información del pasaporte digital tiene que estar actualizada?"
   expected_citation:
     reglamento: "UE 2024/1781"
-    articulo: "7"
-    apartado: "3"
+    articulo: "10"
   idioma: es
   tags: [espr, calidad-datos]
 
-- id: espr-essential-requirements-art9
+- id: espr-essential-requirements-art10
   query: "What are the essential requirements for the digital product passport?"
   expected_citation:
     reglamento: "UE 2024/1781"
-    articulo: "9"
+    articulo: "10"
   idioma: en
   tags: [espr, requisitos]
 
-- id: espr-identificador-unico-art9
+- id: espr-identificador-unico-art10
   query: "¿Cómo se conecta el pasaporte digital con el identificador del producto?"
   expected_citation:
     reglamento: "UE 2024/1781"
-    articulo: "9"
+    articulo: "10"
   idioma: es
   tags: [espr, identificador]
 
@@ -72,12 +78,13 @@
   idioma: es
   tags: [batteries, fecha]
 
-- id: batteries-passport-info-art77-2
+- id: batteries-passport-info-annex-xiii
   query: "What information must the battery passport contain?"
   expected_citation:
+    # El Art. 77.2 remite al Anexo XIII, cuyo título oficial es justamente
+    # "Información que debe incluirse en el pasaporte para baterías".
     reglamento: "UE 2023/1542"
-    articulo: "77"
-    apartado: "2"
+    articulo: "Annex XIII"
   idioma: en
   tags: [batteries, contenido]
 
@@ -131,50 +138,53 @@
   idioma: en
   tags: [batteries, alcance]
 
-- id: cirpass-product-class
-  query: "What is a Product in the CIRPASS-2 Core Ontology?"
+# Corpus 100% normativo: las queries sustituyen a las antiguas de CIRPASS/GS1/
+# ISO (fuentes no normativas, ahora cubiertas por el plugin y la generación del
+# DPP) por preguntas adicionales sobre el articulado real de los reglamentos.
+- id: espr-registro-art13
+  query: "¿Qué es el registro de pasaportes digitales de producto?"
   expected_citation:
-    reglamento: "CIRPASS-2 Core"
-    articulo: "Product"
-  idioma: en
-  tags: [cirpass]
-
-- id: cirpass-material-class
-  query: "How does CIRPASS-2 define a Material?"
-  expected_citation:
-    reglamento: "CIRPASS-2 Core"
-    articulo: "Material"
-  idioma: en
-  tags: [cirpass]
-
-- id: gs1-uri-syntax
-  query: "What is the URI syntax of GS1 Digital Link?"
-  expected_citation:
-    reglamento: "GS1 Digital Link 1.3.0"
-    articulo: "sección 2"
-  idioma: en
-  tags: [gs1, uri]
-
-- id: gs1-identifier-mappings
-  query: "How does GS1 Digital Link map Application Identifiers to URIs?"
-  expected_citation:
-    reglamento: "GS1 Digital Link 1.3.0"
-    articulo: "sección 3"
-  idioma: en
-  tags: [gs1, ai]
-
-- id: iso-15459-part-4-products
-  query: "What ISO standard covers unique identification of individual products?"
-  expected_citation:
-    reglamento: "ISO/IEC 15459"
-    articulo: "Part 4"
-  idioma: en
-  tags: [iso, identificador]
-
-- id: iso-15459-parte-1-es
-  query: "¿Qué norma ISO especifica la identificación única de unidades de transporte?"
-  expected_citation:
-    reglamento: "ISO/IEC 15459"
-    articulo: "Part 1"
+    reglamento: "UE 2024/1781"
+    articulo: "13"
   idioma: es
-  tags: [iso, identificador]
+  tags: [espr, registro]
+
+- id: espr-diseno-tecnico-art11
+  query: "What technical requirements must the digital product passport meet?"
+  expected_citation:
+    reglamento: "UE 2024/1781"
+    articulo: "11"
+  idioma: en
+  tags: [espr, tecnico]
+
+- id: batteries-huella-carbono-art7
+  query: "¿Qué exige el reglamento sobre la huella de carbono de las baterías?"
+  expected_citation:
+    reglamento: "UE 2023/1542"
+    articulo: "7"
+  idioma: es
+  tags: [batteries, huella-carbono]
+
+- id: batteries-etiquetado-art13
+  query: "What labelling and marking rules apply to batteries?"
+  expected_citation:
+    reglamento: "UE 2023/1542"
+    articulo: "13"
+  idioma: en
+  tags: [batteries, etiquetado]
+
+- id: batteries-sustancias-art6
+  query: "What substance restrictions apply to batteries?"
+  expected_citation:
+    reglamento: "UE 2023/1542"
+    articulo: "6"
+  idioma: en
+  tags: [batteries, sustancias]
+
+- id: batteries-requisitos-pasaporte-art78
+  query: "¿Qué requisitos esenciales debe cumplir el pasaporte de batería?"
+  expected_citation:
+    reglamento: "UE 2023/1542"
+    articulo: "78"
+  idioma: es
+  tags: [batteries, pasaporte, requisitos]
