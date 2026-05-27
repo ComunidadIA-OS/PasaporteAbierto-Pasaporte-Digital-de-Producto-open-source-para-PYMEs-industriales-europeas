@@ -64,6 +64,9 @@ body {
   font-size: 15px;
   line-height: 1.5;
   min-height: 100vh;
+  /* WCAG 1.4.12 + dislexia: separación de letras y palabras */
+  letter-spacing: 0.02em;
+  word-spacing: 0.05em;
 }
 ::selection { background: var(--accent); color: var(--accent-text); }
 
@@ -2024,6 +2027,10 @@ body {
 .status-panel.is-success .eyebrow::before { color: var(--success); }
 .status-panel.is-warn    { border-color: var(--warn);    background: var(--warn-soft);    color: var(--text); }
 .status-panel.is-danger  { border-color: var(--danger);  background: var(--danger-soft);  color: var(--text); }
+/* WCAG 1.4.1 + daltonismo: indicador no-color antes del contenido */
+.status-panel.is-success::before { content: "✓\00a0"; color: var(--success); font-weight: 700; }
+.status-panel.is-warn::before    { content: "⚠\00a0"; color: var(--warn); }
+.status-panel.is-danger::before  { content: "✕\00a0"; color: var(--danger); font-weight: 700; }
 
 .bar {
   height: 6px;
