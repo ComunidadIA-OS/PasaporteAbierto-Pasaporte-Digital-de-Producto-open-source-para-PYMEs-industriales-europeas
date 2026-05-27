@@ -150,7 +150,7 @@ def create_session(
     session_id = str(uuid.uuid4())
     row = WizardSession(
         id=session_id,
-        progress={"step": 1, "description": body.description},
+        progress={"step": 2, "description": body.description},
     )
     db.add(row)
     db.commit()
