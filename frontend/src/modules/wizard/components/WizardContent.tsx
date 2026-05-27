@@ -414,7 +414,7 @@ function StepSlot({
 // Chat — drawer modal abierto desde el FAB
 // ============================================================
 
-let chatMsgId = 0;
+let chatMsgId = 1;
 
 interface ChatMessage {
   id: number;
@@ -423,33 +423,42 @@ interface ChatMessage {
   citation: { regulation: string; article: string; url: string | null } | null;
 }
 
+const MSG_BIENVENIDA: ChatMessage = {
+  id: 0,
+  role: "assistant",
+  text: "¡Hola! Soy tu asistente normativo. ¿En qué puedo ayudarte?",
+  citation: null,
+};
+
 function ChatDrawer({ sessionId, onClose }: { sessionId: string; onClose: () => void }) {
   // Invariante: el chat NUNCA escribe en el estado del wizard. Sí persiste su
   // propio histórico en chat_messages (canal independiente, F3-04 criterio 3).
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([MSG_BIENVENIDA]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Carga el histórico persistido al montar.
+  // Carga el histórico persistido al montar; si existe, reemplaza el saludo inicial.
   useEffect(() => {
     let cancelled = false;
     api
       .chatHistory(sessionId)
       .then((res) => {
         if (cancelled) return;
-        setMessages(
-          res.messages.map((m) => ({
-            id: ++chatMsgId,
-            role: m.role,
-            text: m.content,
-            citation: m.citation,
-          })),
-        );
-        setTimeout(() => scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight), 0);
+        if (res.messages.length > 0) {
+          setMessages(
+            res.messages.map((m) => ({
+              id: ++chatMsgId,
+              role: m.role,
+              text: m.content,
+              citation: m.citation,
+            })),
+          );
+          setTimeout(() => scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight), 0);
+        }
       })
       .catch(() => {
-        // Sin histórico → arranca vacío.
+        // Sin histórico accesible → mantiene el saludo inicial ya visible.
       });
     return () => {
       cancelled = true;
@@ -510,12 +519,6 @@ function ChatDrawer({ sessionId, onClose }: { sessionId: string; onClose: () => 
         </div>
 
         <div ref={scrollRef} className="chat-body">
-          {messages.length === 0 && (
-            <p className="chat-empty">
-              Escribe una pregunta sobre la normativa aplicable a tu producto. El chat es
-              independiente del wizard: no escribe en tus datos.
-            </p>
-          )}
           {messages.map((msg) => (
             <div key={msg.id} className={`chat-msg ${msg.role}`}>
               <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{msg.text}</p>
