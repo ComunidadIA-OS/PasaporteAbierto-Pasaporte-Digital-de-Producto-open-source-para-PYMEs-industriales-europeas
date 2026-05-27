@@ -249,6 +249,13 @@ function ChatDrawer({ sessionId, onClose }: { sessionId: string; onClose: () => 
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const BIENVENIDA: ChatMessage = {
+    id: 0,
+    role: "assistant",
+    text: "¡Hola! Soy tu asistente normativo. ¿En qué puedo ayudarte?",
+    citation: null,
+  };
+
   // Carga el histórico persistido al montar.
   useEffect(() => {
     let cancelled = false;
@@ -256,18 +263,22 @@ function ChatDrawer({ sessionId, onClose }: { sessionId: string; onClose: () => 
       .chatHistory(sessionId)
       .then((res) => {
         if (cancelled) return;
-        setMessages(
-          res.messages.map((m) => ({
-            id: ++chatMsgId,
-            role: m.role,
-            text: m.content,
-            citation: m.citation,
-          })),
-        );
-        setTimeout(() => scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight), 0);
+        if (res.messages.length === 0) {
+          setMessages([BIENVENIDA]);
+        } else {
+          setMessages(
+            res.messages.map((m) => ({
+              id: ++chatMsgId,
+              role: m.role,
+              text: m.content,
+              citation: m.citation,
+            })),
+          );
+          setTimeout(() => scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight), 0);
+        }
       })
       .catch(() => {
-        // Sin histórico → arranca vacío.
+        setMessages([BIENVENIDA]);
       });
     return () => {
       cancelled = true;
@@ -328,12 +339,6 @@ function ChatDrawer({ sessionId, onClose }: { sessionId: string; onClose: () => 
         </div>
 
         <div ref={scrollRef} className="chat-body">
-          {messages.length === 0 && (
-            <p className="chat-empty">
-              Escribe una pregunta sobre la normativa aplicable a tu producto. El chat es
-              independiente del wizard: no escribe en tus datos.
-            </p>
-          )}
           {messages.map((msg) => (
             <div key={msg.id} className={`chat-msg ${msg.role}`}>
               <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{msg.text}</p>
