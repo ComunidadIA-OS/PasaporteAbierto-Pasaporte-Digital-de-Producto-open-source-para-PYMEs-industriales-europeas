@@ -103,6 +103,8 @@ export function Step5Extract({
     try {
       const res = await fetch(`${API_V1}/sessions/${session.session_id}/extract`, {
         method: "POST",
+        // credentials: la cookie de sesión (auth) viaja con el stream SSE.
+        credentials: "include",
         signal: controller.signal,
       });
 
