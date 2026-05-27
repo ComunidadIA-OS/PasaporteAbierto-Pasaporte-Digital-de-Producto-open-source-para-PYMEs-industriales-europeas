@@ -10,6 +10,7 @@
 
 import { useState, useTransition } from "react";
 
+import { Icon } from "@/core/ui/Icon";
 import {
   ApiError,
   api,
@@ -19,7 +20,13 @@ import {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-export function Step7Publish({ session }: { session: SessionState }) {
+export function Step7Publish({
+  session,
+  onPublished,
+}: {
+  session: SessionState;
+  onPublished?: (dpp: DppResponse) => void;
+}) {
   const [dpp, setDpp] = useState<DppResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -32,6 +39,7 @@ export function Step7Publish({ session }: { session: SessionState }) {
       try {
         const r = await api.generateDpp(session.session_id);
         setDpp(r);
+        onPublished?.(r);
       } catch (err) {
         if (err instanceof ApiError && err.status === 409) {
           setError("No se puede publicar: rellena los campos pendientes en el paso 6.");
@@ -71,6 +79,7 @@ export function Step7Publish({ session }: { session: SessionState }) {
               disabled={pending}
               className="btn btn-primary btn-lg"
             >
+              <Icon name="lock" size={18} />
               {pending ? "Publicando…" : "Publicar DPP"}
             </button>
           </div>
@@ -122,8 +131,12 @@ export function Step7Publish({ session }: { session: SessionState }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       <div className="status-panel is-success">
-        <h2 className="typ-2" style={{ margin: 0 }}>
-          DPP <em>publicado</em> ✓
+        <h2
+          className="typ-2"
+          style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: 8 }}
+        >
+          <Icon name="verified" size={26} fill style={{ color: "var(--success)" }} />
+          DPP <em>publicado</em>
         </h2>
         <p className="muted" style={{ marginTop: 8, marginBottom: 0 }}>
           Firmado con Ed25519. Identificador conforme a{" "}
@@ -144,7 +157,7 @@ export function Step7Publish({ session }: { session: SessionState }) {
         <div className="qr-card">
           <h3 className="eyebrow">QR del producto</h3>
           <div className="qr-frame" style={{ marginTop: 16 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {/* biome-ignore lint/performance/noImgElement: el QR lo sirve el backend (dpp.qr_png_url); pasarlo por next/image lo re-codificaría perdiendo nitidez y exigiría configurar remotePatterns para el host del API. */}
             <img src={qrPngUrl} alt="QR del DPP" width={192} height={192} />
           </div>
           <div

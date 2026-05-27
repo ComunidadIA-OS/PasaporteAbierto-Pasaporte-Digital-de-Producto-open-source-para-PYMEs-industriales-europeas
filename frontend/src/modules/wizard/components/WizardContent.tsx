@@ -1,21 +1,28 @@
-// Shell interactivo del wizard (F4-01) — diseño Compliance OS.
+// Shell interactivo del wizard (F4-01) — diseño "Pipeline + DPP en vivo".
 //
-// Carga inicial: el Server Component pasa `initialSession`.
-// A partir de ahí mantiene estado local y persiste cada cambio de step
-// con PATCH /api/v1/sessions/{id}. La URL no cambia entre pasos: una
-// recarga reanuda el `current_step` exacto desde BD.
+// Layout de 3 zonas:
+//   1. Rail vertical del pipeline (izquierda): los 7 pasos como una línea de
+//      montaje normativa, con distinción visual det/IA (invariante: solo los
+//      pasos 2 y 5 son IA) y navegación hacia pasos ya completados.
+//   2. Stage central: cabecera del paso + contenido del paso activo.
+//   3. Panel "DPP en vivo" (derecha): se rellena a medida que avanzas
+//      (producto → sector → BOM → campos → firma → QR), cerrando el círculo
+//      con el mockup de la landing.
 //
-// El chat lateral (F3-04) ya no es una columna fija: se invoca con un
-// FAB y se muestra en un drawer modal. La lógica del componente
-// `ChatPanel` queda intacta (histórico + envío + scroll + citas). El
-// chat sigue siendo un endpoint independiente del pipeline; jamás
-// escribe en el estado del wizard.
+// Carga inicial: el Server Component pasa `initialSession`. A partir de ahí se
+// mantiene estado local y se persiste cada cambio de step con PATCH. La URL no
+// cambia entre pasos: una recarga reanuda el `current_step` desde BD.
+//
+// El chat lateral (F3-04) se invoca con un FAB y se muestra en un drawer modal.
+// Sigue siendo un endpoint independiente del pipeline: jamás escribe en el
+// estado del wizard (tampoco en el panel "DPP en vivo", que es solo lectura).
 
 "use client";
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
+import { Icon } from "@/core/ui/Icon";
 import { Step1Description } from "@/modules/wizard/components/Step1Description";
 import { Step2Sector } from "@/modules/wizard/components/Step2Sector";
 import { Step3Bom } from "@/modules/wizard/components/Step3Bom";
@@ -23,7 +30,7 @@ import { Step4Documents } from "@/modules/wizard/components/Step4Documents";
 import { Step5Extract } from "@/modules/wizard/components/Step5Extract";
 import { Step6Verify } from "@/modules/wizard/components/Step6Verify";
 import { Step7Publish } from "@/modules/wizard/components/Step7Publish";
-import { api, type SessionState } from "@/modules/wizard/lib/wizard-api";
+import { api, type DppResponse, type SessionState } from "@/modules/wizard/lib/wizard-api";
 
 const STEPS = [
   { n: 1, label: "Descripción", kind: "det" as const },
@@ -49,6 +56,9 @@ export function WizardContent({ initialSession }: { initialSession: SessionState
   const [session, setSession] = useState<SessionState>(initialSession);
   const [pending, startTransition] = useTransition();
   const [chatOpen, setChatOpen] = useState(false);
+  // Estado del DPP publicado, elevado desde Step7 para alimentar el panel en
+  // vivo (firma + QR). Solo lectura: no es estado del pipeline.
+  const [published, setPublished] = useState<DppResponse | null>(null);
 
   function navigateTo(step: number) {
     if (step === session.current_step) return;
@@ -83,25 +93,29 @@ export function WizardContent({ initialSession }: { initialSession: SessionState
           <span>PasaporteAbierto</span>
         </Link>
         <div className="appbar-spacer" />
-        <span className="mono" style={{ fontSize: 11, color: "var(--text-faint)" }}>
+        <span className="appbar-pill">
+          <span className="dot" />
           {session.session_id.slice(0, 8)} · auto-guardado
         </span>
       </header>
 
       <div className="wizard-shell">
-        <main className="wizard-main">
-          <HorizontalStepper
-            current={session.current_step}
-            onNavigate={navigateTo}
-            disabled={pending}
-          />
-          <StepSlot
-            session={session}
-            onSessionChange={setSession}
-            onBack={() => navigateTo(session.current_step - 1)}
-            backPending={pending}
-          />
-        </main>
+        <div className="wizard-bg" aria-hidden />
+        <div className="wizard-layout">
+          <PipelineRail current={session.current_step} onNavigate={navigateTo} disabled={pending} />
+
+          <main className="wizard-stage">
+            <StepSlot
+              session={session}
+              onSessionChange={setSession}
+              onBack={() => navigateTo(session.current_step - 1)}
+              backPending={pending}
+              onPublished={setPublished}
+            />
+          </main>
+
+          <DppLivePanel session={session} published={published} />
+        </div>
       </div>
 
       <button
@@ -110,19 +124,7 @@ export function WizardContent({ initialSession }: { initialSession: SessionState
         onClick={() => setChatOpen(true)}
         aria-label="Abrir chat normativo"
       >
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-        </svg>
+        <Icon name="forum" size={24} />
       </button>
 
       {chatOpen && <ChatDrawer sessionId={session.session_id} onClose={() => setChatOpen(false)} />}
@@ -130,7 +132,11 @@ export function WizardContent({ initialSession }: { initialSession: SessionState
   );
 }
 
-function HorizontalStepper({
+// ============================================================
+// Rail del pipeline — los 7 pasos como línea de montaje vertical
+// ============================================================
+
+function PipelineRail({
   current,
   onNavigate,
   disabled,
@@ -139,49 +145,225 @@ function HorizontalStepper({
   onNavigate: (n: number) => void;
   disabled: boolean;
 }) {
-  const pct = Math.round(((current - 1) / 6) * 100);
+  const pct = Math.round(((current - 1) / (STEPS.length - 1)) * 100);
   return (
-    <div className="h-stepper" role="progressbar" aria-label="Progreso del wizard">
-      <div className="h-stepper-progress">
-        <div className="h-stepper-fill" style={{ width: `${pct}%` }} />
+    <aside className="wizard-rail" aria-label="Pasos del asistente">
+      <div className="rail-head">
+        <span className="rail-kicker">Pipeline DPP</span>
+        <span className="rail-count mono">
+          {String(current).padStart(2, "0")}
+          <span className="faint"> / 07</span>
+        </span>
       </div>
-      <div className="h-stepper-dots">
+
+      <ol className="rail-steps" style={{ "--rail-pct": `${pct}%` } as React.CSSProperties}>
         {STEPS.map((s) => {
           const isCurrent = s.n === current;
           const isDone = s.n < current;
           const isReachable = s.n <= current;
+          const isAI = s.kind === "ai";
+          const cls = [
+            "rail-step",
+            isCurrent ? "is-current" : "",
+            isDone ? "is-done" : "",
+            !isReachable ? "is-upcoming" : "",
+            isAI ? "is-ai" : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
           return (
-            <button
-              key={s.n}
-              type="button"
-              className={`h-stepper-dot${isCurrent ? " is-current" : ""}${isDone ? " is-done" : ""}`}
-              disabled={!isReachable || disabled || isCurrent}
-              onClick={() => onNavigate(s.n)}
-              title={s.label}
-              aria-current={isCurrent ? "step" : undefined}
-            >
-              <span className="dot-n">{s.n}</span>
-              <span className="dot-l">{s.label}</span>
-            </button>
+            <li key={s.n} className={cls}>
+              <button
+                type="button"
+                className="rail-step-btn"
+                disabled={!isReachable || disabled || isCurrent}
+                onClick={() => onNavigate(s.n)}
+                aria-current={isCurrent ? "step" : undefined}
+                title={isDone ? `Volver al paso ${s.n}` : s.label}
+              >
+                <span className="rail-node" aria-hidden>
+                  {isDone ? <Icon name="check" size={15} weight={500} /> : <span>{s.n}</span>}
+                </span>
+                <span className="rail-step-body">
+                  <span className="rail-step-label">{s.label}</span>
+                  <span className="rail-step-kind">
+                    {isAI ? (
+                      <>
+                        <Icon name="auto_awesome" size={12} />
+                        Agente IA
+                      </>
+                    ) : (
+                      "Determinista"
+                    )}
+                  </span>
+                </span>
+              </button>
+            </li>
           );
         })}
-      </div>
-    </div>
+      </ol>
+
+      <p className="rail-legend">
+        <span className="rail-legend-item">
+          <Icon name="auto_awesome" size={12} /> IA
+        </span>
+        <span className="rail-legend-item">
+          <span className="rail-legend-dot" /> Determinista
+        </span>
+      </p>
+    </aside>
   );
 }
+
+// ============================================================
+// Panel "DPP en vivo" — se rellena a medida que avanza el pipeline
+// ============================================================
+
+function truncate(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+type FacetState = "done" | "partial" | "pending";
+
+function DppLivePanel({
+  session,
+  published,
+}: {
+  session: SessionState;
+  published: DppResponse | null;
+}) {
+  const verified = session.extracted_fields.filter((f) => f.provenance === "verified").length;
+  const pendingFields = session.extracted_fields.filter(
+    (f) => f.provenance === "required_pending",
+  ).length;
+  const hasExtraction = session.extracted_fields.length > 0;
+  const bomCount = Object.keys(session.bom ?? {}).length;
+  const hasSector = !!session.sector && session.sector !== "unknown";
+  const description = session.description?.trim();
+  const pct =
+    session.classification_confidence != null
+      ? Math.round(session.classification_confidence * 100)
+      : null;
+
+  const facets: { icon: string; label: string; value: string; state: FacetState }[] = [
+    {
+      icon: "inventory_2",
+      label: "Producto",
+      value: description ? truncate(description, 34) : "Sin describir",
+      state: description ? "done" : "pending",
+    },
+    {
+      icon: "category",
+      label: "Sector ESPR",
+      value: hasSector
+        ? `${capitalize(session.sector as string)}${pct != null ? ` · ${pct}%` : ""}`
+        : "Sin clasificar",
+      state: hasSector ? "done" : "pending",
+    },
+    {
+      icon: "account_tree",
+      label: "Materiales (BOM)",
+      value: bomCount > 0 ? `${bomCount} campos` : "Pendiente",
+      state: bomCount > 0 ? "done" : "pending",
+    },
+    {
+      icon: "fact_check",
+      label: "Campos extraídos",
+      value: hasExtraction ? `${verified} verif. · ${pendingFields} pend.` : "Sin extraer",
+      state: hasExtraction ? (pendingFields === 0 ? "done" : "partial") : "pending",
+    },
+    {
+      icon: "lock",
+      label: "Firma Ed25519",
+      value: published?.signed ? "Firmado" : "Pendiente",
+      state: published?.signed ? "done" : "pending",
+    },
+    {
+      icon: "qr_code_2",
+      label: "QR + URL pública",
+      value: published ? "Generado" : "Pendiente",
+      state: published ? "done" : "pending",
+    },
+  ];
+
+  return (
+    <aside className="wizard-live" aria-label="DPP en construcción">
+      <div className="live-card">
+        <div className="live-head">
+          <span className="live-title">DPP en vivo</span>
+          <span className={`live-status${published ? " is-conforme" : ""}`}>
+            {published ? (
+              <>
+                <Icon name="verified" size={13} fill />
+                Conforme
+              </>
+            ) : (
+              "Borrador"
+            )}
+          </span>
+        </div>
+
+        <ul className="live-facets">
+          {facets.map((f) => (
+            <li key={f.label} className={`live-facet is-${f.state}`}>
+              <span className="live-facet-icon" aria-hidden>
+                <Icon name={f.icon} size={18} />
+              </span>
+              <span className="live-facet-body">
+                <span className="live-facet-label">{f.label}</span>
+                <span className="live-facet-value">{f.value}</span>
+              </span>
+              <span className="live-facet-state" aria-hidden>
+                {f.state === "done" ? (
+                  <Icon name="check_circle" size={16} fill />
+                ) : f.state === "partial" ? (
+                  <Icon name="contrast" size={16} fill />
+                ) : (
+                  <span className="live-dot" />
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        {published && (
+          <div className="live-uri">
+            <span className="live-uri-label">Identificador</span>
+            <code className="mono">{truncate(published.gs1_uri, 30)}</code>
+          </div>
+        )}
+      </div>
+      <p className="live-note">
+        <Icon name="visibility" size={13} />
+        Solo lectura · refleja tu progreso. El chat nunca escribe aquí.
+      </p>
+    </aside>
+  );
+}
+
+// ============================================================
+// Stage central — cabecera del paso + contenido del paso activo
+// ============================================================
 
 function StepSlot({
   session,
   onSessionChange,
   onBack,
   backPending,
+  onPublished,
 }: {
   session: SessionState;
   onSessionChange: (s: SessionState) => void;
   onBack: () => void;
   backPending: boolean;
+  onPublished: (dpp: DppResponse) => void;
 }) {
   const meta = STEPS.find((s) => s.n === session.current_step);
+  const isAI = meta?.kind === "ai";
   return (
     <section className="fade-up" key={session.current_step}>
       <header className="wm-head">
@@ -190,19 +372,19 @@ function StepSlot({
             type="button"
             onClick={onBack}
             disabled={backPending}
-            className="btn btn-ghost"
-            style={{ marginBottom: 8, fontSize: 13, padding: "6px 0", color: "var(--text-muted)" }}
+            className="btn btn-ghost wm-back"
           >
-            ← Volver al paso {session.current_step - 1}
+            <Icon name="arrow_back" size={16} />
+            Volver al paso {session.current_step - 1}
           </button>
         )}
-        <div className="label">
+        <div className={`label${isAI ? " is-ai" : ""}`}>
+          {isAI ? <Icon name="auto_awesome" size={12} /> : null}
           PASO {String(session.current_step).padStart(2, "0")} ·{" "}
-          {meta?.kind === "ai" ? "Componente IA" : "Determinista"}
+          {isAI ? "Componente IA" : "Determinista"}
         </div>
         <h1>{meta?.label}</h1>
         <p className="subtitle">{STEP_SUBTITLES[session.current_step]}</p>
-        <p className="session-id">session_id: {session.session_id}</p>
       </header>
 
       {session.current_step === 1 && (
@@ -223,7 +405,7 @@ function StepSlot({
       {session.current_step === 6 && (
         <Step6Verify session={session} onSessionChange={onSessionChange} />
       )}
-      {session.current_step === 7 && <Step7Publish session={session} />}
+      {session.current_step === 7 && <Step7Publish session={session} onPublished={onPublished} />}
     </section>
   );
 }
@@ -323,7 +505,7 @@ function ChatDrawer({ sessionId, onClose }: { sessionId: string; onClose: () => 
             <p>Pregunta sobre requisitos del DPP. Cada respuesta cita el Art.</p>
           </div>
           <button type="button" className="chat-close" onClick={onClose} aria-label="Cerrar chat">
-            ✕
+            <Icon name="close" size={20} />
           </button>
         </div>
 
