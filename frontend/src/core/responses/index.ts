@@ -283,3 +283,9 @@ export interface DemoSeededDoc {
 export interface DemoSeedDocumentsResponse {
   seeded: DemoSeededDoc[];
 }
+
+export interface DemoSeedDashboardResponse {
+  created_in_progress: number;
+  created_published: number;
+  total_user_sessions: number;
+}

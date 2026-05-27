@@ -1,29 +1,22 @@
-// Panel del usuario (ADR-0004): lista sus conversaciones y DPP empezados para
-// reanudarlos. Server Component — el fetch reenvía la cookie de sesión.
+// Dashboard del usuario (ADR-0004): es lo que se ve tras iniciar sesión.
+// Muestra métricas de sus DPP (total / en curso / finalizados / tasa) y un
+// desplegable para entrar a sus productos en curso y finalizados.
 //
-// Si la cookie es inválida/caducada (pasó el middleware pero el backend la
-// rechaza), redirigimos a /login.
+// Server Component — el fetch reenvía la cookie de sesión. Si la cookie es
+// inválida/caducada (pasó el proxy pero el backend la rechaza), va a /login.
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { ApiError } from "@/core/errors";
 import type { SessionSummary } from "@/core/responses";
+import { Icon } from "@/core/ui/Icon";
+import { isDemoMode } from "@/lib/demo-mode";
 import { getCurrentUser } from "@/modules/auth/lib/auth-api";
 import { LogoutButton } from "@/modules/dashboard/components/LogoutButton";
+import { ProductBrowser } from "@/modules/dashboard/components/ProductBrowser";
+import { SeedDemoButton } from "@/modules/dashboard/components/SeedDemoButton";
 import { api } from "@/modules/wizard/lib/wizard-api";
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString("es-ES", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return iso;
-  }
-}
 
 async function loadDashboard(): Promise<{ email: string; sessions: SessionSummary[] }> {
   const user = await getCurrentUser();
@@ -32,16 +25,56 @@ async function loadDashboard(): Promise<{ email: string; sessions: SessionSummar
   return { email: user.email, sessions };
 }
 
+function StatCard({
+  variant,
+  icon,
+  fill,
+  value,
+  label,
+  sub,
+  rate,
+}: {
+  variant?: "progress" | "done";
+  icon: string;
+  fill?: boolean;
+  value: string | number;
+  label: string;
+  sub?: string;
+  rate?: number;
+}) {
+  return (
+    <div className={`stat-card${variant ? ` is-${variant}` : ""}`}>
+      <div className="stat-top">
+        <span className="stat-icon">
+          <Icon name={icon} size={20} fill={fill} />
+        </span>
+      </div>
+      <div className="stat-num">{value}</div>
+      <div className="stat-label">{label}</div>
+      {sub && <div className="stat-sub">{sub}</div>}
+      {rate !== undefined && (
+        <div className="stat-rate-bar">
+          <span style={{ width: `${rate}%` }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export async function DashboardPage() {
   let data: { email: string; sessions: SessionSummary[] };
   try {
     data = await loadDashboard();
   } catch (err) {
-    // 401 → cookie caducada entre middleware y backend; al login.
     if (err instanceof ApiError && err.status === 401) redirect("/login");
     throw err;
   }
   const { email, sessions } = data;
+
+  const total = sessions.length;
+  const done = sessions.filter((s) => s.published).length;
+  const inProgress = total - done;
+  const rate = total > 0 ? Math.round((done / total) * 100) : 0;
 
   return (
     <>
@@ -76,96 +109,51 @@ export async function DashboardPage() {
       </header>
 
       <main className="dashboard fade-in">
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "space-between",
-            gap: 16,
-            flexWrap: "wrap",
-          }}
-        >
+        <div className="dash-head">
           <div>
             <div className="eyebrow">Mi cuenta</div>
-            <h1 className="typ-2" style={{ marginTop: 10, marginBottom: 0 }}>
+            <h1 className="typ-2" style={{ marginTop: 10, marginBottom: 6 }}>
               Tus <em>pasaportes</em>
             </h1>
-            <p className="muted" style={{ marginTop: 6 }}>
-              Reanuda un DPP en curso o empieza uno nuevo.
+            <p className="muted" style={{ margin: 0 }}>
+              Un vistazo a tus DPP. Reanuda los que están en curso o consulta los publicados.
             </p>
           </div>
-          <Link href="/wizard" className="btn btn-primary btn-lg">
-            Nuevo DPP
-          </Link>
+          <div className="dash-actions">
+            {isDemoMode && <SeedDemoButton />}
+            <Link href="/wizard" className="btn btn-primary btn-lg">
+              <Icon name="add" size={18} />
+              Nuevo DPP
+            </Link>
+          </div>
         </div>
 
-        {sessions.length === 0 ? (
-          <div className="card" style={{ marginTop: 28, textAlign: "center", padding: 40 }}>
-            <p className="muted" style={{ margin: 0 }}>
-              Todavía no has empezado ningún pasaporte. Pulsa <strong>Nuevo DPP</strong> para
-              comenzar.
-            </p>
-          </div>
-        ) : (
-          <ul
-            style={{
-              listStyle: "none",
-              padding: 0,
-              margin: "28px 0 0",
-              display: "flex",
-              flexDirection: "column",
-              gap: 12,
-            }}
-          >
-            {sessions.map((s) => (
-              <li key={s.session_id}>
-                <Link
-                  href={`/wizard/${s.session_id}`}
-                  className="card dashboard-row"
-                  style={{ display: "block", textDecoration: "none", color: "inherit" }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: 16,
-                      alignItems: "flex-start",
-                    }}
-                  >
-                    <div style={{ minWidth: 0 }}>
-                      <p
-                        style={{
-                          margin: 0,
-                          fontWeight: 600,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {s.description?.trim() || "Sin descripción todavía"}
-                      </p>
-                      <p
-                        className="mono"
-                        style={{ margin: "6px 0 0", fontSize: 11, color: "var(--text-muted)" }}
-                      >
-                        {s.sector ? `${s.sector} · ` : ""}Paso {s.current_step} de 7 · actualizado{" "}
-                        {formatDate(s.updated_at)}
-                      </p>
-                    </div>
-                    <div style={{ display: "flex", gap: 6, flexShrink: 0, flexWrap: "wrap" }}>
-                      {s.published ? (
-                        <span className="badge badge-success">publicado</span>
-                      ) : (
-                        <span className="badge badge-warn">en curso</span>
-                      )}
-                      {s.has_chat && <span className="badge badge-neutral">con chat</span>}
-                    </div>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+        <div className="stat-grid">
+          <StatCard icon="inventory_2" value={total} label="TOTAL" sub="productos creados" />
+          <StatCard
+            variant="progress"
+            icon="pending"
+            value={inProgress}
+            label="EN CURSO"
+            sub="sin publicar aún"
+          />
+          <StatCard
+            variant="done"
+            icon="verified"
+            fill
+            value={done}
+            label="FINALIZADOS"
+            sub="publicados con QR"
+          />
+          <StatCard
+            icon="trending_up"
+            value={`${rate}%`}
+            label="TASA DE FINALIZACIÓN"
+            rate={rate}
+          />
+        </div>
+
+        <ProductBrowser sessions={sessions} />
       </main>
     </>
   );

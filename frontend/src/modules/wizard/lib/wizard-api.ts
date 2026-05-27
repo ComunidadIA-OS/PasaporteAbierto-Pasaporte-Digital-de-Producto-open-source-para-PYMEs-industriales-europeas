@@ -10,6 +10,7 @@ import type {
   CreateSessionRequest,
   CreateSessionResponse,
   DemoSampleResponse,
+  DemoSeedDashboardResponse,
   DemoSeedDocumentsResponse,
   DocumentExcerptResponse,
   DocumentsListResponse,
@@ -121,5 +122,8 @@ export const api = {
   },
   seedDemoDocuments(sessionId: string): Promise<DemoSeedDocumentsResponse> {
     return serverFetch(`/demo/sessions/${sid(sessionId)}/seed-documents`, { method: "POST" });
+  },
+  seedDemoDashboard(): Promise<DemoSeedDashboardResponse> {
+    return serverFetch("/demo/seed-dashboard", { method: "POST" });
   },
 };
