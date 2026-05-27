@@ -19,10 +19,39 @@ export interface FieldValue {
   source_document_id: number | null;
 }
 
+// --- Autenticación (ADR-0004) -----------------------------------------------
+
+export interface AuthCredentials {
+  email: string;
+  password: string;
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  created_at: string;
+}
+
 // --- Sesiones ---------------------------------------------------------------
 
 export interface CreateSessionRequest {
   description: string;
+}
+
+export interface SessionSummary {
+  session_id: string;
+  description: string | null;
+  sector: string | null;
+  plugin: string | null;
+  current_step: number;
+  has_chat: boolean;
+  published: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SessionListResponse {
+  sessions: SessionSummary[];
 }
 
 export interface CreateSessionResponse {
@@ -253,4 +282,10 @@ export interface DemoSeededDoc {
 
 export interface DemoSeedDocumentsResponse {
   seeded: DemoSeededDoc[];
+}
+
+export interface DemoSeedDashboardResponse {
+  created_in_progress: number;
+  created_published: number;
+  total_user_sessions: number;
 }

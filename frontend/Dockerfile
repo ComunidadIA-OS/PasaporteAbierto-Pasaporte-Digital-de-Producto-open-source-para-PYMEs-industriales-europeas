@@ -14,6 +14,10 @@ COPY . .
 # convierten en ENV para que Next las vea. Cambiar su valor exige rebuild.
 ARG NEXT_PUBLIC_DEMO_MODE=false
 ENV NEXT_PUBLIC_DEMO_MODE=$NEXT_PUBLIC_DEMO_MODE
+# Nombre de la cookie de sesión que el proxy de Next comprueba para gatear
+# /wizard y /panel. Debe coincidir con AUTH_COOKIE_NAME del backend.
+ARG NEXT_PUBLIC_AUTH_COOKIE_NAME=pa_session
+ENV NEXT_PUBLIC_AUTH_COOKIE_NAME=$NEXT_PUBLIC_AUTH_COOKIE_NAME
 RUN pnpm build
 
 FROM node:20-alpine AS runner

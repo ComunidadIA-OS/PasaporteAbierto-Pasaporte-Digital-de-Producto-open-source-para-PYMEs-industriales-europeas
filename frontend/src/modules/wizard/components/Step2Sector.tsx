@@ -17,6 +17,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 
+import { Icon } from "@/core/ui/Icon";
 import {
   ApiError,
   api,
@@ -139,7 +140,8 @@ export function Step2Sector({
               disabled={pending}
               className="btn btn-primary btn-lg"
             >
-              Continuar al paso 3 →
+              Continuar al paso 3
+              <Icon name="arrow_forward" size={18} />
             </button>
           )}
         </div>

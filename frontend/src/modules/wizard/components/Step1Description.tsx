@@ -7,6 +7,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Icon } from "@/core/ui/Icon";
 import { isDemoMode } from "@/lib/demo-mode";
 import { ApiError, api, type SessionState } from "@/modules/wizard/lib/wizard-api";
 
@@ -91,8 +92,16 @@ export function Step1Description({
                 <strong style={{ color: "var(--warn)" }}>{remaining}</strong>
               </>
             ) : (
-              <span style={{ color: "var(--success)" }}>
-                ✓ longitud OK · {description.trim().length} caracteres
+              <span
+                style={{
+                  color: "var(--success)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <Icon name="check_circle" size={14} fill />
+                longitud OK · {description.trim().length} caracteres
               </span>
             )}
           </span>
@@ -113,7 +122,8 @@ export function Step1Description({
           disabled={tooShort || pending}
           className="btn btn-primary btn-lg"
         >
-          {pending ? "Guardando…" : "Continuar al paso 2 →"}
+          {pending ? "Guardando…" : "Continuar al paso 2"}
+          {!pending && <Icon name="arrow_forward" size={18} />}
         </button>
         {isDemoMode && (
           <button
@@ -123,7 +133,8 @@ export function Step1Description({
             className="btn btn-secondary btn-lg"
             title="Rellena la descripción con datos de ejemplo del config demo"
           >
-            {loadingDemo ? "Cargando…" : "✨ Cargar ejemplo"}
+            <Icon name="auto_awesome" size={16} />
+            {loadingDemo ? "Cargando…" : "Cargar ejemplo"}
           </button>
         )}
       </div>

@@ -14,7 +14,7 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from app.rag.chunking import load_corpus  # noqa: E402
-from app.rag.index import upsert_fragments  # noqa: E402
+from app.rag.index import reset_collection, upsert_fragments  # noqa: E402
 
 _CORPUS_DIR = Path(__file__).resolve().parents[1] / "data" / "corpus"
 
@@ -26,6 +26,9 @@ def main() -> None:
         sys.exit(1)
 
     start = time.perf_counter()
+    # Reconstrucción limpia: vacía la colección antes de reinsertar para que el
+    # reindexado sea idempotente incluso si cambió el chunking o el texto.
+    reset_collection()
     count = upsert_fragments(load_corpus(_CORPUS_DIR))
     elapsed = time.perf_counter() - start
     print(f"Reindexado: {count} fragmentos en {elapsed:.2f}s")

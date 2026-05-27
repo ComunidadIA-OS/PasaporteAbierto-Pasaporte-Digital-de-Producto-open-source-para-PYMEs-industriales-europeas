@@ -21,13 +21,17 @@ def test_dataset_no_duplicate_ids() -> None:
 
 
 def test_dataset_distribution_by_reglamento() -> None:
+    # El corpus RAG es solo normativo: el dataset cubre ambos reglamentos.
+    # CIRPASS-2/GS1/ISO ya no son fuentes del corpus (los cubren el plugin y la
+    # generación determinista del DPP), así que no aparecen en las citas.
     entries = load_queries()
     by_reg = Counter(e.expected_citation.reglamento for e in entries)
     assert by_reg["UE 2024/1781"] >= 8, "≥8 queries sobre ESPR"
     assert by_reg["UE 2023/1542"] >= 8, "≥8 queries sobre baterías"
-    assert by_reg["CIRPASS-2 Core"] >= 2, "≥2 sobre CIRPASS-2"
-    assert by_reg["GS1 Digital Link 1.3.0"] >= 2, "≥2 sobre GS1"
-    assert by_reg["ISO/IEC 15459"] >= 2, "≥2 sobre ISO 15459"
+    assert set(by_reg) <= {
+        "UE 2024/1781",
+        "UE 2023/1542",
+    }, "el dataset solo debe citar reglamentos (corpus normativo)"
 
 
 def test_dataset_batteries_covers_art77_or_annex_xiii() -> None:

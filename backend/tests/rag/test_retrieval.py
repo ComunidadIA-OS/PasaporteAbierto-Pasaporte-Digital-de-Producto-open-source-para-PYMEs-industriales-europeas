@@ -70,8 +70,9 @@ def test_search_corpus_returns_results_with_rendered_cita(
     """Criterio 1 de F2-03: cada resultado expone cita lista para renderizar."""
     from app.rag import index
 
+    original_get_collection = index.get_collection
     monkeypatch.setattr(
-        index, "get_collection", lambda path=None: index.get_collection(populated_index)
+        index, "get_collection", lambda path=None: original_get_collection(populated_index)
     )
     results = search_corpus("pasaporte de batería", top_k=3)
     assert len(results) >= 3
@@ -92,8 +93,9 @@ def test_search_corpus_filtro_sector_incluye_transversales(
     """
     from app.rag import index
 
+    original_get_collection = index.get_collection
     monkeypatch.setattr(
-        index, "get_collection", lambda path=None: index.get_collection(populated_index)
+        index, "get_collection", lambda path=None: original_get_collection(populated_index)
     )
     results = search_corpus(
         "pasaporte digital",

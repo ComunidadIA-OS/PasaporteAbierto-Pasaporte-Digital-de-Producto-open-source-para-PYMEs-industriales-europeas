@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { Icon } from "@/core/ui/Icon";
 import { Reveal } from "@/modules/landing/components/Reveal";
 
 const REPO_URL =
@@ -38,25 +39,25 @@ const HOW_STEPS = [
 
 const TRUST_POINTS = [
   {
-    icon: "§",
+    icon: "gavel",
     title: "Conforme a ESPR",
     body: "Cada campo cita el artículo del reglamento que lo exige.",
-    color: "#6ea8fe",
-    bg: "rgba(110, 168, 254, 0.12)",
+    color: "#8fb2ff",
+    bg: "rgba(143, 178, 255, 0.12)",
   },
   {
-    icon: "#",
+    icon: "link",
     title: "Auditoría inmutable",
     body: "Hash chain verificable. Preparado para inspecciones.",
-    color: "#4ade80",
-    bg: "rgba(74, 222, 128, 0.12)",
+    color: "#34d07f",
+    bg: "rgba(52, 208, 127, 0.14)",
   },
   {
-    icon: "K",
+    icon: "key",
     title: "Firma criptográfica",
     body: "Ed25519 + JSON-LD CIRPASS-2 + QR por producto.",
-    color: "#99bbff",
-    bg: "rgba(153, 187, 255, 0.1)",
+    color: "#8fb2ff",
+    bg: "rgba(143, 178, 255, 0.12)",
   },
 ];
 
@@ -118,6 +119,7 @@ export async function LandingPage() {
             Inicio
           </Link>
           <Link href="/wizard">Wizard</Link>
+          <Link href="/login">Acceder</Link>
           <a href={REPO_URL} target="_blank" rel="noreferrer">
             GitHub
           </a>
@@ -132,13 +134,8 @@ export async function LandingPage() {
       <main className="fade-in">
         {/* ── HERO ── */}
         <section className="v-hero">
-          {/* Decoración de fondo */}
-          <div className="v-hero-bg" aria-hidden>
-            <div className="v-hero-grid" />
-            <div className="v-hero-orb v-hero-orb-1" />
-            <div className="v-hero-orb v-hero-orb-2" />
-            <div className="v-hero-orb v-hero-orb-3" />
-          </div>
+          {/* Rejilla estática muy tenue (sin orbes ni animación). */}
+          <div className="v-hero-bg" aria-hidden />
 
           <div className="v-hero-content container container-narrow">
             <Reveal>
@@ -156,7 +153,7 @@ export async function LandingPage() {
               <h1 className="v-hero-title">
                 Tu Pasaporte Digital
                 <br />
-                de Producto, <em>conforme</em>
+                de Producto, <em>conforme</em> a la ESPR
               </h1>
             </Reveal>
 
@@ -170,7 +167,8 @@ export async function LandingPage() {
             <Reveal delay={340}>
               <div className="v-hero-actions">
                 <Link href="/wizard" className="btn btn-primary btn-lg btn-glow">
-                  Crear mi primer DPP →
+                  Crear mi primer DPP
+                  <Icon name="arrow_forward" size={18} />
                 </Link>
                 <a
                   href={REPO_URL}
@@ -178,6 +176,7 @@ export async function LandingPage() {
                   rel="noreferrer"
                   className="btn btn-ghost-light btn-lg"
                 >
+                  <Icon name="code" size={18} />
                   Ver en GitHub
                 </a>
               </div>
@@ -198,11 +197,6 @@ export async function LandingPage() {
                 ))}
               </div>
             </Reveal>
-          </div>
-
-          {/* Flecha scroll indicator */}
-          <div className="v-hero-scroll" aria-hidden>
-            <div className="v-hero-scroll-line" />
           </div>
         </section>
 
@@ -263,7 +257,7 @@ export async function LandingPage() {
                       style={{ background: t.bg, color: t.color }}
                       aria-hidden
                     >
-                      {t.icon}
+                      <Icon name={t.icon} size={24} />
                     </span>
                     <div>
                       <strong>{t.title}</strong>
@@ -375,7 +369,8 @@ export async function LandingPage() {
                   </p>
                   <div className="v-cta2-actions">
                     <Link href="/wizard" className="btn btn-primary btn-lg">
-                      Crear mi primer DPP →
+                      Crear mi primer DPP
+                      <Icon name="arrow_forward" size={18} />
                     </Link>
                     <a
                       href={REPO_URL}
@@ -383,6 +378,7 @@ export async function LandingPage() {
                       rel="noreferrer"
                       className="btn btn-ghost btn-lg"
                     >
+                      <Icon name="code" size={18} />
                       Ver en GitHub
                     </a>
                   </div>
@@ -408,7 +404,10 @@ export async function LandingPage() {
                       </div>
                       <div className="v-dpp-mock-field">
                         <span className="v-dpp-mock-label">Firma</span>
-                        <span className="v-dpp-mock-value v-dpp-mock-sig">Ed25519 ✓</span>
+                        <span className="v-dpp-mock-value v-dpp-mock-sig">
+                          Ed25519
+                          <Icon name="verified" size={15} fill style={{ marginLeft: 4 }} />
+                        </span>
                       </div>
                     </div>
                     <div className="v-dpp-mock-qr">
@@ -458,8 +457,6 @@ export async function LandingPage() {
                       </svg>
                       <span className="v-dpp-mock-qr-label">Escanea el DPP</span>
                     </div>
-                    {/* Glow decorativo */}
-                    <div className="v-dpp-mock-glow" aria-hidden />
                   </div>
                 </div>
               </Reveal>
