@@ -49,6 +49,13 @@ export function WizardContent({ initialSession }: { initialSession: SessionState
   const [session, setSession] = useState<SessionState>(initialSession);
   const [pending, startTransition] = useTransition();
   const [chatOpen, setChatOpen] = useState(false);
+  const fabRef = useRef<HTMLButtonElement>(null);
+
+  function handleChatClose() {
+    setChatOpen(false);
+    // Restaura el foco al FAB tras desmontar el drawer
+    requestAnimationFrame(() => fabRef.current?.focus());
+  }
 
   function navigateTo(step: number) {
     if (step === session.current_step) return;
@@ -89,7 +96,7 @@ export function WizardContent({ initialSession }: { initialSession: SessionState
       </header>
 
       <div className="wizard-shell">
-        <main className="wizard-main">
+        <main id="main-content" className="wizard-main">
           <HorizontalStepper
             current={session.current_step}
             onNavigate={navigateTo}
@@ -105,10 +112,13 @@ export function WizardContent({ initialSession }: { initialSession: SessionState
       </div>
 
       <button
+        ref={fabRef}
         type="button"
         className="floating-chat-btn"
         onClick={() => setChatOpen(true)}
         aria-label="Abrir chat normativo"
+        aria-haspopup="dialog"
+        aria-expanded={chatOpen}
       >
         <svg
           width="24"
@@ -125,7 +135,7 @@ export function WizardContent({ initialSession }: { initialSession: SessionState
         </svg>
       </button>
 
-      {chatOpen && <ChatDrawer sessionId={session.session_id} onClose={() => setChatOpen(false)} />}
+      {chatOpen && <ChatDrawer sessionId={session.session_id} onClose={handleChatClose} />}
     </>
   );
 }
@@ -141,27 +151,37 @@ function HorizontalStepper({
 }) {
   const pct = Math.round(((current - 1) / 6) * 100);
   return (
-    <div className="h-stepper" role="progressbar" aria-label="Progreso del wizard">
+    <div
+      className="h-stepper"
+      role="progressbar"
+      aria-label="Progreso del wizard"
+      aria-valuenow={current}
+      aria-valuemin={1}
+      aria-valuemax={7}
+      aria-valuetext={`Paso ${current} de 7: ${STEPS[current - 1].label}`}
+    >
       <div className="h-stepper-progress">
         <div className="h-stepper-fill" style={{ width: `${pct}%` }} />
       </div>
-      <div className="h-stepper-dots">
+      <div className="h-stepper-dots" role="list">
         {STEPS.map((s) => {
           const isCurrent = s.n === current;
           const isDone = s.n < current;
           const isReachable = s.n <= current;
+          const stateLabel = isDone ? "(completado)" : isCurrent ? "(actual)" : "(pendiente)";
           return (
             <button
               key={s.n}
+              role="listitem"
               type="button"
               className={`h-stepper-dot${isCurrent ? " is-current" : ""}${isDone ? " is-done" : ""}`}
               disabled={!isReachable || disabled || isCurrent}
               onClick={() => onNavigate(s.n)}
-              title={s.label}
+              aria-label={`Paso ${s.n}: ${s.label} ${stateLabel}`}
               aria-current={isCurrent ? "step" : undefined}
             >
-              <span className="dot-n">{s.n}</span>
-              <span className="dot-l">{s.label}</span>
+              <span className="dot-n" aria-hidden="true">{s.n}</span>
+              <span className="dot-l" aria-hidden="true">{s.label}</span>
             </button>
           );
         })}
@@ -248,6 +268,8 @@ function ChatDrawer({ sessionId, onClose }: { sessionId: string; onClose: () => 
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   // Carga el histórico persistido al montar.
   useEffect(() => {
@@ -274,13 +296,41 @@ function ChatDrawer({ sessionId, onClose }: { sessionId: string; onClose: () => 
     };
   }, [sessionId]);
 
-  // Cerrar con Escape.
+  // Foco en botón cerrar al montar
   useEffect(() => {
+    closeButtonRef.current?.focus();
+  }, []);
+
+  // Cerrar con Escape + focus trap dentro del drawer
+  useEffect(() => {
+    const drawer = drawerRef.current;
+    if (!drawer) return;
+
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const focusable = Array.from(
+        drawer!.querySelectorAll<HTMLElement>(
+          "button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex=\"-1\"])",
+        ),
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+
+    drawer.addEventListener("keydown", onKey);
+    return () => drawer.removeEventListener("keydown", onKey);
   }, [onClose]);
 
   const send = useCallback(async () => {
@@ -315,19 +365,39 @@ function ChatDrawer({ sessionId, onClose }: { sessionId: string; onClose: () => 
 
   return (
     <>
-      <div className="chat-overlay" onClick={onClose} aria-hidden />
-      <aside className="chat-drawer" role="dialog" aria-modal="true" aria-label="Chat normativo">
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: overlay actúa de fondo clicable */}
+      <div className="chat-overlay" onClick={onClose} aria-hidden="true" tabIndex={-1} />
+      <aside
+        ref={drawerRef}
+        className="chat-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Chat normativo"
+        aria-labelledby="chat-drawer-title"
+      >
         <div className="chat-head">
           <div>
-            <h3>Chat normativo</h3>
+            <h3 id="chat-drawer-title">Chat normativo</h3>
             <p>Pregunta sobre requisitos del DPP. Cada respuesta cita el Art.</p>
           </div>
-          <button type="button" className="chat-close" onClick={onClose} aria-label="Cerrar chat">
+          <button
+            ref={closeButtonRef}
+            type="button"
+            className="chat-close"
+            onClick={onClose}
+            aria-label="Cerrar chat normativo"
+          >
             ✕
           </button>
         </div>
 
-        <div ref={scrollRef} className="chat-body">
+        <div
+          ref={scrollRef}
+          className="chat-body"
+          role="log"
+          aria-live="polite"
+          aria-label="Mensajes del chat"
+        >
           {messages.length === 0 && (
             <p className="chat-empty">
               Escribe una pregunta sobre la normativa aplicable a tu producto. El chat es
@@ -344,19 +414,29 @@ function ChatDrawer({ sessionId, onClose }: { sessionId: string; onClose: () => 
               )}
             </div>
           ))}
-          {sending && <div className="chat-typing">Pensando…</div>}
+          {sending && <div className="chat-typing" aria-live="polite">Pensando…</div>}
         </div>
 
         <div className="chat-input">
+          <label htmlFor="chat-msg-input" className="sr-only">
+            Mensaje de consulta normativa
+          </label>
           <input
+            id="chat-msg-input"
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
             placeholder="Pregunta sobre normativa…"
             disabled={sending}
+            aria-describedby="chat-drawer-title"
           />
-          <button type="button" onClick={send} disabled={sending || !input.trim()}>
+          <button
+            type="button"
+            onClick={send}
+            disabled={sending || !input.trim()}
+            aria-label="Enviar mensaje"
+          >
             Enviar
           </button>
         </div>

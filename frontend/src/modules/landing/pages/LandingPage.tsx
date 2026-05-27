@@ -114,12 +114,13 @@ export async function LandingPage() {
           <span>PasaporteAbierto</span>
         </div>
         <nav className="appbar-nav" aria-label="Principal">
-          <Link href="/" className="is-active">
+          <Link href="/" className="is-active" aria-current="page">
             Inicio
           </Link>
           <Link href="/wizard">Wizard</Link>
           <a href={REPO_URL} target="_blank" rel="noreferrer">
             GitHub
+            <span className="sr-only"> (abre en nueva pestaña)</span>
           </a>
         </nav>
         <div className="appbar-spacer" />
@@ -129,7 +130,7 @@ export async function LandingPage() {
         </span>
       </header>
 
-      <main className="fade-in">
+      <main id="main-content" className="fade-in">
         {/* ── HERO ── */}
         <section className="v-hero">
           {/* Decoración de fondo */}
@@ -179,6 +180,7 @@ export async function LandingPage() {
                   className="btn btn-ghost-light btn-lg"
                 >
                   Ver en GitHub
+                  <span className="sr-only"> (abre en nueva pestaña)</span>
                 </a>
               </div>
             </Reveal>
@@ -384,6 +386,7 @@ export async function LandingPage() {
                       className="btn btn-ghost btn-lg"
                     >
                       Ver en GitHub
+                      <span className="sr-only"> (abre en nueva pestaña)</span>
                     </a>
                   </div>
                 </div>

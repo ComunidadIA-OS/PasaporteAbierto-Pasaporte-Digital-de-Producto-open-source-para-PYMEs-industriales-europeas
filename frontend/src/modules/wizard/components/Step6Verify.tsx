@@ -79,7 +79,16 @@ export function Step6Verify({
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       <section>
         <h2 className="eyebrow">Completitud</h2>
-        <div className={barClass} style={{ marginTop: 12 }}>
+        <div
+          className={barClass}
+          style={{ marginTop: 12 }}
+          role="progressbar"
+          aria-label="Completitud del DPP"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuetext={`${pct}% de campos obligatorios completados — ${verify.can_publish ? "listo para publicar" : "faltan campos críticos"}`}
+        >
           <span style={{ width: `${pct}%` }} />
         </div>
         <p style={{ marginTop: 12, marginBottom: 0 }}>

@@ -179,6 +179,9 @@ export function Step3Bom({
       onSubmit={handleSubmit(onSubmit)}
       style={{ display: "flex", flexDirection: "column", gap: 24 }}
     >
+      <div role="status" className="sr-only">
+        {demoMsg ?? (serverErrors.length > 0 ? `${serverErrors.length} avisos del backend` : "")}
+      </div>
       <header
         style={{
           display: "flex",
@@ -218,7 +221,16 @@ export function Step3Bom({
           </button>
         )}
         <div style={{ marginTop: 12 }}>
-          <div className="bar" style={{ height: 4 }}>
+          <div
+            className="bar"
+            style={{ height: 4 }}
+            role="progressbar"
+            aria-label="Progreso del formulario BOM"
+            aria-valuenow={progressPct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuetext={`${filledCount} de ${totalFields} campos completados, ${filledRequired} de ${requiredFields} obligatorios`}
+          >
             <span style={{ width: `${progressPct}%` }} />
           </div>
           <div
@@ -230,6 +242,7 @@ export function Step3Bom({
               color: "var(--text-muted)",
               fontFamily: "var(--font-mono)",
             }}
+            aria-hidden="true"
           >
             <span>
               {filledCount}/{totalFields} completados · {progressPct}%
@@ -301,17 +314,21 @@ function FieldRow({
   const inputClass = `input${error ? " input-error" : ""}`;
   const inputStyle: React.CSSProperties = error ? { borderColor: "var(--danger)" } : {};
 
+  const ariaRequired = field.required || undefined;
+  const errorId = error ? `${field.id}-error` : undefined;
+
   return (
     <label htmlFor={field.id} style={{ display: "block" }}>
       <span style={labelStyle}>
         <span>
           {displayLabel}
-          {field.required && <span style={{ marginLeft: 2, color: "var(--danger)" }}>*</span>}
+          {field.required && (
+            <span style={{ marginLeft: 2, color: "var(--danger)" }} aria-hidden="true">*</span>
+          )}
         </span>
         <span
-          role="img"
           title={citation}
-          aria-label={`Cita: ${citation}`}
+          aria-label={`Referencia normativa: ${citation}`}
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -326,15 +343,31 @@ function FieldRow({
             fontFamily: "var(--font-head)",
             fontStyle: "italic",
           }}
+          tabIndex={0}
+          role="tooltip"
         >
           i
         </span>
       </span>
 
       {field.type === "boolean" ? (
-        <input id={field.id} type="checkbox" {...register(field.id)} />
+        <input
+          id={field.id}
+          type="checkbox"
+          {...register(field.id)}
+          aria-required={ariaRequired}
+          aria-describedby={errorId}
+        />
       ) : field.type === "enum" ? (
-        <select id={field.id} {...register(field.id)} className="select" style={inputStyle}>
+        <select
+          id={field.id}
+          {...register(field.id)}
+          className="select"
+          style={inputStyle}
+          aria-required={ariaRequired}
+          aria-invalid={!!error}
+          aria-describedby={errorId}
+        >
           <option value="">— seleccionar —</option>
           {(field.enum_values ?? []).map((v) => (
             <option key={v} value={v}>
@@ -350,6 +383,9 @@ function FieldRow({
           placeholder='["item1", "item2"]'
           className="textarea mono"
           style={{ ...inputStyle, fontSize: 12, minHeight: 64 }}
+          aria-required={ariaRequired}
+          aria-invalid={!!error}
+          aria-describedby={errorId}
         />
       ) : (
         <input
@@ -359,11 +395,18 @@ function FieldRow({
           {...register(field.id)}
           className={inputClass}
           style={inputStyle}
+          aria-required={ariaRequired}
+          aria-invalid={!!error}
+          aria-describedby={errorId}
         />
       )}
 
       {error && (
-        <span style={{ display: "block", marginTop: 4, fontSize: 11, color: "var(--danger)" }}>
+        <span
+          id={errorId}
+          role="alert"
+          style={{ display: "block", marginTop: 4, fontSize: 11, color: "var(--danger)" }}
+        >
           {error}
         </span>
       )}

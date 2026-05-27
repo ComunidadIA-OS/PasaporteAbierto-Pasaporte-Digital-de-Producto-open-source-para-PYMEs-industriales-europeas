@@ -33,6 +33,7 @@ export default function RootLayout({
   return (
     <html lang="es" className={`${spaceGrotesk.variable} ${jetbrainsMono.variable}`}>
       <body>
+        <a href="#main-content" className="skip-link">Saltar al contenido principal</a>
         <div className="app-root">
           <div className="app-content">{children}</div>
         </div>

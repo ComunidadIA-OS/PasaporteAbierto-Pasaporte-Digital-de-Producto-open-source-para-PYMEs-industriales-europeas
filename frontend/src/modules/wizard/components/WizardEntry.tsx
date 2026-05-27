@@ -37,7 +37,7 @@ export function WizardEntry() {
 
   if (error) {
     return (
-      <main className="wizard-entry">
+      <main id="main-content" className="wizard-entry">
         <div className="wizard-entry-main fade-in">
           <p className="status-panel is-danger" style={{ padding: 14 }}>
             {error}
@@ -56,7 +56,7 @@ export function WizardEntry() {
   }
 
   return (
-    <main className="wizard-entry">
+    <main id="main-content" className="wizard-entry">
       <div className="wizard-entry-main fade-in" style={{ textAlign: "center", paddingTop: 120 }}>
         <span className="spinner" />
         <p className="muted" style={{ marginTop: 16 }}>

@@ -203,8 +203,9 @@ export function Step4Documents({
         </div>
       )}
 
+      <div role="status" className="sr-only">{uploadMsg ?? ""}</div>
       {uploadMsg && (
-        <p className="status-panel" style={{ margin: 0, padding: 12, fontSize: 13 }}>
+        <p className="status-panel" style={{ margin: 0, padding: 12, fontSize: 13 }} aria-hidden="true">
           {uploadMsg}
         </p>
       )}
@@ -300,6 +301,8 @@ function DocumentRow({
             accept=".pdf"
             style={{ display: "none" }}
             onChange={handleFileChange}
+            aria-label={`Fichero PDF para ${label}`}
+            tabIndex={-1}
           />
           <button
             type="button"
@@ -307,6 +310,7 @@ function DocumentRow({
             disabled={uploading}
             className="btn btn-secondary"
             style={{ fontSize: 12, padding: "8px 14px" }}
+            aria-label={uploading ? `Subiendo ${label}…` : `Seleccionar PDF para ${label}`}
           >
             {uploading ? "Subiendo…" : "Seleccionar PDF"}
           </button>

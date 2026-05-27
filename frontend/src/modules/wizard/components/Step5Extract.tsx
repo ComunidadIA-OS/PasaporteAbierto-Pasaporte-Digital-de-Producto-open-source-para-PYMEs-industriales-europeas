@@ -60,10 +60,13 @@ export function Step5Extract({
   const [excerptLoading, setExcerptLoading] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const fieldsMap = usePluginFields(session.plugin);
+  const excerptCloseRef = useRef<HTMLButtonElement>(null);
+  const excerptOpenerRef = useRef<HTMLElement | null>(null);
 
   const showExcerpt = useCallback(
-    async (field: ExtractedField) => {
+    async (field: ExtractedField, opener: HTMLElement) => {
       if (field.source_document_id == null) return;
+      excerptOpenerRef.current = opener;
       setExcerptLoading(field.field_id);
       try {
         const res = await api.documentExcerpt(
@@ -80,6 +83,15 @@ export function Step5Extract({
     },
     [session.session_id],
   );
+
+  // Gestión de foco del modal de extracto
+  useEffect(() => {
+    if (excerpt) {
+      excerptCloseRef.current?.focus();
+    } else {
+      (excerptOpenerRef.current as HTMLElement | null)?.focus();
+    }
+  }, [excerpt]);
 
   // Aborta el stream SSE al desmontar para no dejar fetch huérfanos ni
   // disparar setState sobre componente desmontado.
@@ -215,10 +227,18 @@ export function Step5Extract({
       {/* Barra de progreso */}
       {running && progress && (
         <div>
-          <div className="bar">
+          <div
+            className="bar"
+            role="progressbar"
+            aria-label="Progreso de extracción"
+            aria-valuenow={progress.processed}
+            aria-valuemin={0}
+            aria-valuemax={progress.total}
+            aria-valuetext={`${progress.processed} de ${progress.total} documentos procesados`}
+          >
             <span style={{ width: `${pct}%` }} />
           </div>
-          <p className="mono" style={{ marginTop: 6, fontSize: 11, color: "var(--text-muted)" }}>
+          <p className="mono" style={{ marginTop: 6, fontSize: 11, color: "var(--text-muted)" }} aria-hidden="true">
             {progress.processed} / {progress.total} documentos · {pct}%
           </p>
         </div>
@@ -227,27 +247,29 @@ export function Step5Extract({
       {/* Tabla de campos extraídos */}
       {fields.length > 0 && (
         <table className="tbl">
+          <caption className="sr-only">
+            Campos extraídos del DPP — {fields.length} campos procesados
+          </caption>
           <thead>
             <tr>
-              <th>Campo</th>
-              <th>Valor</th>
-              <th>Procedencia</th>
-              <th>Confianza</th>
-              <th>Fuente</th>
+              <th scope="col">Campo</th>
+              <th scope="col">Valor</th>
+              <th scope="col">Procedencia</th>
+              <th scope="col">Confianza</th>
+              <th scope="col">Fuente</th>
             </tr>
           </thead>
           <tbody>
             {fields.map((f) => {
               const badge = PROVENANCE_BADGE[f.provenance];
+              const fieldLabel = fieldsMap ? resolveLabel(f.field_id, fieldsMap) : f.field_id;
               // F4-05 criterio 2: cada fila verified/self_declared enlaza al
               // fragmento del PDF fuente. required_pending no tiene fuente.
               const canShowSource =
                 f.source_document_id != null && f.provenance !== "required_pending";
               return (
                 <tr key={f.field_id}>
-                  <td style={{ fontSize: 13 }}>
-                    {fieldsMap ? resolveLabel(f.field_id, fieldsMap) : f.field_id}
-                  </td>
+                  <td style={{ fontSize: 13 }}>{fieldLabel}</td>
                   <td>{f.value != null ? String(f.value) : <span className="faint">—</span>}</td>
                   <td>
                     <span className={badge.className}>{badge.label}</span>
@@ -259,8 +281,9 @@ export function Step5Extract({
                     {canShowSource ? (
                       <button
                         type="button"
-                        onClick={() => showExcerpt(f)}
+                        onClick={(e) => showExcerpt(f, e.currentTarget)}
                         disabled={excerptLoading === f.field_id}
+                        aria-label={`Ver fuente del campo ${fieldLabel}`}
                         style={{
                           color: "var(--accent)",
                           textDecoration: "underline",
@@ -323,10 +346,11 @@ export function Step5Extract({
                 </p>
               </div>
               <button
+                ref={excerptCloseRef}
                 type="button"
                 onClick={() => setExcerpt(null)}
                 className="btn btn-ghost"
-                aria-label="Cerrar"
+                aria-label="Cerrar fragmento fuente"
               >
                 ✕
               </button>
