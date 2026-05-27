@@ -9,7 +9,7 @@ dependencies = [
     "pydantic==2.*",
     "pydantic-settings==2.*",
     "sqlmodel==0.0.22",
-    "alembic==1.13.*",
+    "alembic==1.18.*",
     "pyyaml==6.*",
     "litellm==1.52.*",
     "langfuse==2.*",
