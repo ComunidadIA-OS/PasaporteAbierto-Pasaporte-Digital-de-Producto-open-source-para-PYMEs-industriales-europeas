@@ -6,23 +6,13 @@ services:
     env_file: .env
     volumes:
       - ./plugins:/app/plugins:ro
-      # Monta scripts/ para que el endpoint /api/v1/demo/* (gated por
-      # DEMO_MODE) pueda leer scripts/e2e_demo/config.yaml — misma fuente
-      # de verdad que el runner E2E CLI.
-      - ./scripts:/app/scripts:ro
       - backend_data:/app/data
     depends_on:
       langfuse:
         condition: service_started
 
   frontend:
-    build:
-      context: ./frontend
-      args:
-        # Next inlinea NEXT_PUBLIC_* en build time. Cambiar DEMO_MODE en
-        # .env exige `docker compose up --build frontend` para que se
-        # propague al bundle del cliente.
-        NEXT_PUBLIC_DEMO_MODE: ${DEMO_MODE:-false}
+    build: ./frontend
     ports:
       - "3000:3000"
     environment:
@@ -34,10 +24,10 @@ services:
   langfuse:
     image: langfuse/langfuse:2
     ports:
-      - "3010:3000"
+      - "3001:3000"
     environment:
       DATABASE_URL: postgresql://postgres:postgres@langfuse-db:5432/langfuse
-      NEXTAUTH_URL: http://localhost:3010
+      NEXTAUTH_URL: http://localhost:3001
       NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:-changeme-langfuse-secret}
       SALT: ${LANGFUSE_SALT:-changeme-langfuse-salt}
       TELEMETRY_ENABLED: "false"
@@ -66,34 +56,6 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
-
-  # Init container: espera a que ollama responda y descarga el modelo
-  # declarado en MODEL_BACKEND (.env). Idempotente — `ollama pull` no
-  # re-descarga si ya está. Sale al terminar.
-  ollama-init:
-    image: ollama/ollama:latest
-    profiles: ["ollama"]
-    depends_on:
-      ollama:
-        condition: service_started
-    env_file: .env
-    environment:
-      OLLAMA_HOST: http://ollama:11434
-    entrypoint: ["/bin/sh"]
-    command:
-      - "-c"
-      - |
-        set -e
-        until ollama list >/dev/null 2>&1; do
-          echo "[ollama-init] esperando al servidor ollama..."
-          sleep 2
-        done
-        MODEL="$${MODEL_BACKEND#ollama:}"
-        MODEL="$${MODEL:-qwen2.5:7b}"
-        echo "[ollama-init] asegurando modelo $$MODEL (descarga si no está)..."
-        ollama pull "$$MODEL"
-        echo "[ollama-init] ✓ modelo $$MODEL listo."
-    restart: "no"
 
 volumes:
   backend_data:

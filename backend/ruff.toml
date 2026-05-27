@@ -4,25 +4,6 @@ target-version = "py311"
 [lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 ignore = ["E501"]
-# `×` (U+00D7, MULTIPLICATION SIGN) se usa intencionadamente en docstrings
-# y comentarios con semántica matemática ("nº campos × nº PDFs"). En ese
-# contexto no es confusable con `x` (es justo el carácter correcto), así
-# que lo permitimos a nivel de proyecto. `# noqa: RUF002` no es viable
-# aquí porque ruff lo trata como texto literal dentro de los docstrings.
-allowed-confusables = ["×"]
-
-[lint.flake8-bugbear]
-# Falsos positivos de B008: estos helpers de FastAPI son el patrón idiomático
-# para declarar parámetros en argumentos por defecto (Query, Depends, etc.).
-extend-immutable-calls = [
-    "fastapi.Query",
-    "fastapi.Path",
-    "fastapi.Header",
-    "fastapi.Depends",
-    "fastapi.Body",
-    "fastapi.Form",
-    "fastapi.File",
-]
 
 [format]
 quote-style = "double"

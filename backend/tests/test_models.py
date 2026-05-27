@@ -1,4 +1,3 @@
-import os
 import subprocess
 from pathlib import Path
 
@@ -79,13 +78,13 @@ def test_alembic_upgrade_downgrade_reversible(tmp_path: Path):
     subprocess.run(
         [*base, "upgrade", "head"],
         cwd=backend_dir,
-        env={**os.environ, **env},
+        env={**__import__("os").environ, **env},
         check=True,
     )
     subprocess.run(
         [*base, "downgrade", "base"],
         cwd=backend_dir,
-        env={**os.environ, **env},
+        env={**__import__("os").environ, **env},
         check=True,
     )
     # Tras downgrade no debe quedar ninguna de las 5 tablas

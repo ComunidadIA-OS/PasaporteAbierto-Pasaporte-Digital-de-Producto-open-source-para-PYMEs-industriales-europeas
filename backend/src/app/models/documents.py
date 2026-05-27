@@ -2,8 +2,6 @@ from datetime import datetime
 
 from sqlmodel import Field, SQLModel
 
-from app.time_utils import utcnow
-
 
 class Document(SQLModel, table=True):
     __tablename__ = "documents"
@@ -13,4 +11,4 @@ class Document(SQLModel, table=True):
     doc_type: str  # datasheet | certificate | lca | sds | ce_declaration
     blob_path: str
     sha256: str = Field(index=True)
-    uploaded_at: datetime = Field(default_factory=utcnow)
+    uploaded_at: datetime = Field(default_factory=datetime.utcnow)

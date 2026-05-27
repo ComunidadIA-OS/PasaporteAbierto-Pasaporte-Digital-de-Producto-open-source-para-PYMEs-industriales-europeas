@@ -2230,34 +2230,23 @@ tras dos APPROVED.
 
 ---
 
-## Task 7 — Router de modelos con LiteLLM (con defensas OWASP LLM01/LLM07/LLM10)
-
-> **Endurecimiento OWASP del 2026-05-24:** este Task 7 incorpora 3 defensas del OWASP Top 10 for LLM Applications (versión 2025) desde el primer commit, para que los callers (F3 Clasificador, F3+F5 Recolector, F4 Chat) hereden una API segura por defecto y no haya que retrofittear seguridad en cada componente IA.
->
-> 1. **LLM01 Prompt Injection** — la API expone parámetro `system: str | None` separado de `prompt: str`. Los callers nunca concatenan instrucción de sistema con input de usuario; LiteLLM y el modelo distinguen los roles `system` / `user` explícitamente.
-> 2. **LLM07 System Prompt Leakage** — el mensaje exterior de `LLMBackendError` es **sanitizado** y NO contiene el contenido del prompt ni el detalle de la excepción original de LiteLLM (que puede embeber el prompt en su `args[0]`). El detalle completo queda accesible vía `__cause__` (preservado por `raise ... from exc`) para depuración interna (Langfuse, traceback en logs).
-> 3. **LLM10 Unbounded Consumption** — defaults conservadores `timeout=30.0` segundos y `max_tokens=2000`. Mitiga (a) llamadas a Ollama que se cuelgan bloqueando workers, (b) respuestas infinitas con APIs comerciales que disparan coste. Los callers pueden overridear cuando la tarea lo justifique (Recolector con PDFs largos, etc.).
->
-> Fuente: https://genai.owasp.org/llm-top-10/ (2025). Decisión y trazabilidad en el commit `docs(plan)` que precede a esta tarea.
+## Task 7 — Router de modelos con LiteLLM
 
 **Files:**
 - Create: `backend/src/app/llm/__init__.py`, `backend/src/app/llm/router.py`
 - Test: `backend/tests/test_llm_router.py`
 
-- [ ] **Paso 7.1 — Tests del wrapper (rojos)**
+- [ ] **Paso 7.1 — Tests del wrapper (rojo)**
 
-`backend/tests/test_llm_router.py` — 8 tests: 5 funcionales + 3 OWASP.
+`backend/tests/test_llm_router.py`:
 
 ```python
 from unittest.mock import patch
 
 import pytest
 
-from app.config import settings
 from app.llm.router import LLMBackendError, LLMResponse, complete, parse_backend
 
-
-# ═══ Tests funcionales ═══
 
 def test_parse_backend_ollama():
     backend = parse_backend("ollama:qwen2.5:14b")
@@ -2277,10 +2266,7 @@ def test_parse_backend_rejects_malformed():
 
 
 def test_complete_returns_typed_response(monkeypatch):
-    # NOTE: Settings es un singleton de pydantic-settings instanciado a nivel
-    # módulo; monkeypatch.setenv no afecta al singleton ya creado. Usar
-    # monkeypatch.setattr sobre el objeto settings, igual que test_health.py.
-    monkeypatch.setattr(settings, "model_backend", "ollama:qwen2.5:14b")
+    monkeypatch.setenv("MODEL_BACKEND", "ollama:qwen2.5:14b")
 
     fake_response = {
         "choices": [{"message": {"content": "respuesta del modelo"}}],
@@ -2301,115 +2287,26 @@ def test_complete_returns_typed_response(monkeypatch):
 
 
 def test_complete_raises_typed_error_on_backend_failure(monkeypatch):
-    monkeypatch.setattr(settings, "model_backend", "ollama:qwen2.5:14b")
+    monkeypatch.setenv("MODEL_BACKEND", "ollama:qwen2.5:14b")
 
     with patch("app.llm.router.litellm.completion", side_effect=RuntimeError("ollama down")):
         with pytest.raises(LLMBackendError) as exc:
             complete("hola")
 
+    assert "ollama" in str(exc.value).lower()
     assert exc.value.backend == "ollama:qwen2.5:14b"
-    # El backend identifica el origen del fallo; el detalle del exc original
-    # queda en __cause__ (preservado por raise ... from exc) — accesible para
-    # depuración interna pero no expuesto en el mensaje del error.
-    assert exc.value.__cause__ is not None
-
-
-# ═══ Defensas OWASP ═══
-
-def test_complete_passes_system_message_when_provided(monkeypatch):
-    """OWASP LLM01 (Prompt Injection): separar system de user evita injection
-    por concatenación. El parámetro `system=` debe traducirse en un mensaje
-    con role=system distinto del role=user.
-    """
-    monkeypatch.setattr(settings, "model_backend", "ollama:qwen2.5:14b")
-
-    fake_response = {
-        "choices": [{"message": {"content": "ok"}}],
-        "usage": {"prompt_tokens": 5, "completion_tokens": 1, "total_tokens": 6},
-        "model": "ollama/qwen2.5:14b",
-    }
-
-    with patch("app.llm.router.litellm.completion", return_value=fake_response) as mocked:
-        complete("¿qué es ESPR?", system="Eres asistente normativo. Cita siempre.")
-
-    call_kwargs = mocked.call_args.kwargs
-    messages = call_kwargs["messages"]
-    assert messages[0] == {"role": "system", "content": "Eres asistente normativo. Cita siempre."}
-    assert messages[1] == {"role": "user", "content": "¿qué es ESPR?"}
-
-
-def test_complete_passes_timeout_and_max_tokens(monkeypatch):
-    """OWASP LLM10 (Unbounded Consumption): los overrides explícitos de
-    timeout y max_tokens deben propagarse a litellm.completion.
-    """
-    monkeypatch.setattr(settings, "model_backend", "ollama:qwen2.5:14b")
-
-    fake_response = {
-        "choices": [{"message": {"content": "ok"}}],
-        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
-        "model": "ollama/qwen2.5:14b",
-    }
-
-    with patch("app.llm.router.litellm.completion", return_value=fake_response) as mocked:
-        complete("test", timeout=10.0, max_tokens=500)
-
-    call_kwargs = mocked.call_args.kwargs
-    assert call_kwargs["timeout"] == 10.0
-    assert call_kwargs["max_tokens"] == 500
-
-
-def test_complete_uses_safe_defaults_for_timeout_and_max_tokens(monkeypatch):
-    """OWASP LLM10: si no se pasan, defaults conservadores (timeout=30.0,
-    max_tokens=2000) — mitigan DoS por llamadas que se cuelgan y respuestas
-    sin tope con APIs comerciales.
-    """
-    monkeypatch.setattr(settings, "model_backend", "ollama:qwen2.5:14b")
-
-    fake_response = {
-        "choices": [{"message": {"content": "ok"}}],
-        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
-        "model": "ollama/qwen2.5:14b",
-    }
-
-    with patch("app.llm.router.litellm.completion", return_value=fake_response) as mocked:
-        complete("test")
-
-    call_kwargs = mocked.call_args.kwargs
-    assert call_kwargs["timeout"] == 30.0
-    assert call_kwargs["max_tokens"] == 2000
-
-
-def test_llm_backend_error_does_not_echo_prompt(monkeypatch):
-    """OWASP LLM07 (System Prompt Leakage): el mensaje exterior de
-    LLMBackendError NO debe contener el prompt ni el mensaje crudo de la
-    excepción original de LiteLLM (que algunos backends populan con eco del
-    request body). El detalle queda accesible via __cause__ para depuración.
-    """
-    monkeypatch.setattr(settings, "model_backend", "ollama:qwen2.5:14b")
-
-    secret_prompt = "SYSTEM_PROMPT_SECRETO_QUE_NO_DEBE_FILTRARSE"
-    backend_exception_with_echo = RuntimeError(f"Bad request: messages=[{secret_prompt}]")
-
-    with patch("app.llm.router.litellm.completion", side_effect=backend_exception_with_echo):
-        with pytest.raises(LLMBackendError) as exc:
-            complete(secret_prompt)
-
-    # El mensaje exterior identifica el backend pero NO contiene el prompt
-    assert secret_prompt not in str(exc.value)
-    # El detalle completo sigue accesible via __cause__ para Langfuse/tracebacks
-    assert exc.value.__cause__ is backend_exception_with_echo
 ```
 
 - [ ] **Paso 7.2 — Verificar que falla**
 
 ```bash
 cd backend
-PATH="$HOME/.local/bin:$PATH" uv run pytest tests/test_llm_router.py -v
+uv run pytest tests/test_llm_router.py -v
 ```
 
 Esperado: ImportError de `app.llm.router`.
 
-- [ ] **Paso 7.3 — Implementar el router con defensas OWASP**
+- [ ] **Paso 7.3 — Implementar el router**
 
 `backend/src/app/llm/__init__.py` vacío. `backend/src/app/llm/router.py`:
 
@@ -2438,14 +2335,7 @@ class LLMResponse:
 
 
 class LLMBackendError(RuntimeError):
-    """Fallo del backend de LLM con mensaje sanitizado.
-
-    OWASP LLM07 (System Prompt Leakage): el mensaje exterior identifica el
-    backend (`self.backend`) pero NO contiene el contenido del prompt ni el
-    mensaje crudo de la excepción original. El detalle completo queda
-    accesible via `__cause__` (preservado por `raise ... from exc`) para
-    depuración en entorno controlado (Langfuse, tracebacks).
-    """
+    """Fallo del backend de LLM. Llevará `backend` y mensaje legible."""
 
     def __init__(self, message: str, *, backend: str) -> None:
         super().__init__(message)
@@ -2478,54 +2368,22 @@ def _to_litellm_model(parsed: ParsedBackend) -> str:
     return f"{parsed.provider}/{parsed.model}"
 
 
-# Defaults OWASP LLM10 (Unbounded Consumption) — conservadores; los callers
-# pueden overridear cuando la tarea lo justifique (Recolector con PDFs largos,
-# Clasificador con corpus extenso, etc.).
-DEFAULT_TIMEOUT_SECONDS = 30.0
-DEFAULT_MAX_TOKENS = 2000
+def complete(prompt: str, **opts) -> LLMResponse:
+    """Wrapper único para todo el sistema. Lee MODEL_BACKEND del entorno.
 
-
-def complete(
-    prompt: str,
-    *,
-    system: str | None = None,
-    timeout: float = DEFAULT_TIMEOUT_SECONDS,
-    max_tokens: int | None = DEFAULT_MAX_TOKENS,
-    **opts,
-) -> LLMResponse:
-    """Wrapper único de LLM para todo el sistema. Lee MODEL_BACKEND del entorno.
-
-    OWASP LLM01 (Prompt Injection): `system` y `prompt` van como mensajes
-    separados (role=system y role=user) a litellm; nunca se concatenan en una
-    sola cadena. Los callers deben usar `system=` para instrucciones del
-    sistema; `prompt` queda exclusivamente para input de usuario.
-
-    OWASP LLM10 (Unbounded Consumption): defaults conservadores de timeout y
-    max_tokens. Override explícito por argumento cuando la tarea lo justifique.
-
-    OWASP LLM07 (System Prompt Leakage): si el backend falla, levanta
-    LLMBackendError con mensaje genérico (NO contiene el prompt ni el detalle
-    de la excepción original). El detalle queda en `__cause__` para
-    depuración interna.
+    Lanza LLMBackendError tipado si el backend falla.
     """
     parsed = parse_backend(settings.model_backend)
     model_id = _to_litellm_model(parsed)
-    messages: list[dict] = []
-    if system:
-        messages.append({"role": "system", "content": system})
-    messages.append({"role": "user", "content": prompt})
     try:
         response = litellm.completion(
             model=model_id,
-            messages=messages,
-            timeout=timeout,
-            max_tokens=max_tokens,
+            messages=[{"role": "user", "content": prompt}],
             **opts,
         )
-    except Exception as exc:
-        # OWASP LLM07: mensaje sanitizado al exterior; detalle en __cause__.
+    except Exception as exc:  # litellm levanta varios tipos
         raise LLMBackendError(
-            f"Backend {parsed.raw} ({parsed.provider}) falló — ver __cause__ para detalle.",
+            f"Backend {parsed.raw} ({parsed.provider}) falló: {exc}",
             backend=parsed.raw,
         ) from exc
 
@@ -2544,196 +2402,132 @@ def complete(
 
 ```bash
 cd backend
-PATH="$HOME/.local/bin:$PATH" uv run pytest tests/test_llm_router.py -v
-PATH="$HOME/.local/bin:$PATH" uv run pytest -v   # full suite, expect 38 (30 + 8 nuevos)
-PATH="$HOME/.local/bin:$PATH" uv run ruff check .
-PATH="$HOME/.local/bin:$PATH" uv run ruff format --check .
+uv run pytest tests/test_llm_router.py -v
 ```
 
-Esperado: 8 tests del router verdes. Suite completa 38/38. Ruff limpio.
+Esperado: 5 tests PASS.
 
-- [ ] **Paso 7.5 — Verificación de no regresión del health endpoint**
+- [ ] **Paso 7.5 — Health endpoint refleja el backend real (verificación)**
 
-`backend/tests/test_health.py` ya tiene 2 tests (instalados en T1) que verifican que `/api/v1/health` refleja `settings.model_backend`. La suite completa debe seguir verde.
+El endpoint `/api/v1/health` ya devuelve `backend` desde `settings.model_backend`. Verifica que cambiar `MODEL_BACKEND` se propaga:
 
-- [ ] **⛔ Paso 7.6 — NO commit**
-
-Política `feedback-commit-after-validation`: el implementer subagent **no commitea**. Deja working tree con cambios. Controller commitea tras spec compliance review + code quality review APPROVED con mensaje:
-
+```bash
+cd backend
+MODEL_BACKEND=anthropic:claude-opus-4 uv run pytest tests/test_health.py -v
 ```
-feat(llm): wrapper LiteLLM con defensas OWASP y error tipado (F1-04)
+
+Si el segundo test de health falla, ajusta para que `Settings` se relea por test (`importlib.reload`).
+
+- [ ] **Paso 7.6 — Commit**
+
+```bash
+cd ..
+git add backend/src/app/llm backend/tests/test_llm_router.py
+git commit -m "feat(llm): wrapper LiteLLM con MODEL_BACKEND y error tipado (F1-04)"
 ```
 
 ---
 
-## Task 8 — Observabilidad: integración Langfuse v2 `@observe` + LiteLLM auto-callback
-
-> **Rediseño 2026-05-24 tras revisión de documentación oficial de Langfuse:** este Task 8 abandona la implementación custom con `_make_tracer + try/except/finally` (descartada del working tree antes de commitear) en favor de la **mejor práctica oficial de Langfuse v2** descubierta en la documentación. Tres cambios sobre la versión anterior del plan:
->
-> 1. **`@observe` decorator de `langfuse.decorators`** sustituye al `_make_tracer` custom. Auto-captura input/output/latency/errores, **auto-nesting via contextvars** (función decorada que llama a otra decorada genera spans hijo automáticamente), async-native, tolerante a fallos del cliente por diseño (las defensas D1 — trace failure no rompe app — y D2 — init failure no rompe import — son inherentes). Wrappers finos: `trace_classifier = observe(name="classifier")`, etc. ~10 LOC totales vs ~35 LOC custom anteriores.
->
-> 2. **Auto-integración LiteLLM ↔ Langfuse** vía `litellm.success_callback = ["langfuse"]`. Cada llamada a `complete()` del wrapper T7 emite automáticamente un span `generation` a Langfuse con `model`, `tokens_in/out`, `cost`, `latency`, `prompt`, `response` — sin escribir código de tracing en T7. Cuando F3 use `@trace_classifier def classify(...)`, el span `classifier` se convierte en padre del span `generation` automático = árbol de observabilidad perfecto out-of-the-box.
->
-> 3. **`langfuse_context.update_current_observation(metadata={...})`** para metadata custom (cita normativa, modelo, decisiones intermedias). Más explícito que la magia anterior de auto-extraer `cita_normativa` del output dict. Los callers F3/F4 lo invocarán explícitamente dentro de cada función decorada cuando aplique.
->
-> **No upgrade a Langfuse v3/v4 server.** Mantenemos `langfuse==2.*` en pyproject y `langfuse/langfuse:2` en docker-compose. El upgrade a v3+ requeriría `clickhouse + redis + langfuse-worker` adicionales y migración de DB — fuera del alcance del hackathon, documentado como TODO para post-F1.
->
-> **OWASP LLM02 / LLM07 (PII y prompts en trazas) sigue como TODO documentado.** `@observe` captura args/output crudos igual que nuestro `_make_tracer` hacía. La mitigación (`capture_input=False` por decorador, o redacción explícita) es una decisión de producto para F4 cuando los agentes reales empiecen a procesar PII.
+## Task 8 — Observabilidad: cliente Langfuse y decoradores
 
 **Files:**
 - Create: `backend/src/app/observability/__init__.py`, `backend/src/app/observability/langfuse_client.py`, `backend/src/app/observability/decorators.py`
+- Modify: `backend/src/app/llm/router.py` (integración opcional con Langfuse)
 - Test: `backend/tests/test_decorators.py`
 
 **Alcance F1-05:** sólo infraestructura de observabilidad. Los agentes (Clasificador, Recolector, Chat) no existen aún — vienen en F2/F3/F4. Aquí dejamos los decoradores listos y los testeamos con funciones sintéticas. Las criterios 2 y 3 de F1-05 ("trazas en una corrida del wizard demo") se validarán al cierre de F2/F3.
 
-- [ ] **Paso 8.1 — Tests rojos (8 tests)**
+- [ ] **Paso 8.1 — Tests de los decoradores (rojo)**
 
 `backend/tests/test_decorators.py`:
 
 ```python
 from unittest.mock import MagicMock
 
-import litellm
-import pytest
-
 from app.observability.decorators import trace_chat, trace_classifier, trace_collector
-from app.observability.langfuse_client import configure_litellm_callbacks, get_client
 
 
-# ═══ Tests de wrappers semánticos sobre @observe ═══
-
-
-def test_trace_classifier_wraps_function_call():
-    """Aplicar @trace_classifier no rompe la función decorada."""
+def test_trace_classifier_captures_inputs_and_outputs(monkeypatch):
+    fake_client = MagicMock()
+    monkeypatch.setattr("app.observability.decorators._client", fake_client)
 
     @trace_classifier
     def fake_classify(description: str) -> dict:
-        return {"sector": "batteries", "confidence": 0.91}
+        return {
+            "sector": "batteries",
+            "confidence": 0.91,
+            "cita_normativa": "EU 2023/1542 Art. 13",
+        }
 
     result = fake_classify("batería para EV")
-    assert result == {"sector": "batteries", "confidence": 0.91}
+    assert result["sector"] == "batteries"
+
+    # Debe haber abierto una span "classifier"
+    fake_client.trace.assert_called_once()
+    trace_kwargs = fake_client.trace.call_args.kwargs
+    assert trace_kwargs.get("name") == "classifier"
+    # Debe haber registrado la cita normativa cuando el output la incluye
+    assert "cita_normativa" in trace_kwargs.get("metadata", {})
 
 
-def test_trace_collector_wraps_function_call():
+def test_trace_collector_separates_spans(monkeypatch):
+    fake_client = MagicMock()
+    monkeypatch.setattr("app.observability.decorators._client", fake_client)
+
     @trace_collector
     def fake_collect(pdf_path: str) -> dict:
         return {"fields_extracted": 12}
 
-    assert fake_collect("doc.pdf") == {"fields_extracted": 12}
+    fake_collect("doc.pdf")
+    assert fake_client.trace.call_args.kwargs["name"] == "collector"
 
 
-def test_trace_chat_wraps_function_call():
+def test_trace_chat_includes_citation(monkeypatch):
+    fake_client = MagicMock()
+    monkeypatch.setattr("app.observability.decorators._client", fake_client)
+
     @trace_chat
     def fake_chat(q: str) -> dict:
-        return {"answer": "x", "cita_normativa": "EU 2024/1781 Art. 7"}
+        return {"answer": "...", "cita_normativa": "EU 2024/1781 Art. 7"}
 
-    assert fake_chat("¿qué exige el ESPR?") == {
-        "answer": "x",
-        "cita_normativa": "EU 2024/1781 Art. 7",
-    }
+    fake_chat("¿qué exige el ESPR?")
+    metadata = fake_client.trace.call_args.kwargs["metadata"]
+    assert metadata["cita_normativa"] == "EU 2024/1781 Art. 7"
 
 
-def test_decorators_propagate_exceptions():
-    """Las excepciones de la función decorada llegan al caller intactas
-    (no las traga ni las enmascara — solo @observe captura su propia
-    excepción interna si Langfuse falla).
-    """
+def test_decorator_does_not_swallow_exceptions(monkeypatch):
+    fake_client = MagicMock()
+    monkeypatch.setattr("app.observability.decorators._client", fake_client)
 
     @trace_classifier
-    def broken(x):
+    def broken(description: str) -> dict:
         raise ValueError("boom")
+
+    import pytest
 
     with pytest.raises(ValueError, match="boom"):
         broken("x")
 
-
-# ═══ Tests de auto-integración LiteLLM ═══
-
-
-def test_configure_litellm_callbacks_enables_when_client_present(monkeypatch):
-    """Con cliente Langfuse activo, litellm.success_callback contiene 'langfuse'.
-    Habilita el auto-tracing de cada complete() del wrapper T7 sin código extra.
-    """
-    fake_client = MagicMock()
-    monkeypatch.setattr(litellm, "success_callback", [])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-
-    configure_litellm_callbacks(fake_client)
-
-    assert "langfuse" in litellm.success_callback
-    assert "langfuse" in litellm.failure_callback
-
-
-def test_configure_litellm_callbacks_skips_when_no_client(monkeypatch):
-    """Sin cliente Langfuse, no se modifica el callback de LiteLLM
-    (la app arranca degradadamente sin telemetría).
-    """
-    monkeypatch.setattr(litellm, "success_callback", [])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-
-    configure_litellm_callbacks(None)
-
-    assert "langfuse" not in litellm.success_callback
-    assert "langfuse" not in litellm.failure_callback
-
-
-def test_configure_litellm_callbacks_is_idempotent(monkeypatch):
-    """Llamar dos veces no duplica 'langfuse' en los callbacks
-    (la app puede invocarlo en boot y en re-config sin efectos extraños).
-    """
-    fake_client = MagicMock()
-    monkeypatch.setattr(litellm, "success_callback", [])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-
-    configure_litellm_callbacks(fake_client)
-    configure_litellm_callbacks(fake_client)
-
-    assert litellm.success_callback.count("langfuse") == 1
-    assert litellm.failure_callback.count("langfuse") == 1
-
-
-# ═══ Tests de get_client (degradación graceful) ═══
-
-
-def test_get_client_returns_none_without_credentials(monkeypatch):
-    """Sin LANGFUSE_PUBLIC_KEY/SECRET_KEY, get_client devuelve None silenciosamente
-    para que la app arranque sin telemetría.
-    """
-    from app.config import settings
-
-    monkeypatch.setattr(settings, "langfuse_public_key", "")
-    monkeypatch.setattr(settings, "langfuse_secret_key", "")
-    get_client.cache_clear()
-
-    assert get_client() is None
+    # La traza debe haberse abierto y cerrado con el error registrado
+    fake_client.trace.assert_called_once()
 ```
 
-- [ ] **Paso 8.2 — Verificar rojo**
+- [ ] **Paso 8.2 — Verificar que falla**
 
 ```bash
 cd backend
-PATH="$HOME/.local/bin:$PATH" uv run pytest tests/test_decorators.py -v
+uv run pytest tests/test_decorators.py -v
 ```
 
-Esperado: ImportError de `app.observability.decorators` o `app.observability.langfuse_client`.
+Esperado: ImportError.
 
-- [ ] **Paso 8.3 — Cliente Langfuse + helper de callbacks LiteLLM**
+- [ ] **Paso 8.3 — Cliente Langfuse**
 
 `backend/src/app/observability/__init__.py` vacío. `backend/src/app/observability/langfuse_client.py`:
 
 ```python
-"""Cliente Langfuse + auto-integración con LiteLLM.
-
-Mejor práctica oficial de Langfuse v2 verificada en docs (2026-05-24): el SDK
-inicializa el cliente HTTP de forma perezosa (no abre conexiones hasta emitir
-la primera traza), así que envolver `Langfuse(...)` en try/except no aporta
-valor — un fallo solo aparecería en la primera llamada real, no aquí. La
-degradación graceful viene de devolver `None` cuando faltan credenciales.
-"""
-
 from functools import lru_cache
 
-import litellm
 from langfuse import Langfuse
 
 from app.config import settings
@@ -2741,12 +2535,9 @@ from app.config import settings
 
 @lru_cache(maxsize=1)
 def get_client() -> Langfuse | None:
-    """Devuelve un cliente Langfuse si hay credenciales, si no None.
+    """Devuelve un cliente Langfuse si hay credenciales configuradas, si no None.
 
-    Sin claves en `.env`, la app sigue arrancando sin telemetría. Los
-    decoradores `@observe` de Langfuse v2 son tolerantes a cliente=None
-    por diseño (se convierten en no-ops silenciosos), así que los callers
-    de los decoradores semánticos no necesitan verificar nada.
+    En desarrollo local sin claves, Langfuse no se invoca pero la app sigue.
     """
     if not (settings.langfuse_public_key and settings.langfuse_secret_key):
         return None
@@ -2755,110 +2546,95 @@ def get_client() -> Langfuse | None:
         secret_key=settings.langfuse_secret_key,
         host=settings.langfuse_host,
     )
-
-
-def configure_litellm_callbacks(client: Langfuse | None) -> None:
-    """Habilita el auto-tracing de LiteLLM hacia Langfuse.
-
-    Con cliente Langfuse activo, cada llamada a `litellm.completion()` emite
-    automáticamente un span `generation` a Langfuse con `model`,
-    `tokens_in/out`, `cost`, `latency`, `prompt`, `response` — sin escribir
-    código de tracing en el wrapper T7. Combinado con `@trace_classifier`
-    en F3, el span del clasificador se convierte en padre del span
-    `generation` automático de LiteLLM = árbol de observabilidad perfecto.
-
-    Idempotente: llamadas repetidas no duplican "langfuse" en los callbacks.
-    Sin cliente, es no-op.
-    """
-    if client is None:
-        return
-    if "langfuse" not in litellm.success_callback:
-        litellm.success_callback.append("langfuse")
-    if "langfuse" not in litellm.failure_callback:
-        litellm.failure_callback.append("langfuse")
-
-
-# Side effect intencional al import: si hay credenciales en `.env`, los
-# callbacks de LiteLLM quedan configurados automáticamente. Se ejecuta en el
-# boot de la app FastAPI cuando los agentes IA (F3+) importen este módulo.
-# Para sobrescribir en tests, usar monkeypatch sobre
-# litellm.success_callback / litellm.failure_callback.
-configure_litellm_callbacks(get_client())
 ```
 
-- [ ] **Paso 8.4 — Decoradores semánticos sobre `@observe`**
+- [ ] **Paso 8.4 — Decoradores**
 
 `backend/src/app/observability/decorators.py`:
 
 ```python
-"""Decoradores semánticos para los componentes IA del proyecto.
+"""Decoradores que emiten trazas Langfuse por componente IA.
 
-Wrappers finos sobre `langfuse.decorators.observe`, la mejor práctica
-oficial de Langfuse v2. `@observe` captura input/output/latency/errores
-automáticamente, soporta async, hace auto-nesting via contextvars (una
-función decorada que llame a otra decorada genera spans hijo
-automáticamente) y es tolerante a fallos del cliente Langfuse por diseño.
-
-Uso típico desde F3/F4:
-
-    @trace_classifier
-    def classify(description: str) -> dict:
-        result = complete(description, system="Eres clasificador...")
-        # Auto-traza `generation` gracias a litellm.success_callback=["langfuse"]
-        # configurado en langfuse_client.py al import.
-        parsed = parse_classifier_output(result.content)
-        from langfuse.decorators import langfuse_context
-        langfuse_context.update_current_observation(
-            metadata={"cita_normativa": parsed["cita"]}
-        )
-        return parsed
-
-Las defensas que existían en una versión anterior del plan (D1: trace
-failure no rompe app; D2: init failure no rompe import) son inherentes a
-`@observe` y al lazy init del SDK v2: el decorador captura sus propias
-excepciones internas y el cliente Langfuse se inicializa sólo al emitir
-la primera traza, no al import.
+Los decoradores son tolerantes a la ausencia de cliente Langfuse: si no hay
+credenciales en `.env`, ejecutan la función envuelta sin emitir traza.
 """
 
-from langfuse.decorators import observe
+from collections.abc import Callable
+from functools import wraps
+from time import perf_counter
+from typing import Any
 
-trace_classifier = observe(name="classifier")
-trace_collector = observe(name="collector")
-trace_chat = observe(name="chat")
+from app.observability.langfuse_client import get_client
 
-__all__ = ["trace_chat", "trace_classifier", "trace_collector"]
+_client = get_client()  # patcheable en tests
+
+
+def _make_tracer(component_name: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
+        @wraps(fn)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            client = _client
+            start = perf_counter()
+            metadata: dict[str, Any] = {}
+            error: Exception | None = None
+            output: Any = None
+            try:
+                output = fn(*args, **kwargs)
+                if isinstance(output, dict) and "cita_normativa" in output:
+                    metadata["cita_normativa"] = output["cita_normativa"]
+                return output
+            except Exception as exc:
+                error = exc
+                metadata["error"] = repr(exc)
+                raise
+            finally:
+                if client is not None:
+                    client.trace(
+                        name=component_name,
+                        input={"args": args, "kwargs": kwargs},
+                        output=None if error else output,
+                        metadata=metadata,
+                        latency_ms=int((perf_counter() - start) * 1000),
+                    )
+
+        return wrapper
+
+    return decorator
+
+
+trace_classifier = _make_tracer("classifier")
+trace_collector = _make_tracer("collector")
+trace_chat = _make_tracer("chat")
 ```
 
-- [ ] **Paso 8.5 — Verificar verde**
+- [ ] **Paso 8.5 — Verificar tests verdes**
 
 ```bash
 cd backend
-PATH="$HOME/.local/bin:$PATH" uv run pytest tests/test_decorators.py -v
-PATH="$HOME/.local/bin:$PATH" uv run pytest -v   # full suite, expect 54 (46 + 8 nuevos)
-PATH="$HOME/.local/bin:$PATH" uv run ruff check .
-PATH="$HOME/.local/bin:$PATH" uv run ruff format --check .
+uv run pytest tests/test_decorators.py -v
 ```
 
-Esperado: 8 tests del decorador verdes. Suite completa 54/54. Ruff limpio.
+Esperado: 4 tests PASS.
 
-- [ ] **Paso 8.6 — Verificación visual de Langfuse en docker compose (diferido a T9)**
-
-Para validar end-to-end en T9 (cierre F1), el operador puede:
+- [ ] **Paso 8.6 — Verificar Langfuse en docker compose**
 
 ```bash
 docker compose up -d langfuse langfuse-db
 sleep 15
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3001   # 200 o 302
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3001
 ```
 
-Abrir `http://localhost:3001`, crear cuenta admin, copiar API keys en `.env`. Documentado en el README de T9. En T8 no se ejecuta — solo se deja la infraestructura lista.
+Esperado: 200 o 302. Abre `http://localhost:3001` en el navegador, crea cuenta admin, copia las API keys generadas en la UI y rellena `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` en `.env`. Para el alcance de F1 esto se documenta en el README — no se automatiza.
 
-- [ ] **⛔ Paso 8.7 — NO commit**
-
-Política `feedback-commit-after-validation`: el implementer subagent **no commitea**. Deja working tree con cambios. Controller commitea tras spec compliance review + code quality review APPROVED con mensaje:
-
+```bash
+docker compose down
 ```
-feat(observability): @observe de langfuse v2 + auto-integración LiteLLM (F1-05)
+
+- [ ] **Paso 8.7 — Commit**
+
+```bash
+git add backend/src/app/observability backend/tests/test_decorators.py
+git commit -m "feat(observability): cliente Langfuse + decoradores classifier/collector/chat (F1-05)"
 ```
 
 ---
