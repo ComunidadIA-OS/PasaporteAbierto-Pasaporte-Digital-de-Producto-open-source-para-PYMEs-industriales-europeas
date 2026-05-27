@@ -23,6 +23,9 @@ services:
         # .env exige `docker compose up --build frontend` para que se
         # propague al bundle del cliente.
         NEXT_PUBLIC_DEMO_MODE: ${DEMO_MODE:-false}
+        # Nombre de la cookie de sesión que el proxy de Next comprueba para
+        # gatear /wizard y /panel. Debe coincidir con AUTH_COOKIE_NAME (backend).
+        NEXT_PUBLIC_AUTH_COOKIE_NAME: ${AUTH_COOKIE_NAME:-pa_session}
     ports:
       - "3000:3000"
     environment:

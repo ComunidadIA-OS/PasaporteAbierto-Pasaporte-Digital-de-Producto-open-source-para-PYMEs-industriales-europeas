@@ -27,9 +27,11 @@ from app.api.v1.schemas import (
     ChatResponse,
     Citation,
 )
+from app.auth.deps import CurrentUser
 from app.chat import answer as chat_answer
 from app.config import settings
 from app.db.session import get_session
+from app.models.auth import User
 from app.models.chat_messages import ChatMessage
 from app.models.sessions import WizardSession
 from app.plugins.loader import load_all_plugins
@@ -37,6 +39,20 @@ from app.plugins.loader import load_all_plugins
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 DbSession = Annotated[Session, Depends(get_session)]
+
+
+def _owned_session_or_404(db: Session, session_id: str, user: User) -> WizardSession:
+    """Carga la sesión solo si pertenece al usuario (o no tiene dueño).
+
+    Mismo criterio de propiedad blanda que el wizard (ADR-0004): impide que un
+    usuario lea/continúe la conversación de otro conociendo su `session_id`.
+    """
+    row = db.exec(select(WizardSession).where(WizardSession.id == session_id)).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="session_not_found")
+    if row.user_id is not None and row.user_id != user.id:
+        raise HTTPException(status_code=404, detail="session_not_found")
+    return row
 
 
 def _citation_to_dict(citation: Citation | None) -> dict[str, Any] | None:
@@ -60,21 +76,19 @@ def _citation_from_dict(raw: Any) -> Citation | None:
 
 
 @router.post("", response_model=ChatResponse)
-def chat(body: ChatRequest, db: DbSession) -> ChatResponse:
+def chat(body: ChatRequest, db: DbSession, user: CurrentUser) -> ChatResponse:
     """Chat lateral con cita normativa obligatoria (F3-04).
 
     Cada respuesta exitosa incluye cita. Si el RAG no encuentra fragmentos
     relevantes, devuelve la negativa canónica con citation=None. El histórico
     (usuario + respuesta) se persiste en `chat_messages` para reanudación;
-    NO se toca el estado del wizard.
+    NO se toca el estado del wizard. Exige login y que la sesión sea del usuario.
     """
-    # Obtener contexto del wizard (paso actual, sector, etc.)
+    # Obtener contexto del wizard (paso actual, sector, etc.). La pertenencia se
+    # comprueba aquí: un 404 si la sesión no existe o es de otro usuario, antes
+    # de persistir nada (sin filas huérfanas).
     context: dict[str, Any] | None = None
-    row = db.exec(select(WizardSession).where(WizardSession.id == body.session_id)).first()
-    if row is None:
-        # No persistimos histórico si la sesión no existe — evita filas huérfanas
-        # y devuelve 404 al cliente.
-        raise HTTPException(status_code=404, detail="session_not_found")
+    row = _owned_session_or_404(db, body.session_id, user)
 
     progress = row.progress or {}
     context: dict[str, Any] = {
@@ -163,16 +177,15 @@ history_router = APIRouter(prefix="/sessions", tags=["chat"])
 
 
 @history_router.get("/{session_id}/chat", response_model=ChatHistoryResponse)
-def get_chat_history(session_id: str, db: DbSession) -> ChatHistoryResponse:
+def get_chat_history(session_id: str, db: DbSession, user: CurrentUser) -> ChatHistoryResponse:
     """Devuelve el histórico del chat persistido por sesión (F3-04 criterio 3).
 
     Orden estable por `created_at` ascendente + `id` ascendente para empates
     de timestamp (utcnow() puede repetir microsegundos bajo carga).
     """
-    # Verifica que la sesión existe (404 explícito en vez de devolver lista vacía).
-    row = db.exec(select(WizardSession).where(WizardSession.id == session_id)).first()
-    if row is None:
-        raise HTTPException(status_code=404, detail="session_not_found")
+    # Verifica que la sesión existe y es del usuario (404 si no, sin filtrar
+    # existencia de sesiones ajenas).
+    _owned_session_or_404(db, session_id, user)
 
     rows = db.exec(
         select(ChatMessage)

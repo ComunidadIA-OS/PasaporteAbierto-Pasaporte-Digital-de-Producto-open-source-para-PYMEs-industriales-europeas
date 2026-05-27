@@ -29,6 +29,7 @@ from app.llm.router import LLMResponse
 from app.main import app
 from app.models import (  # noqa: F401  (registrar metadata)
     audit_log,
+    auth,
     chat_messages,
     documents,
     extracted_fields,
@@ -37,6 +38,7 @@ from app.models import (  # noqa: F401  (registrar metadata)
 )
 from app.plugins.loader import Plugin, PluginField, load_all_plugins
 from app.rag.schema import Result
+from tests.conftest import authenticate
 
 # `backend/tests/test_e2e_wizard.py` → parents[2] = repo root
 REPO_ROOT: Path = Path(__file__).resolve().parents[2]
@@ -85,7 +87,10 @@ def e2e_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Test
 
     app.dependency_overrides[get_session] = _override_get_session
     try:
-        yield TestClient(app)
+        test_client = TestClient(app)
+        # El wizard exige login desde ADR-0004; autenticamos para recorrer E2E.
+        authenticate(test_client)
+        yield test_client
     finally:
         app.dependency_overrides.clear()
 

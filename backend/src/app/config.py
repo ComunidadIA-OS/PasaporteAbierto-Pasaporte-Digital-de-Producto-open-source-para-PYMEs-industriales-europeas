@@ -34,5 +34,20 @@ class Settings(BaseSettings):
     # los botones "Cargar ejemplo" sin recompilar.
     demo_mode: bool = False
 
+    # --- Autenticación (ADR-0004) -------------------------------------------
+    # Cookie de sesión: httpOnly siempre (no accesible desde JS → mitiga XSS).
+    # `auth_cookie_secure` debe ponerse a True en cualquier despliegue tras
+    # HTTPS; en dev local (http://localhost) se deja False para que el
+    # navegador adjunte la cookie. SameSite=lax basta porque frontend y backend
+    # son same-site (ambos `localhost`); tras dominios distintos usar "none"
+    # (que exige secure=True).
+    auth_cookie_name: str = "pa_session"
+    auth_cookie_secure: bool = False
+    auth_cookie_samesite: str = "lax"
+    auth_session_ttl_days: int = 30
+    # Permite el alta de cuentas (self-service). Una instancia = un fabricante:
+    # tras dar de alta a los operarios se puede poner a False para cerrar el alta.
+    allow_registration: bool = True
+
 
 settings = Settings()

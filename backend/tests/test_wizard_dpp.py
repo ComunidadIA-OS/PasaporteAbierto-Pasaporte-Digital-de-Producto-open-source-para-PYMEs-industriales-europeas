@@ -185,6 +185,43 @@ def test_qr_returns_404_before_publish(client: TestClient) -> None:
     assert r.status_code == 404
 
 
+# ─── GET /sessions/{id}/dpp (rehidratación al reentrar en un finalizado) ─────
+
+
+def test_get_dpp_returns_same_contract_as_post(client: TestClient) -> None:
+    """Tras publicar, GET /dpp devuelve exactamente el mismo body que el POST.
+    Es lo que permite al frontend rehidratar QR + URL pública al reentrar en un
+    DPP finalizado sin re-publicar (POST sería 409)."""
+    sid = _classified_session(client)
+    _fill_all_required(client, sid)
+    posted = client.post(f"/api/v1/sessions/{sid}/dpp")
+    assert posted.status_code == 200
+
+    r = client.get(f"/api/v1/sessions/{sid}/dpp")
+    assert r.status_code == 200, r.text
+    assert r.json() == posted.json()
+
+
+def test_get_dpp_404_before_publish(client: TestClient) -> None:
+    """Sin DPP publicado todavía → 404 (el frontend se queda en borrador)."""
+    sid = _classified_session(client)
+    _fill_all_required(client, sid)
+    r = client.get(f"/api/v1/sessions/{sid}/dpp")
+    assert r.status_code == 404
+
+
+def test_get_dpp_infers_unsigned_from_row(client: TestClient) -> None:
+    """`signed` se infiere de si la fila guardó firma: un DPP publicado con
+    sign=False se rehidrata como signed=False."""
+    sid = _classified_session(client)
+    _fill_all_required(client, sid)
+    client.post(f"/api/v1/sessions/{sid}/dpp", json={"sign": False})
+
+    r = client.get(f"/api/v1/sessions/{sid}/dpp")
+    assert r.status_code == 200
+    assert r.json()["signed"] is False
+
+
 # ─── GET /dpp/{slug} (público) ───────────────────────────────────────────────
 
 

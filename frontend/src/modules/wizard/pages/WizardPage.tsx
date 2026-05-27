@@ -5,6 +5,7 @@
 // `WizardContent` para que la navegación entre pasos sea client-side.
 
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { WizardContent } from "@/modules/wizard/components/WizardContent";
 import { ApiError, api, type SessionState } from "@/modules/wizard/lib/wizard-api";
@@ -14,6 +15,9 @@ async function loadSession(sessionId: string): Promise<SessionState | null> {
     return await api.getSession(sessionId);
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) return null;
+    // 401: cookie caducada/ausente (o sesión de otro usuario, que el backend
+    // trata como 404, no 401). Al login conservando el destino.
+    if (err instanceof ApiError && err.status === 401) redirect(`/login?next=/wizard/${sessionId}`);
     throw err;
   }
 }

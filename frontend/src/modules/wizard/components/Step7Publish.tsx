@@ -8,9 +8,9 @@
 
 "use client";
 
-import Image from "next/image";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
+import { Icon } from "@/core/ui/Icon";
 import {
   ApiError,
   api,
@@ -18,13 +18,28 @@ import {
   type SessionState,
 } from "@/modules/wizard/lib/wizard-api";
 
-const API_BASE = typeof process !== "undefined" ? (process.env.NEXT_PUBLIC_API_URL ?? "") : "";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-export function Step7Publish({ session }: { session: SessionState }) {
-  const [dpp, setDpp] = useState<DppResponse | null>(null);
+export function Step7Publish({
+  session,
+  initialDpp,
+  onPublished,
+}: {
+  session: SessionState;
+  initialDpp?: DppResponse | null;
+  onPublished?: (dpp: DppResponse) => void;
+}) {
+  const [dpp, setDpp] = useState<DppResponse | null>(initialDpp ?? null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // initialDpp llega de forma asíncrona (rehidratación del DPP ya publicado al
+  // reentrar desde la lista de finalizados): cuando aparece, sincroniza el
+  // estado local para mostrar el QR sin necesidad de re-publicar.
+  useEffect(() => {
+    if (initialDpp) setDpp(initialDpp);
+  }, [initialDpp]);
 
   function publish() {
     setConfirmOpen(false);
@@ -33,6 +48,7 @@ export function Step7Publish({ session }: { session: SessionState }) {
       try {
         const r = await api.generateDpp(session.session_id);
         setDpp(r);
+        onPublished?.(r);
       } catch (err) {
         if (err instanceof ApiError && err.status === 409) {
           setError("No se puede publicar: rellena los campos pendientes en el paso 6.");
@@ -72,6 +88,7 @@ export function Step7Publish({ session }: { session: SessionState }) {
               disabled={pending}
               className="btn btn-primary btn-lg"
             >
+              <Icon name="lock" size={18} />
               {pending ? "Publicando…" : "Publicar DPP"}
             </button>
           </div>
@@ -116,15 +133,22 @@ export function Step7Publish({ session }: { session: SessionState }) {
     );
   }
 
-  const fullPublicUrl = `${API_BASE || ""}${dpp.public_url}`;
+  // public_url ya es absoluta (backend la construye con DPP_PUBLIC_BASE_URL):
+  // no anteponer API_BASE o saldría duplicado (http://...http://.../dpp/...).
+  const fullPublicUrl = dpp.public_url;
+  // qr_*_url sí son relativas (/api/v1/...): necesitan el host del backend.
   const qrPngUrl = `${API_BASE || ""}${dpp.qr_png_url}`;
   const qrSvgUrl = `${API_BASE || ""}${dpp.qr_svg_url}`;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       <div className="status-panel is-success">
-        <h2 className="typ-2" style={{ margin: 0 }}>
-          DPP <em>publicado</em> ✓
+        <h2
+          className="typ-2"
+          style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: 8 }}
+        >
+          <Icon name="verified" size={26} fill style={{ color: "var(--success)" }} />
+          DPP <em>publicado</em>
         </h2>
         <p className="muted" style={{ marginTop: 8, marginBottom: 0 }}>
           Firmado con Ed25519. Identificador conforme a{" "}
@@ -145,7 +169,8 @@ export function Step7Publish({ session }: { session: SessionState }) {
         <div className="qr-card">
           <h3 className="eyebrow">QR del producto</h3>
           <div className="qr-frame" style={{ marginTop: 16 }}>
-            <Image src={qrPngUrl} alt="QR del DPP" width={192} height={192} unoptimized />
+            {/* biome-ignore lint/performance/noImgElement: el QR lo sirve el backend (dpp.qr_png_url); pasarlo por next/image lo re-codificaría perdiendo nitidez y exigiría configurar remotePatterns para el host del API. */}
+            <img src={qrPngUrl} alt="QR del DPP" width={192} height={192} />
           </div>
           <div
             style={{

@@ -2,7 +2,7 @@
 
 Versión 1.0 · Última actualización: 22 mayo 2026
 
-Documento funcional del sistema PasaporteAbierto. Acompaña al documento de [arquitectura](./ARCHITECTURE%20%281%29.md) y a los tickets del [board Trello](./tickets/) (carpeta `tickets/`). El documento describe **qué hace** el sistema desde el punto de vista del usuario y **cómo se comporta** desde el punto de vista del equipo dev. Para decisiones técnicas (stack, patrones, descartes), ver `ARCHITECTURE.md`.
+Documento funcional del sistema PasaporteAbierto. Acompaña al documento de [arquitectura](./ARCHITECTURE.md) y a los tickets del [board Trello](./tickets/) (carpeta `tickets/`). El documento describe **qué hace** el sistema desde el punto de vista del usuario y **cómo se comporta** desde el punto de vista del equipo dev. Para decisiones técnicas (stack, patrones, descartes), ver `ARCHITECTURE.md`.
 
 ---
 
@@ -38,6 +38,10 @@ El alcance del hackathon (1 semana, 6 fases) cubre:
 ## 3. Flujo funcional del wizard (perspectiva del fabricante)
 
 El wizard tiene **7 pasos en cadena**. Cada paso es una ruta del frontend y un endpoint del backend. El **chat lateral** está disponible en todos los pasos.
+
+### Acceso · _determinista (login)_
+
+Antes de usar el wizard el fabricante inicia sesión (email + contraseña). El login es **propio y mínimo** (ver [ADR 0004](./adr/0004-login-sesion-server-side-cookie-httponly.md)): sesión server-side en SQLite, cookie `httpOnly`, sin OAuth ni IdP externo. Su función no es multi-tenant sino **ligar cada sesión del wizard y del chat a un `user_id`**, de modo que los datos sensibles (BOM, PDFs, conversación) no queden accesibles a quien adivine el UUID de la sesión. Una sesión creada sin login queda "sin dueño" y sigue siendo accesible (**propiedad blanda**); en cuanto un usuario autenticado la reclama, solo él la lee —el resto recibe `404`, no `403`, para no filtrar que la sesión existe—. El alta de cuentas puede cerrarse con el flag `allow_registration`. Endpoints: `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`.
 
 ### Paso 1 · Descripción del producto · _determinista_
 
@@ -168,7 +172,7 @@ Endpoint **independiente** del pipeline. Disponible en cualquier paso del wizard
 
 **Qué ve el fabricante:** panel lateral fijo con historial de la sesión. Cada respuesta incluye la cita normativa como link.
 
-**Qué hace el sistema:** ensambla prompt con (a) contexto del wizard, (b) top-k del retrieval, (c) pregunta. Loguea la conversación completa en Langfuse.
+**Qué hace el sistema:** ensambla prompt con (a) contexto del wizard, (b) top-k del retrieval, (c) pregunta. Loguea la conversación completa en Langfuse y **persiste el histórico en la tabla `chat_messages`** —canal independiente del estado del wizard— para poder reanudar la conversación tras un refresh sin violar la invariante de que el chat no escribe en el wizard. El endpoint `POST /chat` recibe el `session_id` en el cuerpo; `GET /sessions/{id}/chat` devuelve el histórico.
 
 ---
 
@@ -247,8 +251,13 @@ Todos los endpoints bajo prefijo `/api/v1`. Detalle de schemas en el código fue
 | 5 | POST | `/sessions/{id}/extract` | IA | stream SSE + estado final por campo |
 | 6 | GET | `/sessions/{id}/verify` | det | `{ score, faltantes[], advertencias[] }` |
 | 7 | POST | `/sessions/{id}/dpp` | det | `{ gs1_uri, qr_url, firma? }` |
-| chat | POST | `/sessions/{id}/chat` | IA | respuesta con cita |
-| público | GET | `/dpp/{slug}` | det | JSON-LD o HTML según `Accept` (`slug` opaco derivado del `session_id`; el `gs1_uri` canónico va en el cuerpo — ver [ADR 0003](./adr/0003-url-publica-slug-opaco.md)) |
+| chat | POST | `/chat` | IA | respuesta con cita (recibe `session_id` en el cuerpo, no en la ruta) |
+| chat · histórico | GET | `/sessions/{id}/chat` | det | mensajes persistidos de la sesión (tabla `chat_messages`) |
+| auth · registro | POST | `/auth/register` | det | alta de cuenta (gated por `allow_registration`) |
+| auth · login | POST | `/auth/login` | det | fija cookie `httpOnly` de sesión |
+| auth · logout | POST | `/auth/logout` | det | revoca la sesión server-side |
+| auth · identidad | GET | `/auth/me` | det | usuario autenticado |
+| público | GET | `/dpp/{slug}` | det | JSON-LD o HTML según `Accept` (`slug` opaco derivado del `session_id`; el `gs1_uri` canónico va en el cuerpo — ver [ADR 0003](./adr/0003-url-publica-slug-opaco.md); ruta fuera del prefijo `/api/v1`) |
 | audit | GET | `/audit/verify` | det | `{ ok, broken_at? }` |
 | health | GET | `/health` | det | `{ version, model, backend }` |
 
@@ -304,8 +313,8 @@ Al cierre del hackathon, el sistema debe cumplir simultáneamente:
 
 Los siguientes elementos **no** están cubiertos por este documento ni por los tickets actuales:
 
-- Multi-tenant (una instancia = un fabricante).
-- OAuth y SSO (basic auth si se necesita exponer en red local).
+- Multi-tenant (una instancia = un fabricante; el login propio del ADR-0004 liga sesiones a un `user_id` pero **no** aísla por organización).
+- OAuth, SSO y federación de identidad con IdP externo. **Sí** existe un login propio mínimo (email + contraseña, sesión server-side en cookie `httpOnly`) descrito en el bloque «Acceso (login)» de §3 — ver [ADR 0004](./adr/0004-login-sesion-server-side-cookie-httponly.md). No sustituye a un sistema de identidad corporativo.
 - Federación entre instancias o registro central de DPPs.
 - Marketplace de plugins (los plugins se contribuyen vía PR al repo).
 - Integración con sistemas ERP / MES del fabricante.
@@ -317,7 +326,8 @@ Los siguientes elementos **no** están cubiertos por este documento ni por los t
 
 ## 12. Referencias cruzadas
 
-- Arquitectura técnica: [`ARCHITECTURE (1).md`](./ARCHITECTURE%20%281%29.md)
+- Arquitectura técnica: [`ARCHITECTURE.md`](./ARCHITECTURE.md)
+- Decisiones de arquitectura cerradas: [`adr/`](./adr/) (0001 identificador declarado por el plugin, 0002 vocabulario JSON-LD local, 0003 slug opaco en la URL pública, 0004 login con sesión server-side en cookie httpOnly)
 - Tickets por fase: [`tickets/F1.md`](./tickets/F1.md) … [`tickets/F6.md`](./tickets/F6.md)
 - Generador de tickets Trello: [`crear_tickets_trello.js`](./crear_tickets_trello.js)
 - Reglamentos de referencia:

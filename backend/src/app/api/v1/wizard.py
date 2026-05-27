@@ -48,7 +48,9 @@ from app.api.v1.schemas import (
     FieldValue,
     MissingField,
     RequiredDocumentSpec,
+    SessionListResponse,
     SessionState,
+    SessionSummary,
     UpdateProgressRequest,
     UploadDocumentResponse,
     UploadedDocument,
@@ -56,6 +58,7 @@ from app.api.v1.schemas import (
     VerifyWarning,
 )
 from app.audit import append_entry as append_audit
+from app.auth.deps import CurrentUser
 from app.classifier import classify as run_classifier
 from app.config import settings
 from app.db.session import get_session
@@ -70,6 +73,8 @@ from app.dpp import (
     public_dpp_url,
     sign_payload,
 )
+from app.models.auth import User
+from app.models.chat_messages import ChatMessage
 from app.models.documents import Document
 from app.models.extracted_fields import ExtractedField
 from app.models.published_dpps import PublishedDPP
@@ -141,15 +146,36 @@ def _get_or_404(db: Session, session_id: str) -> WizardSession:
     return row
 
 
+def _get_owned_or_404(db: Session, session_id: str, user: "User") -> WizardSession:
+    """Devuelve la sesión si pertenece al usuario (o no tiene dueño), si no 404.
+
+    Propiedad "blanda" (ADR-0004): una fila con `user_id` poblado solo la ve su
+    dueño; una fila con `user_id` nulo (seed/demo/legacy) es accesible. Como
+    `create_session` exige login, toda sesión creada por la API lleva dueño, así
+    que en la práctica esto aísla los DPP de cada usuario. Se devuelve 404 (no
+    403) ante una sesión ajena para no confirmar siquiera su existencia.
+    """
+    row = _get_or_404(db, session_id)
+    if row.user_id is not None and row.user_id != user.id:
+        raise HTTPException(status_code=404, detail="session_not_found")
+    return row
+
+
 @router.post("", response_model=CreateSessionResponse, status_code=201)
 def create_session(
     body: CreateSessionRequest,
     db: DbSession,
+    user: CurrentUser,
 ) -> CreateSessionResponse:
-    """Crea sesión persistente con la descripción del paso 1."""
+    """Crea sesión persistente con la descripción del paso 1.
+
+    Exige sesión iniciada: la sesión queda ligada al usuario (`user_id`) para
+    que sus conversaciones y DPP se recuperen al volver a entrar.
+    """
     session_id = str(uuid.uuid4())
     row = WizardSession(
         id=session_id,
+        user_id=user.id,
         progress={"step": 1, "description": body.description},
     )
     db.add(row)
@@ -158,13 +184,55 @@ def create_session(
     return CreateSessionResponse(session_id=row.id, created_at=row.created_at)
 
 
+@router.get("", response_model=SessionListResponse)
+def list_sessions(db: DbSession, user: CurrentUser) -> SessionListResponse:
+    """Lista las sesiones del usuario para el panel de reanudación.
+
+    Solo las propias (`user_id == user.id`). Marca si la sesión tiene chat y si
+    su DPP ya está publicado, para distinguir conversaciones de DPP en curso.
+    """
+    rows = db.exec(
+        select(WizardSession)
+        .where(WizardSession.user_id == user.id)
+        .order_by(WizardSession.updated_at.desc())  # type: ignore[attr-defined]
+    ).all()
+    ids = [r.id for r in rows]
+    chatted: set[str] = set()
+    published: set[str] = set()
+    if ids:
+        chatted = set(
+            db.exec(
+                select(ChatMessage.session_id).where(ChatMessage.session_id.in_(ids)).distinct()  # type: ignore[attr-defined]
+            ).all()
+        )
+        published = set(
+            db.exec(select(PublishedDPP.session_id).where(PublishedDPP.session_id.in_(ids))).all()  # type: ignore[attr-defined]
+        )
+    summaries = [
+        SessionSummary(
+            session_id=r.id,
+            description=(r.progress or {}).get("description") or None,
+            sector=r.sector,
+            plugin=r.plugin,
+            current_step=(r.progress or {}).get("step", 1),
+            has_chat=r.id in chatted,
+            published=r.id in published,
+            created_at=r.created_at,
+            updated_at=r.updated_at,
+        )
+        for r in rows
+    ]
+    return SessionListResponse(sessions=summaries)
+
+
 @router.get("/{session_id}", response_model=SessionState)
 def get_session_state(
     session_id: str,
     db: DbSession,
+    user: CurrentUser,
 ) -> SessionState:
-    """Reanuda una sesión existente."""
-    return _to_session_state(_get_or_404(db, session_id), db)
+    """Reanuda una sesión existente (solo si es del usuario)."""
+    return _to_session_state(_get_owned_or_404(db, session_id, user), db)
 
 
 @router.patch("/{session_id}", response_model=SessionState)
@@ -172,6 +240,7 @@ def update_progress(
     session_id: str,
     body: UpdateProgressRequest,
     db: DbSession,
+    user: CurrentUser,
 ) -> SessionState:
     """Autosave del wizard. Mergea campos del body en `sessions.progress`.
 
@@ -187,7 +256,7 @@ def update_progress(
     actualizan por endpoints específicos (classify, extract). NO se aceptan
     por aquí.
     """
-    row = _get_or_404(db, session_id)
+    row = _get_owned_or_404(db, session_id, user)
     progress: dict[str, Any] = dict(row.progress or {})
 
     if body.step is not None:
@@ -211,6 +280,7 @@ def update_progress(
 def classify_session(
     session_id: str,
     db: DbSession,
+    user: CurrentUser,
 ) -> ClassifyResponse:
     """Clasifica la sesión usando el agente Clasificador (F3-01).
 
@@ -218,7 +288,7 @@ def classify_session(
     Si el clasificador devuelve `unknown` o confianza baja, igualmente
     persiste lo devuelto (`requires_review=True` lo indica al frontend).
     """
-    row = _get_or_404(db, session_id)
+    row = _get_owned_or_404(db, session_id, user)
     progress: dict[str, Any] = dict(row.progress or {})
     description = progress.get("description")
     if not description:
@@ -269,6 +339,7 @@ def classify_override(
     session_id: str,
     body: ClassifyOverrideRequest,
     db: DbSession,
+    user: CurrentUser,
 ) -> SessionState:
     """Override manual del sector clasificado (F4-02).
 
@@ -277,7 +348,7 @@ def classify_override(
     el motivo del fabricante y los valores antes/después. La confianza
     pasa a 1.0 (decisión humana explícita).
     """
-    row = _get_or_404(db, session_id)
+    row = _get_owned_or_404(db, session_id, user)
     previous = {"sector": row.sector, "plugin": row.plugin}
 
     row.sector = body.sector
@@ -351,6 +422,7 @@ def put_bom(
     session_id: str,
     body: BomRequest,
     db: DbSession,
+    user: CurrentUser,
 ) -> BomResponse:
     """Guarda el BOM del paso 3 con `provenance='self_declared'`.
 
@@ -364,7 +436,7 @@ def put_bom(
     `provenance='self_declared'`. F3-02 (Recolector) hace UPDATE sobre los
     mismos registros si verifica con PDFs.
     """
-    row = _get_or_404(db, session_id)
+    row = _get_owned_or_404(db, session_id, user)
     plugin = _resolve_plugin(row.plugin)
     field_map: dict[str, PluginField] = {f.id: f for f in plugin.fields}
 
@@ -444,13 +516,13 @@ _MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10 MB
 
 
 @router.get("/{session_id}/documents", response_model=DocumentsListResponse)
-def list_documents(session_id: str, db: DbSession) -> DocumentsListResponse:
+def list_documents(session_id: str, db: DbSession, user: CurrentUser) -> DocumentsListResponse:
     """Listado de documentos requeridos y subidos (F4-04).
 
     Deriva la lista de documentos requeridos del plugin + BOM (condiciones
     `when`). Nunca hardcodeado en frontend.
     """
-    row = _get_or_404(db, session_id)
+    row = _get_owned_or_404(db, session_id, user)
     plugin = _resolve_plugin(row.plugin)
     bom = _bom_from_extracted(db, session_id, plugin)
 
@@ -500,6 +572,7 @@ async def upload_document(
     session_id: str,
     file: UploadFile,
     db: DbSession,
+    user: CurrentUser,
     doc_type: DocType = Query(
         ..., description="Tipo de documento: datasheet, certificate, lca, sds, ce_declaration"
     ),
@@ -513,7 +586,7 @@ async def upload_document(
       y `certificate`) sin que la segunda subida devuelva el primero.
     - Guarda el blob en `backend/data/uploads/{session_id}/`.
     """
-    _get_or_404(db, session_id)
+    _get_owned_or_404(db, session_id, user)
 
     # Leer contenido y validar tamaño
     content = await file.read()
@@ -625,6 +698,7 @@ def get_document_excerpt(
     doc_id: int,
     field_id: str,
     db: DbSession,
+    user: CurrentUser,
 ) -> DocumentExcerptResponse:
     """Devuelve un fragmento del PDF que respalda un campo extraído (F4-05 #2).
 
@@ -640,7 +714,7 @@ def get_document_excerpt(
       - 409 si el documento no pertenece a esta sesión (evita filtración de
         contenido entre sesiones).
     """
-    _get_or_404(db, session_id)
+    _get_owned_or_404(db, session_id, user)
 
     doc = db.exec(select(Document).where(Document.id == doc_id)).first()
     if doc is None:
@@ -677,14 +751,14 @@ def get_document_excerpt(
 
 
 @router.get("/{session_id}/verify", response_model=VerifyResponse)
-def verify(session_id: str, db: DbSession) -> VerifyResponse:
+def verify(session_id: str, db: DbSession, user: CurrentUser) -> VerifyResponse:
     """Verificador determinista (F3-03). Valida estado de sesión contra plugin.
 
     GET porque es idempotente: no escribe BD ni audit_log. El audit log de
     "verify pasó / falló" se escribe en F4-06 al publicar (allí sí hay
     decisión, no antes).
     """
-    row = _get_or_404(db, session_id)
+    row = _get_owned_or_404(db, session_id, user)
     plugin = _resolve_plugin(row.plugin)
     result = run_verifier(db, row, plugin)
     return VerifyResponse(
@@ -761,6 +835,7 @@ def _bom_and_provenance_from_extracted(
 def generate_dpp(
     session_id: str,
     db: DbSession,
+    user: CurrentUser,
     body: DppPublishRequest | None = None,
 ) -> DppResponse:
     """Genera y publica el DPP (paso 7). Firma Ed25519 opcional (F5-04 CA #3).
@@ -772,7 +847,7 @@ def generate_dpp(
       quedan NULL y la respuesta indica `signed=false`.
     - Escribe entry en `audit_log` con `operation='publish'` y hash del JSON-LD.
     """
-    row = _get_or_404(db, session_id)
+    row = _get_owned_or_404(db, session_id, user)
     plugin = _resolve_plugin(row.plugin)
 
     verify_result = run_verifier(db, row, plugin)
@@ -806,15 +881,14 @@ def generate_dpp(
         signature_b64 = signed.signature_b64
         public_key_b64 = signed.public_key_b64
 
-    db.add(
-        PublishedDPP(
-            gs1_uri=gs1_uri,
-            session_id=session_id,
-            jsonld=jsonld,
-            signature=signature_b64,
-            public_key=public_key_b64,
-        )
+    pdpp = PublishedDPP(
+        gs1_uri=gs1_uri,
+        session_id=session_id,
+        jsonld=jsonld,
+        signature=signature_b64,
+        public_key=public_key_b64,
     )
+    db.add(pdpp)
     append_audit(
         db,
         operation="publish",
@@ -828,16 +902,7 @@ def generate_dpp(
     )
     db.commit()
 
-    slug = session_id.split("-", 1)[0]
-    public_url = public_dpp_url(slug)
-    return DppResponse(
-        gs1_uri=gs1_uri,
-        public_url=public_url,
-        qr_png_url=f"/api/v1/sessions/{session_id}/dpp/qr.png",
-        qr_svg_url=f"/api/v1/sessions/{session_id}/dpp/qr.svg",
-        signed=sign_dpp,
-        jsonld_url=public_url,
-    )
+    return _dpp_response(pdpp)
 
 
 def _published_or_404(db: Session, session_id: str) -> PublishedDPP:
@@ -853,20 +918,53 @@ def _public_url_for(pdpp: PublishedDPP) -> str:
     return public_dpp_url(slug)
 
 
+def _dpp_response(pdpp: PublishedDPP) -> DppResponse:
+    """Construye el DppResponse a partir de la fila publicada.
+
+    Fuente única para POST (publicación) y GET (rehidratación al reentrar):
+    QR y URL pública se derivan siempre del mismo sitio, y `signed` se infiere
+    de si la fila guardó firma Ed25519.
+    """
+    public_url = _public_url_for(pdpp)
+    return DppResponse(
+        gs1_uri=pdpp.gs1_uri,
+        public_url=public_url,
+        qr_png_url=f"/api/v1/sessions/{pdpp.session_id}/dpp/qr.png",
+        qr_svg_url=f"/api/v1/sessions/{pdpp.session_id}/dpp/qr.svg",
+        signed=pdpp.signature is not None,
+        jsonld_url=public_url,
+    )
+
+
+@router.get("/{session_id}/dpp", response_model=DppResponse)
+def get_dpp(session_id: str, db: DbSession, user: CurrentUser) -> DppResponse:
+    """Devuelve el DPP ya publicado de la sesión (rehidratación del paso 7).
+
+    Permite al frontend recuperar QR + URL pública al reentrar en un DPP
+    finalizado, sin re-publicar (POST devuelve 409 si ya existe). 404 si la
+    sesión no es del usuario o aún no se ha publicado.
+    """
+    _get_owned_or_404(db, session_id, user)
+    pdpp = _published_or_404(db, session_id)
+    return _dpp_response(pdpp)
+
+
 @router.get("/{session_id}/dpp/qr.png")
-def dpp_qr_png(session_id: str, db: DbSession) -> Response:
+def dpp_qr_png(session_id: str, db: DbSession, user: CurrentUser) -> Response:
+    _get_owned_or_404(db, session_id, user)
     pdpp = _published_or_404(db, session_id)
     return Response(content=generate_qr_png(_public_url_for(pdpp)), media_type="image/png")
 
 
 @router.get("/{session_id}/dpp/qr.svg")
-def dpp_qr_svg(session_id: str, db: DbSession) -> Response:
+def dpp_qr_svg(session_id: str, db: DbSession, user: CurrentUser) -> Response:
+    _get_owned_or_404(db, session_id, user)
     pdpp = _published_or_404(db, session_id)
     return Response(content=generate_qr_svg(_public_url_for(pdpp)), media_type="image/svg+xml")
 
 
 @router.post("/{session_id}/extract")
-async def extract(session_id: str, db: DbSession) -> StreamingResponse:
+async def extract(session_id: str, db: DbSession, user: CurrentUser) -> StreamingResponse:
     """Ejecuta el Recolector de PDFs (F3-02).
 
     Pipeline híbrido: pdfplumber + LLM. Emite eventos SSE campo a campo
@@ -875,7 +973,7 @@ async def extract(session_id: str, db: DbSession) -> StreamingResponse:
     """
     from app.collector import extract_fields as run_collector
 
-    row = _get_or_404(db, session_id)
+    row = _get_owned_or_404(db, session_id, user)
     plugin = _resolve_plugin(row.plugin)
     bom = _bom_from_extracted(db, session_id, plugin)
 

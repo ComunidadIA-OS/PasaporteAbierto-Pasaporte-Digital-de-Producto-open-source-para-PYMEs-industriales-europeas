@@ -20,7 +20,7 @@ El flujo del usuario consta de siete pasos en cadena. Cada paso es un endpoint d
 
 Paso 1, descripción libre. Determinista. El fabricante escribe en lenguaje natural una descripción del producto que quiere registrar.
 
-Paso 2, clasificación. IA. El agente Clasificador analiza la descripción contra el corpus regulatorio europeo (RAG sobre ESPR, actos delegados publicados y ontología CIRPASS-2) y devuelve el sector identificado, el plugin aplicable, los campos requeridos y la cita regulatoria que justifica la clasificación.
+Paso 2, clasificación. IA. El agente Clasificador analiza la descripción contra el corpus regulatorio europeo (RAG sobre los reglamentos ESPR y baterías y los actos delegados publicados) y devuelve el sector identificado, el plugin aplicable, los campos requeridos y la cita regulatoria que justifica la clasificación.
 
 Paso 3, formulario BOM. Determinista. El frontend renderiza dinámicamente un formulario adaptado al sector según los campos definidos en el plugin YAML. Los datos se validan con Pydantic y se persisten.
 
@@ -46,7 +46,9 @@ Si el RAG no devuelve fragmentos relevantes, el chat responde "no tengo informac
 
 ## Capa de datos y conocimiento
 
-El corpus RAG contiene el Reglamento UE 2024/1781 (ESPR), el Reglamento UE 2023/1542 (baterías), los actos delegados publicados a fecha de despliegue, la ontología CIRPASS-2 Core (marzo 2025, indexada como referencia conceptual; el `@context` JSON-LD del DPP emitido es local hasta que el consorcio publique uno HTTP-resolvable estable — ver `docs/adr/0002-jsonld-vocabulario-local.md`) y la especificación GS1 Digital Link. El corpus se chunca semánticamente, se embebe con bge-m3 (modelo multilingüe que permite consulta en castellano, inglés, francés, portugués y alemán) y se indexa en ChromaDB embebido.
+El corpus RAG es **exclusivamente normativo**: contiene el Reglamento UE 2024/1781 (ESPR), el Reglamento UE 2023/1542 (baterías) y los actos delegados publicados a fecha de despliegue, descargados como texto oficial vía el repositorio Cellar de la Oficina de Publicaciones (`publications.europa.eu/resource/celex/{celex}` con content negotiation; el endpoint `legal-content` de EUR-Lex aplica anti-scraping y responde 202 vacío a clientes no-navegador). El corpus se chunca por estructura legal (artículo y apartado, con el epígrafe del artículo como contexto), se embebe con bge-m3 (modelo multilingüe que permite consulta en castellano, inglés, francés, portugués y alemán) y se indexa en ChromaDB embebido. Su única razón de ser es dar **cita normativa**: cada fragmento es citable como "Reglamento X, Art. Y".
+
+El esquema del identificador único (ISO/IEC 15459, GS1 Digital Link) y el vocabulario del DPP (modelo conceptual CIRPASS-2 Core) **no** forman parte del corpus RAG —no son texto citable como ley—: los declara el plugin sectorial (`identifier_scheme`, campos con su cita) y los consume de forma determinista la generación del DPP (paso 7). El `@context` JSON-LD emitido es local hasta que el consorcio publique uno HTTP-resolvable estable (ver `docs/adr/0002-jsonld-vocabulario-local.md`).
 
 El directorio `plugins/` contiene un archivo YAML por sector. Cada plugin describe los campos del DPP, los documentos requeridos, las validaciones adicionales y las citas regulatorias asociadas. El formato del plugin está documentado en `plugins/_schema.yaml`.
 
@@ -56,7 +58,7 @@ La observabilidad se construye con Langfuse self-hosted. Cada decisión del Clas
 
 ## API
 
-Todas las rutas usan el prefijo `/api/v1`.
+Casi todas las rutas usan el prefijo `/api/v1`; la excepción es la ruta pública `/dpp/{slug}`, que se monta directamente en la app (es la URL navegable que codifica el QR).
 
 | Paso | Método | Endpoint | Tipo |
 |---|---|---|---|
@@ -68,8 +70,16 @@ Todas las rutas usan el prefijo `/api/v1`.
 | 5 · extracción | POST | /sessions/{id}/extract | IA |
 | 6 · verificación | GET | /sessions/{id}/verify | det |
 | 7 · DPP | POST | /sessions/{id}/dpp | det |
-| chat | POST | /sessions/{id}/chat | IA |
+| chat | POST | /chat | IA |
+| chat · histórico | GET | /sessions/{id}/chat | det |
+| auth · registro | POST | /auth/register | det |
+| auth · login | POST | /auth/login | det |
+| auth · logout | POST | /auth/logout | det |
+| auth · identidad | GET | /auth/me | det |
+| audit | GET | /audit/verify | det |
 | pública | GET | /dpp/{slug} | det |
+
+El chat lateral recibe el `session_id` en el cuerpo de la petición (no en la ruta), de modo que el endpoint es `POST /chat` y no `POST /sessions/{id}/chat`; el histórico persistido se recupera con `GET /sessions/{id}/chat`. La ruta pública `/dpp/{slug}` queda **fuera** del prefijo `/api/v1` (se monta directamente en la app) porque es la URL navegable que codifica el QR.
 
 El endpoint público de DPP usa content negotiation: si el cliente envía `Accept: application/ld+json` devuelve el JSON-LD, si envía `Accept: text/html` devuelve la página renderizada para humanos. El segmento `{slug}` es un identificador opaco derivado del `session_id` (primeros 8 caracteres del UUID); el `gs1_uri` canónico declarado por el plugin sectorial aparece dentro del cuerpo del DPP (campo `@id` del JSON-LD) y en la página HTML, no en la URL. La motivación —URN ISO/IEC 15459 no resoluble por HTTP, GS1 Digital Link apunta a un dominio externo— está documentada en `docs/adr/0003-url-publica-slug-opaco.md`.
 
@@ -77,9 +87,9 @@ Para operaciones largas (extracción de PDFs grandes, indexado de nuevos documen
 
 ## Persistencia
 
-Una única base SQLite por instancia, con cinco tablas.
+Una única base SQLite por instancia, con ocho tablas: las cinco del pipeline (`sessions`, `documents`, `extracted_fields`, `audit_log`, `published_dpps`), la del histórico de chat (`chat_messages`) y las dos del login (`users`, `auth_sessions`, añadidas por el ADR-0004).
 
-La tabla `sessions` guarda el estado del wizard: identificador único, JSON con el progreso paso a paso, sector clasificado, plugin aplicable, timestamps de creación y última modificación.
+La tabla `sessions` guarda el estado del wizard: identificador único, JSON con el progreso paso a paso, sector clasificado, plugin aplicable, timestamps de creación y última modificación. Incluye un `user_id` **nullable** (FK a `users`) que implementa la propiedad blanda de sesiones del ADR-0004: una sesión sin dueño es accesible, pero una con dueño solo la lee su propietario.
 
 La tabla `documents` guarda los PDFs subidos: referencia a la sesión, tipo de documento (datasheet, certificado, LCA, SDS, declaración CE), ruta al blob y hash SHA-256 del archivo.
 
@@ -88,6 +98,12 @@ La tabla `extracted_fields` guarda los campos que el Recolector ha extraído: re
 La tabla `audit_log` implementa el hash chain: identificador incremental, hash de la entrada anterior, hash del contenido actual, timestamp, operación y payload JSON. La integridad se verifica recorriendo la cadena desde la primera entrada.
 
 La tabla `published_dpps` guarda los DPPs ya emitidos: la columna `gs1_uri` almacena el URI canónico del pasaporte —cuya forma sigue el esquema declarado por el plugin sectorial (ISO/IEC 15459 para baterías, GS1 Digital Link como fallback genérico, u otro esquema registrado por un plugin futuro)—, blob JSON-LD, firma Ed25519, fecha de publicación y referencia a la clave pública del fabricante. La URL pública del DPP no usa la columna `gs1_uri` como segmento de ruta: deriva un slug opaco del `session_id` (ver `docs/adr/0003-url-publica-slug-opaco.md`). El `gs1_uri` queda disponible para búsqueda inversa (recuperar un DPP dado su identificador canónico) y se expone dentro del cuerpo del JSON-LD.
+
+La tabla `chat_messages` guarda el histórico del chat lateral por sesión (rol `user`/`assistant`, contenido, cita normativa opcional, timestamp). Es un **canal independiente del estado del wizard**: persistir la conversación permite reanudarla tras un refresh sin que el chat escriba nunca en `sessions`, `extracted_fields` ni `documents`.
+
+La tabla `users` guarda las cuentas del login propio (ADR-0004): identificador, email único y hash de contraseña con `scrypt` (parámetros embebidos en el digest). Nunca almacena la contraseña en claro.
+
+La tabla `auth_sessions` guarda las sesiones server-side: identificador, `user_id`, **SHA-256 del token** (no el token en claro), y timestamps de creación, expiración y último acceso. El token viaja al cliente en una cookie `httpOnly`; guardar solo su hash evita que una fuga de la BD entregue sesiones reutilizables, y la fila se puede borrar para revocar (logout, expiración).
 
 ## Stack técnico
 
@@ -105,6 +121,6 @@ No usamos LangGraph ni LangChain. El pipeline es lineal con dos pasos IA bien ac
 
 No usamos PostgreSQL ni Redis. El caso de uso objetivo es una instancia por fabricante PYME con uso modesto. SQLite cubre persistencia y FastAPI BackgroundTasks cubre asincronía.
 
-No implementamos multi-tenant ni OAuth en el alcance del hackathon. Una instancia equivale a un fabricante, autenticada con basic auth si se necesita exponer en red local.
+No implementamos multi-tenant ni OAuth en el alcance del hackathon. Una instancia equivale a un fabricante. Sí incorporamos un **login propio mínimo** (email + contraseña, sesión server-side en SQLite, cookie `httpOnly`) que liga las sesiones del wizard y el chat a un `user_id`, de modo que el fabricante recupere sus conversaciones y DPP empezados y que los datos sensibles (BOM, PDFs, chat) no queden accesibles solo por adivinar el UUID de la sesión. Esto **no** es OAuth ni multi-tenant (sin IdP externo, sin aislamiento por organización, sin Postgres/Redis): es la opción acotada que sustituye al "basic auth" que se contemplaba aquí. Decisión, alternativas y reconciliación con este descarte en `docs/adr/0004-login-sesion-server-side-cookie-httponly.md`.
 
 No imponemos un esquema único de identificador del DPP. Cada plugin sectorial declara su `identifier_scheme` (ISO/IEC 15459 para baterías por mandato del Art. 77.3 del Reglamento UE 2023/1542; GS1 Digital Link como esquema por defecto para sectores sin acto delegado específico). La fábrica determinista del paso 7 delega la generación del URI canónico en la lógica del esquema declarado. Esto evita acoplar el núcleo a un estándar concreto que cambia entre actos delegados y deja la responsabilidad regulatoria del identificador en el plugin, que es donde la cita normativa concreta vive.

@@ -7,6 +7,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { Icon } from "@/core/ui/Icon";
 import { isDemoMode } from "@/lib/demo-mode";
 import {
   ApiError,
@@ -84,7 +85,7 @@ export function Step4Documents({
       const newCount = res.seeded.filter((s) => !s.deduplicated).length;
       const dedupCount = res.seeded.filter((s) => s.deduplicated).length;
       setUploadMsg(
-        `✓ ${newCount} documentos generados${dedupCount > 0 ? ` (${dedupCount} ya existían)` : ""}`,
+        `${newCount} documentos generados${dedupCount > 0 ? ` (${dedupCount} ya existían)` : ""}`,
       );
       refresh();
     } catch (err) {
@@ -123,6 +124,9 @@ export function Step4Documents({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <div role="status" className="sr-only" aria-live="polite" aria-atomic="true">
+        {uploadMsg ?? ""}
+      </div>
       <div
         style={{
           display: "flex",
@@ -144,7 +148,8 @@ export function Step4Documents({
             style={{ fontSize: 12, whiteSpace: "nowrap" }}
             title="Genera y sube 4 PDFs sintéticos como certificación de ejemplo"
           >
-            {seedingDemo ? "Generando…" : "✨ Cargar PDFs de ejemplo"}
+            <Icon name="auto_awesome" size={15} />
+            {seedingDemo ? "Generando…" : "Cargar PDFs de ejemplo"}
           </button>
         )}
       </div>
@@ -204,7 +209,11 @@ export function Step4Documents({
       )}
 
       {uploadMsg && (
-        <p className="status-panel" style={{ margin: 0, padding: 12, fontSize: 13 }}>
+        <p
+          className="status-panel"
+          style={{ margin: 0, padding: 12, fontSize: 13 }}
+          aria-hidden="true"
+        >
           {uploadMsg}
         </p>
       )}
@@ -216,7 +225,8 @@ export function Step4Documents({
           disabled={!allMandatoryUploaded || pending}
           className="btn btn-primary btn-lg"
         >
-          {pending ? "Avanzando…" : "Continuar al paso 5 →"}
+          {pending ? "Avanzando…" : "Continuar al paso 5"}
+          {!pending && <Icon name="arrow_forward" size={18} />}
         </button>
       </div>
 
@@ -300,6 +310,8 @@ function DocumentRow({
             accept=".pdf"
             style={{ display: "none" }}
             onChange={handleFileChange}
+            aria-label={`Fichero PDF para ${label}`}
+            tabIndex={-1}
           />
           <button
             type="button"
@@ -307,6 +319,7 @@ function DocumentRow({
             disabled={uploading}
             className="btn btn-secondary"
             style={{ fontSize: 12, padding: "8px 14px" }}
+            aria-label={uploading ? `Subiendo ${label}…` : `Seleccionar PDF para ${label}`}
           >
             {uploading ? "Subiendo…" : "Seleccionar PDF"}
           </button>

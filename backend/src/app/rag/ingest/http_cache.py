@@ -41,7 +41,14 @@ class CachedHttpClient:
         self.backoff_base_seconds = backoff_base_seconds
         self.min_size = min_size
 
-    def get_text(self, url: str, *, cache_key: str, force_refresh: bool = False) -> str:
+    def get_text(
+        self,
+        url: str,
+        *,
+        cache_key: str,
+        force_refresh: bool = False,
+        headers: dict[str, str] | None = None,
+    ) -> str:
         cache_path = self.cache_dir / cache_key
         if not force_refresh and cache_path.exists():
             data = cache_path.read_text(encoding="utf-8")
@@ -53,9 +60,19 @@ class CachedHttpClient:
         last_error: Exception | None = None
         for attempt in range(self.max_retries):
             try:
-                response = self._client.get(url)
+                response = self._client.get(url, headers=headers)
                 response.raise_for_status()
                 body = response.text
+                # Algunas fuentes (EUR-Lex) responden 202/200 con cuerpo vacío
+                # mientras generan el documento o cuando aplican anti-scraping.
+                # Un 2xx con cuerpo por debajo del umbral NO es contenido válido:
+                # se trata como transitorio para reintentar, y nunca se cachea
+                # (evita envenenar el cache con un fichero de 0 bytes).
+                if len(body) < self.min_size:
+                    raise httpx.HTTPError(
+                        f"respuesta {response.status_code} con cuerpo de {len(body)} bytes "
+                        f"(< {self.min_size}); contenido no disponible en {url}"
+                    )
                 cache_path.write_text(body, encoding="utf-8")
                 return body
             except (httpx.HTTPError, httpx.ConnectError) as exc:

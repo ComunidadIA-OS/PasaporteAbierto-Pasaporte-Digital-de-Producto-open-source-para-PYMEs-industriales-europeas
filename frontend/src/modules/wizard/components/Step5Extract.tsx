@@ -7,6 +7,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Icon } from "@/core/ui/Icon";
 import { API_V1 } from "@/lib/fetch";
 import { resolveLabel, usePluginFields } from "@/modules/wizard/lib/field-labels";
 import {
@@ -44,6 +45,24 @@ const PROVENANCE_BADGE: Record<Provenance, { className: string; label: string }>
   required_pending: { className: "badge badge-danger", label: "pendiente" },
 };
 
+// Formatea un valor extraído para mostrarlo legible. Algunos campos del plugin
+// (sustancias peligrosas, materias primas) llegan como arrays de objetos: hay
+// que aplanarlos en lugar de dejar que String() devuelva "[object Object]".
+function formatValue(value: unknown): string {
+  if (value == null) return "";
+  if (Array.isArray(value)) {
+    return value.map(formatValue).filter(Boolean).join(", ");
+  }
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    for (const key of ["name", "label", "value", "substance", "material", "cas"]) {
+      if (obj[key] != null) return formatValue(obj[key]);
+    }
+    return Object.values(obj).map(formatValue).filter(Boolean).join(" · ");
+  }
+  return String(value);
+}
+
 export function Step5Extract({
   session,
   onSessionChange,
@@ -60,10 +79,13 @@ export function Step5Extract({
   const [excerptLoading, setExcerptLoading] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const fieldsMap = usePluginFields(session.plugin);
+  const excerptCloseRef = useRef<HTMLButtonElement>(null);
+  const excerptOpenerRef = useRef<HTMLElement | null>(null);
 
   const showExcerpt = useCallback(
-    async (field: ExtractedField) => {
+    async (field: ExtractedField, opener: HTMLElement) => {
       if (field.source_document_id == null) return;
+      excerptOpenerRef.current = opener;
       setExcerptLoading(field.field_id);
       try {
         const res = await api.documentExcerpt(
@@ -80,6 +102,15 @@ export function Step5Extract({
     },
     [session.session_id],
   );
+
+  // Gestión de foco del modal de extracto
+  useEffect(() => {
+    if (excerpt) {
+      excerptCloseRef.current?.focus();
+    } else {
+      (excerptOpenerRef.current as HTMLElement | null)?.focus();
+    }
+  }, [excerpt]);
 
   // Aborta el stream SSE al desmontar para no dejar fetch huérfanos ni
   // disparar setState sobre componente desmontado.
@@ -103,6 +134,8 @@ export function Step5Extract({
     try {
       const res = await fetch(`${API_V1}/sessions/${session.session_id}/extract`, {
         method: "POST",
+        // credentials: la cookie de sesión (auth) viaja con el stream SSE.
+        credentials: "include",
         signal: controller.signal,
       });
 
@@ -215,69 +248,64 @@ export function Step5Extract({
       {/* Barra de progreso */}
       {running && progress && (
         <div>
-          <div className="bar">
+          <div
+            className="bar"
+            role="progressbar"
+            aria-label="Progreso de extracción"
+            aria-valuenow={progress.processed}
+            aria-valuemin={0}
+            aria-valuemax={progress.total}
+            aria-valuetext={`${progress.processed} de ${progress.total} documentos procesados`}
+          >
             <span style={{ width: `${pct}%` }} />
           </div>
-          <p className="mono" style={{ marginTop: 6, fontSize: 11, color: "var(--text-muted)" }}>
+          <p
+            className="mono"
+            style={{ marginTop: 6, fontSize: 11, color: "var(--text-muted)" }}
+            aria-hidden="true"
+          >
             {progress.processed} / {progress.total} documentos · {pct}%
           </p>
         </div>
       )}
 
-      {/* Tabla de campos extraídos */}
+      {/* Campos extraídos — rejilla de tarjetas (cada valor parte de línea, no
+          desborda hacia el panel lateral). */}
       {fields.length > 0 && (
-        <table className="tbl">
-          <thead>
-            <tr>
-              <th>Campo</th>
-              <th>Valor</th>
-              <th>Procedencia</th>
-              <th>Confianza</th>
-              <th>Fuente</th>
-            </tr>
-          </thead>
-          <tbody>
-            {fields.map((f) => {
-              const badge = PROVENANCE_BADGE[f.provenance];
-              // F4-05 criterio 2: cada fila verified/self_declared enlaza al
-              // fragmento del PDF fuente. required_pending no tiene fuente.
-              const canShowSource =
-                f.source_document_id != null && f.provenance !== "required_pending";
-              return (
-                <tr key={f.field_id}>
-                  <td style={{ fontSize: 13 }}>
-                    {fieldsMap ? resolveLabel(f.field_id, fieldsMap) : f.field_id}
-                  </td>
-                  <td>{f.value != null ? String(f.value) : <span className="faint">—</span>}</td>
-                  <td>
-                    <span className={badge.className}>{badge.label}</span>
-                  </td>
-                  <td className="mono" style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                    {Math.round(f.confidence * 100)}%
-                  </td>
-                  <td>
-                    {canShowSource ? (
-                      <button
-                        type="button"
-                        onClick={() => showExcerpt(f)}
-                        disabled={excerptLoading === f.field_id}
-                        style={{
-                          color: "var(--accent)",
-                          textDecoration: "underline",
-                          fontSize: 12,
-                        }}
-                      >
-                        {excerptLoading === f.field_id ? "Cargando…" : "Ver fuente"}
-                      </button>
-                    ) : (
-                      <span className="faint">—</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <ul className="xf-grid" aria-label={`Campos extraídos del DPP — ${fields.length} campos`}>
+          {fields.map((f) => {
+            const badge = PROVENANCE_BADGE[f.provenance];
+            const fieldLabel = fieldsMap ? resolveLabel(f.field_id, fieldsMap) : f.field_id;
+            const formatted = formatValue(f.value);
+            // F4-05 criterio 2: cada campo verified/self_declared enlaza al
+            // fragmento del PDF fuente. required_pending no tiene fuente.
+            const canShowSource =
+              f.source_document_id != null && f.provenance !== "required_pending";
+            return (
+              <li key={f.field_id} className={`xf-card is-${f.provenance}`}>
+                <div className="xf-card-head">
+                  <span className="xf-label">{fieldLabel}</span>
+                  <span className={badge.className}>{badge.label}</span>
+                </div>
+                <p className="xf-value">{formatted || <span className="faint">—</span>}</p>
+                <div className="xf-card-foot">
+                  <span className="xf-conf mono">{Math.round(f.confidence * 100)}% confianza</span>
+                  {canShowSource && (
+                    <button
+                      type="button"
+                      onClick={(e) => showExcerpt(f, e.currentTarget)}
+                      disabled={excerptLoading === f.field_id}
+                      aria-label={`Ver fuente del campo ${fieldLabel}`}
+                      className="xf-source"
+                    >
+                      {excerptLoading === f.field_id ? "Cargando…" : "Ver fuente"}
+                    </button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       )}
 
       {/* Modal del fragmento del PDF fuente (F4-05 criterio 2) */}
@@ -323,12 +351,13 @@ export function Step5Extract({
                 </p>
               </div>
               <button
+                ref={excerptCloseRef}
                 type="button"
                 onClick={() => setExcerpt(null)}
                 className="btn btn-ghost"
-                aria-label="Cerrar"
+                aria-label="Cerrar fragmento fuente"
               >
-                ✕
+                <Icon name="close" size={20} />
               </button>
             </div>
             {!excerpt.match_found && (
@@ -375,9 +404,27 @@ export function Step5Extract({
               fontSize: 13,
             }}
           >
-            <span className="provenance-verified">✓ {done.fields_verified} verificados</span>
-            <span className="provenance-self">◐ {done.fields_self_declared} autodeclarados</span>
-            <span className="provenance-pending">✗ {done.fields_pending} pendientes</span>
+            <span
+              className="provenance-verified"
+              style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+            >
+              <Icon name="check_circle" size={15} fill />
+              {done.fields_verified} verificados
+            </span>
+            <span
+              className="provenance-self"
+              style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+            >
+              <Icon name="contrast" size={15} fill />
+              {done.fields_self_declared} autodeclarados
+            </span>
+            <span
+              className="provenance-pending"
+              style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+            >
+              <Icon name="cancel" size={15} fill />
+              {done.fields_pending} pendientes
+            </span>
           </div>
           {done.fields_pending > 0 && (
             <p className="muted" style={{ marginTop: 8, marginBottom: 0, fontSize: 12 }}>
@@ -399,7 +446,8 @@ export function Step5Extract({
       {done && (
         <div>
           <button type="button" onClick={onContinue} className="btn btn-primary btn-lg">
-            Continuar al paso 6 →
+            Continuar al paso 6
+            <Icon name="arrow_forward" size={18} />
           </button>
         </div>
       )}

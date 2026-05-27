@@ -11,6 +11,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { Icon } from "@/core/ui/Icon";
 import { resolveLabel, usePluginFields } from "@/modules/wizard/lib/field-labels";
 import {
   ApiError,
@@ -79,7 +80,16 @@ export function Step6Verify({
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       <section>
         <h2 className="eyebrow">Completitud</h2>
-        <div className={barClass} style={{ marginTop: 12 }}>
+        <div
+          className={barClass}
+          style={{ marginTop: 12 }}
+          role="progressbar"
+          aria-label="Completitud del DPP"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuetext={`${pct}% de campos obligatorios completados — ${verify.can_publish ? "listo para publicar" : "faltan campos críticos"}`}
+        >
           <span style={{ width: `${pct}%` }} />
         </div>
         <p style={{ marginTop: 12, marginBottom: 0 }}>
@@ -147,7 +157,8 @@ export function Step6Verify({
           disabled={!verify.can_publish || pending}
           className="btn btn-primary btn-lg"
         >
-          {pending ? "Avanzando…" : "Continuar a publicar →"}
+          {pending ? "Avanzando…" : "Continuar a publicar"}
+          {!pending && <Icon name="arrow_forward" size={18} />}
         </button>
         {!verify.can_publish && (
           <p style={{ marginTop: 8, fontSize: 12, color: "var(--danger)" }}>
