@@ -157,7 +157,7 @@ export function Step7Publish({
         <div className="qr-card">
           <h3 className="eyebrow">QR del producto</h3>
           <div className="qr-frame" style={{ marginTop: 16 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {/* biome-ignore lint/performance/noImgElement: el QR lo sirve el backend (dpp.qr_png_url); pasarlo por next/image lo re-codificaría perdiendo nitidez y exigiría configurar remotePatterns para el host del API. */}
             <img src={qrPngUrl} alt="QR del DPP" width={192} height={192} />
           </div>
           <div

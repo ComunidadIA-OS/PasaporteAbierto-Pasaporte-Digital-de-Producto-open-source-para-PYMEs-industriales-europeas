@@ -34,6 +34,11 @@ export function Icon({
   className,
   style,
 }: IconProps) {
+  // `aria-label` solo es válido junto a un role explícito (aquí "img"); si el
+  // icono es decorativo lo ocultamos del árbol de accesibilidad con aria-hidden.
+  const a11y = label
+    ? ({ role: "img", "aria-label": label } as const)
+    : ({ "aria-hidden": true } as const);
   return (
     <span
       className={`material-symbols-outlined${className ? ` ${className}` : ""}`}
@@ -42,9 +47,7 @@ export function Icon({
         fontVariationSettings: `'FILL' ${fill ? 1 : 0}, 'wght' ${weight}, 'GRAD' 0, 'opsz' ${size}`,
         ...style,
       }}
-      aria-hidden={label ? undefined : true}
-      role={label ? "img" : undefined}
-      aria-label={label}
+      {...a11y}
     >
       {name}
     </span>

@@ -156,11 +156,7 @@ function PipelineRail({
         </span>
       </div>
 
-      <ol
-        className="rail-steps"
-        style={{ "--rail-pct": `${pct}%` } as React.CSSProperties}
-        role="list"
-      >
+      <ol className="rail-steps" style={{ "--rail-pct": `${pct}%` } as React.CSSProperties}>
         {STEPS.map((s) => {
           const isCurrent = s.n === current;
           const isDone = s.n < current;
