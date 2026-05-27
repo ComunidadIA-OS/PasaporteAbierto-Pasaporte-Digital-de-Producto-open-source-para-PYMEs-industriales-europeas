@@ -12,9 +12,10 @@ PasaporteAbierto es una aplicación web auto-hospedable que ayuda a fabricantes 
 
 Antes de tocar nada, consulta en este orden:
 
-1. `docs/ARCHITECTURE.md` — arquitectura técnica, contratos entre componentes, stack, decisiones explícitas y descartes razonados.
-2. `docs/FUNCIONAL.md` — especificación funcional, UX paso a paso, reglas duras del producto y criterios globales de aceptación.
-3. `docs/tickets/F1.md` … `docs/tickets/F6.md` — tickets de cada fase con historia de usuario, descripción y criterios de aceptación.
+1. **`.claude/HACKATHON.md`** — reglas duras del hackathon (deadlines, licencia OSS, TRL, criterios de evaluación). Si una decisión técnica entra en conflicto con estas reglas, **la regla del hackathon gana**.
+2. `docs/ARCHITECTURE.md` — arquitectura técnica, contratos entre componentes, stack, decisiones explícitas y descartes razonados.
+3. `docs/FUNCIONAL.md` — especificación funcional, UX paso a paso, reglas duras del producto y criterios globales de aceptación.
+4. `docs/tickets/F1.md` … `docs/tickets/F6.md` — tickets de cada fase con historia de usuario, descripción y criterios de aceptación.
 
 Si una decisión técnica o funcional contradice estos documentos, **el documento gana**: actualiza el doc antes de implementar, no al revés.
 
