@@ -17,7 +17,7 @@ dependencies = [
     "beautifulsoup4==4.12.*",
     "lxml==5.*",
     "chromadb==0.5.*",
-    "sentence-transformers==3.*",
+    "sentence-transformers==5.*",
     "pynacl==1.5.*",
     "segno==1.6.*",
     "python-multipart==0.0.*",
