@@ -350,7 +350,6 @@ Cobertura al cierre de F6:
 | F3 | Componentes IA: Clasificador, Recolector, Verificador, Chat | ✅ cerrada |
 | F4 | Wizard de 7 pasos + persistencia + SSE | ✅ cerrada |
 | F5 | Generación y publicación del DPP + firma + audit chain | ✅ cerrada |
-| F6 | Comunidad, calidad, DPGA, plugin textil | ⏳ en curso |
 
 Trabajo restante en F6: CI con GitHub Actions, test E2E del flujo completo, video demo.
 
