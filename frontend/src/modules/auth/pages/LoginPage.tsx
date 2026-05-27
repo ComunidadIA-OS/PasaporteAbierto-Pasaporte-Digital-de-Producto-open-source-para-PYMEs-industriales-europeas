@@ -39,7 +39,8 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  const passwordTooShort = mode === "register" && password.length > 0 && password.length < MIN_PASSWORD;
+  const passwordTooShort =
+    mode === "register" && password.length > 0 && password.length < MIN_PASSWORD;
   const canSubmit = email.trim().length > 0 && password.length > 0 && !passwordTooShort && !pending;
 
   async function onSubmit(e: React.FormEvent) {
