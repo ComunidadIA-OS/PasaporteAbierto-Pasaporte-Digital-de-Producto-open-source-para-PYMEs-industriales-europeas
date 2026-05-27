@@ -16,15 +16,14 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
+import { Step1Description } from "@/modules/wizard/components/Step1Description";
+import { Step2Sector } from "@/modules/wizard/components/Step2Sector";
+import { Step3Bom } from "@/modules/wizard/components/Step3Bom";
+import { Step4Documents } from "@/modules/wizard/components/Step4Documents";
+import { Step5Extract } from "@/modules/wizard/components/Step5Extract";
+import { Step6Verify } from "@/modules/wizard/components/Step6Verify";
+import { Step7Publish } from "@/modules/wizard/components/Step7Publish";
 import { api, type SessionState } from "@/modules/wizard/lib/wizard-api";
-
-import { Step1Description } from "./steps/Step1Description";
-import { Step2Sector } from "./steps/Step2Sector";
-import { Step3Bom } from "./steps/Step3Bom";
-import { Step4Documents } from "./steps/Step4Documents";
-import { Step5Extract } from "./steps/Step5Extract";
-import { Step6Verify } from "./steps/Step6Verify";
-import { Step7Publish } from "./steps/Step7Publish";
 
 const STEPS = [
   { n: 1, label: "Descripción", kind: "det" as const },
@@ -46,7 +45,7 @@ const STEP_SUBTITLES: Record<number, string> = {
   7: "Firma Ed25519 + JSON-LD CIRPASS-2 + QR resoluble. Identificador ISO/IEC 15459 o GS1.",
 };
 
-export function WizardClient({ initialSession }: { initialSession: SessionState }) {
+export function WizardContent({ initialSession }: { initialSession: SessionState }) {
   const [session, setSession] = useState<SessionState>(initialSession);
   const [pending, startTransition] = useTransition();
   const [chatOpen, setChatOpen] = useState(false);
