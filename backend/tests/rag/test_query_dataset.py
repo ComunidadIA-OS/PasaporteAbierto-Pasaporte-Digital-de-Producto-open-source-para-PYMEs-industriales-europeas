@@ -28,9 +28,10 @@ def test_dataset_distribution_by_reglamento() -> None:
     by_reg = Counter(e.expected_citation.reglamento for e in entries)
     assert by_reg["UE 2024/1781"] >= 8, "≥8 queries sobre ESPR"
     assert by_reg["UE 2023/1542"] >= 8, "≥8 queries sobre baterías"
-    assert set(by_reg) <= {"UE 2024/1781", "UE 2023/1542"}, (
-        "el dataset solo debe citar reglamentos (corpus normativo)"
-    )
+    assert set(by_reg) <= {
+        "UE 2024/1781",
+        "UE 2023/1542",
+    }, "el dataset solo debe citar reglamentos (corpus normativo)"
 
 
 def test_dataset_batteries_covers_art77_or_annex_xiii() -> None:
