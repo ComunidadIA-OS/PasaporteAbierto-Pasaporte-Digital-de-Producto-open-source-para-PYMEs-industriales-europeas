@@ -65,6 +65,9 @@ body {
   font-size: 15px;
   line-height: 1.5;
   min-height: 100vh;
+  /* WCAG 1.4.12 + dislexia: separación de letras y palabras */
+  letter-spacing: 0.02em;
+  word-spacing: 0.05em;
 }
 ::selection { background: var(--accent); color: var(--accent-text); }
 
@@ -78,6 +81,48 @@ body {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* ---------- Accesibilidad ---------- */
+
+/* Skip link — salta al contenido principal */
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -100%;
+  z-index: 100;
+  padding: 8px 16px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: var(--radius);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: top .2s;
+}
+.skip-link:focus { top: 8px; }
+
+/* Anillo de foco visible (teclado) — todos los elementos interactivos */
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* Inputs/textarea/select: usan box-shadow propio, silenciamos el outline */
+.input:focus-visible,
+.textarea:focus-visible,
+.select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 51, 153, 0.3);
+}
+.framed-textarea textarea:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 51, 153, 0.3), 0 2px 12px rgba(0, 51, 153, 0.06);
+}
+.chat-input input:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 51, 153, 0.3);
 }
 
 /* ---------- Type ---------- */
@@ -2172,6 +2217,10 @@ body {
 .status-panel.is-success .eyebrow::before { color: var(--success); }
 .status-panel.is-warn    { border-color: var(--warn);    background: var(--warn-soft);    color: var(--text); }
 .status-panel.is-danger  { border-color: var(--danger);  background: var(--danger-soft);  color: var(--text); }
+/* WCAG 1.4.1 + daltonismo: indicador no-color antes del contenido */
+.status-panel.is-success::before { content: "✓\00a0"; color: var(--success); font-weight: 700; }
+.status-panel.is-warn::before    { content: "⚠\00a0"; color: var(--warn); }
+.status-panel.is-danger::before  { content: "✕\00a0"; color: var(--danger); font-weight: 700; }
 
 .bar {
   height: 6px;
@@ -2454,6 +2503,169 @@ body {
     transition-duration: 0.01ms !important;
   }
   .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+}
+
+/* ============================================================
+   WIDGET DE ACCESIBILIDAD (FAB + panel) y MODOS
+   ============================================================ */
+.a11y-fab {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: #fff;
+  color: var(--accent);
+  border: 2px solid var(--accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
+  z-index: 41;
+  cursor: pointer;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.a11y-fab:hover {
+  transform: scale(1.08);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16), 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+.a11y-fab-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 100px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.a11y-panel {
+  position: fixed;
+  left: 24px;
+  bottom: 92px;
+  width: 340px;
+  max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 150px);
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+  z-index: 71;
+  padding: 16px;
+}
+.a11y-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.a11y-panel-title { margin: 0; font-size: 16px; font-weight: 700; }
+.a11y-panel-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.a11y-panel-close:hover { background: var(--panel-2); color: var(--text); }
+
+.a11y-options { display: flex; flex-direction: column; gap: 2px; }
+.a11y-option {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.a11y-option:hover { background: var(--panel-2); }
+.a11y-option input {
+  margin: 2px 0 0;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.a11y-option-label { display: block; font-size: 13px; font-weight: 600; }
+.a11y-option-desc { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+.a11y-reset {
+  margin-top: 12px;
+  width: 100%;
+  padding: 9px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+.a11y-reset:hover:not(:disabled) { background: var(--panel-2); }
+.a11y-reset:disabled { opacity: .5; cursor: default; }
+
+/* ---- Modo daltónico: paleta segura Okabe-Ito (los símbolos ✓/⚠/✕ refuerzan) ---- */
+html.a11y-daltonico {
+  --success:      #009e73;
+  --success-soft: rgba(0, 158, 115, 0.14);
+  --warn:         #e69f00;
+  --warn-soft:    rgba(230, 159, 0, 0.16);
+  --danger:       #d55e00;
+  --danger-soft:  rgba(213, 94, 0, 0.14);
+}
+
+/* ---- Modo dislexia: tipografía legible + espaciado generoso (WCAG 1.4.12) ---- */
+html.a11y-dislexia body {
+  font-family: var(--font-dyslexia), var(--font-body);
+  letter-spacing: 0.06em;
+  word-spacing: 0.16em;
+  line-height: 1.8;
+}
+
+/* ---- Alto contraste ---- */
+html.a11y-contraste {
+  --text:       #000000;
+  --text-muted: #1a1a1a;
+  --text-faint: #333333;
+  --border:     #000000;
+  --bg:         #ffffff;
+}
+html.a11y-contraste .status-panel,
+html.a11y-contraste .card,
+html.a11y-contraste .doc-card,
+html.a11y-contraste .input,
+html.a11y-contraste .textarea,
+html.a11y-contraste .select { border-width: 2px; }
+html.a11y-contraste a { text-decoration: underline; }
+
+/* ---- Texto/contenido más grande (zoom de raíz: escala todo de forma uniforme) ---- */
+html.a11y-texto-grande { zoom: 1.15; }
+
+/* ---- Subrayar enlaces ---- */
+html.a11y-enlaces a { text-decoration: underline; text-underline-offset: 2px; }
+
+/* ---- Reducir animaciones ---- */
+html.a11y-sin-animaciones *,
+html.a11y-sin-animaciones *::before,
+html.a11y-sin-animaciones *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
 }
 
 /* --- Acceso (login/registro) y panel — ADR-0004 -------------------------- */
